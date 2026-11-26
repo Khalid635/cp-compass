@@ -18,7 +18,7 @@ body {
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--primary) 30%, transparent);
+  background: color-mix(in oklch, var(--primary) 30%, transparent);
 }
 
 /* Focus ring — always visible, never animated. */

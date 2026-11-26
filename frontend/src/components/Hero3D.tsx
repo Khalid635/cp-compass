@@ -78,7 +78,7 @@ export default function Hero3D({ theme }: { theme: Theme }) {
         className="absolute left-1/2 top-0 h-[300px] w-[600px] -translate-x-1/2 rounded-full blur-3xl"
         style={{
           background:
-            'radial-gradient(600px circle at 50% 0%, color-mix(in srgb, var(--primary) 18%, transparent), transparent)',
+            'radial-gradient(600px circle at 50% 0%, color-mix(in oklch, var(--primary) 18%, transparent), transparent)',
         }}
       />
       <div

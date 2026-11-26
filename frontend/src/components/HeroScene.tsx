@@ -1,4 +1,4 @@
-/* 3D landing hero — a restrained compass: thin indigo rings, tick marks,
+/* 3D landing hero — a restrained compass: thin fuchsia rings, tick marks,
    a slowly settling needle, three orbiting dots, a faint particle field.
    R3F with frameloop="demand": a frame is requested only while the scene
    is mounted and visible (the Rig re-invalidates each frame; the wrapper
@@ -50,8 +50,20 @@ function Compass({
   const orbit = useRef<THREE.Group>(null!);
   const ticks = useRef<THREE.InstancedMesh>(null!);
 
-  const primary = theme === 'dark' ? '#7c83ff' : '#4f46e5';
-  const muted = theme === 'dark' ? '#8b96ab' : '#64748b';
+  /* Colours come from the design tokens (tokens.css) so the hero stays
+     coherent with the rest of the app; the fallbacks match the tokens. */
+  const primary = useMemo(
+    () =>
+      getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() ||
+      (theme === 'dark' ? '#e879f9' : '#a21caf'),
+    [theme],
+  );
+  const muted = useMemo(
+    () =>
+      getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() ||
+      (theme === 'dark' ? '#b8a3ab' : '#6e5d66'),
+    [theme],
+  );
 
   const particles = useMemo(() => {
     const n = 140;
@@ -128,7 +140,7 @@ function Compass({
             <mesh key={a} position={[Math.cos(a) * 2.62, Math.sin(a) * 2.62, 0.1]}>
               <sphereGeometry args={[0.05, 12, 12]} />
               <meshBasicMaterial
-                color={i === 0 ? primary : '#ffffff'}
+                color={i === 0 ? primary : muted}
                 transparent
                 opacity={i === 0 ? 0.95 : 0.6}
               />

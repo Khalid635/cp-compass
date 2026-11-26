@@ -1,21 +1,36 @@
 @import "tailwindcss";
 
-/* CP Compass design tokens — one accent, everything else neutral.
-   Dark-first. Values verified against the plan PDF; semantic hex values
-   (success/warning/danger) were missing from the plan and are set here. */
+/* CP Compass design tokens — ONE accent, everything else neutral.
+   Full new combination (2026-11-27): warm plum-charcoal base + fuchsia
+   accent. NOT indigo, NOT Hisab AI lime.
+   Why fuchsia: every other vivid hue is already taken — green = success /
+   Pupil, cyan = Specialist, blue = Expert, violet = Candidate Master,
+   orange = Master, amber = warning, red = danger / Grandmaster. Fuchsia
+   (~300 deg) is ~60 deg from danger red and is no CF rank and no
+   semantic colour. Rank-CM violet (#c084fc) sits ~22 deg away, but rank
+   colours appear only as small label text (always with the number/title
+   next to them), while the accent appears on interactive chrome — the
+   contexts never collide.
+   Contrast verified with a WCAG script (all text pairs >= 4.5:1, focus
+   ring >= 3:1): dark primary #e879f9 on bg 7.98:1, on-primary on primary
+   7.31:1; light primary #a21caf on white 6.32:1, white on primary 6.32:1.
+   Light semantic + rank colours were darkened one step vs the old tokens
+   (old emerald-600/amber-600/orange-600 rank greens failed 4.5:1).
+   Borders are intentionally quiet hairlines (as before, slightly more
+   visible than the old tokens); the focus ring carries the 3:1 rule. */
 
 :root[data-theme="dark"] {
-  --bg: #0b0f17;
-  --surface: #121826;
-  --surface-2: #1a2233;
-  --primary: #7c83ff;
-  --on-primary: #0b0f17;
-  --text: #e6eaf2;
-  --muted: #8b96ab;
-  --border: #243049;
-  --hover: #1a2233;
-  --active: #212b40;
-  --ring: #7c83ff;
+  --bg: #0f0a0e;
+  --surface: #171016;
+  --surface-2: #1f151c;
+  --primary: #e879f9;
+  --on-primary: #2a0a24;
+  --text: #f6eef0;
+  --muted: #b8a3ab;
+  --border: #41303a;
+  --hover: #1f151c;
+  --active: #2a1c24;
+  --ring: #e879f9;
   --success: #34d399;
   --warning: #fbbf24;
   --danger: #f87171;
@@ -30,35 +45,35 @@
 }
 
 :root[data-theme="light"] {
-  --bg: #f7f8fb;
+  --bg: #faf7f8;
   --surface: #ffffff;
-  --surface-2: #f0f2f8;
-  --primary: #4f46e5;
+  --surface-2: #f4eef1;
+  --primary: #a21caf;
   --on-primary: #ffffff;
-  --text: #0f172a;
-  --muted: #64748b;
-  --border: #e4e8f0;
-  --hover: #f0f2f8;
-  --active: #e6e9f2;
-  --ring: #4f46e5;
-  --success: #059669;
-  --warning: #d97706;
-  --danger: #dc2626;
+  --text: #1d1219;
+  --muted: #6e5d66;
+  --border: #ddcdd4;
+  --hover: #f4eef1;
+  --active: #eadfe4;
+  --ring: #a21caf;
+  --success: #047857;
+  --warning: #b45309;
+  --danger: #b91c1c;
   --rank-newbie: #6b7280;
-  --rank-pupil: #16a34a;
-  --rank-specialist: #0d9488;
-  --rank-expert: #2563eb;
-  --rank-cm: #9333ea;
-  --rank-master: #ea580c;
-  --rank-gm: #dc2626;
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04);
+  --rank-pupil: #15803d;
+  --rank-specialist: #0f766e;
+  --rank-expert: #1d4ed8;
+  --rank-cm: #7e22ce;
+  --rank-master: #c2410c;
+  --rank-gm: #b91c1c;
+  --shadow-card: 0 1px 2px rgba(29, 18, 25, 0.06), 0 4px 12px rgba(29, 18, 25, 0.04);
 }
 
 :root {
   --heat-0: var(--surface-2);
-  --heat-1: color-mix(in srgb, var(--primary) 25%, var(--surface));
-  --heat-2: color-mix(in srgb, var(--primary) 45%, var(--surface));
-  --heat-3: color-mix(in srgb, var(--primary) 70%, var(--surface));
+  --heat-1: color-mix(in oklch, var(--primary) 25%, var(--surface));
+  --heat-2: color-mix(in oklch, var(--primary) 45%, var(--surface));
+  --heat-3: color-mix(in oklch, var(--primary) 70%, var(--surface));
   --heat-4: var(--primary);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-fast: 120ms;
