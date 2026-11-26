@@ -1,7 +1,19 @@
 /* Tiny fetch wrapper: JWT access token from localStorage, JSON errors
    surfaced as messages. On a 401 the refresh token is tried once and the
    original request retried — the access token lives only 15 minutes. */
-import type { DashboardData, Recommendation, RevisionItem, SyncStatus } from './types';
+import type {
+  AnalyticsData,
+  CalendarMonth,
+  DashboardData,
+  ProblemDetailData,
+  ProblemNote,
+  Recommendation,
+  RevisionItem,
+  SettingsData,
+  SubmissionRow,
+  SyncStatus,
+  WeeklyReportData,
+} from './types';
 
 const BASE = import.meta.env.VITE_API_BASE ?? '';
 const V1 = '/api/v1';
@@ -155,6 +167,36 @@ export const api = {
       body: JSON.stringify({ revision_id, result }),
     }),
 
+  /* Phase 2 — Analytics / Calendar / Weekly report / Problem detail / Settings */
+  analytics: () => request<AnalyticsData>(`${V1}/analytics`),
+  calendar: (year: number, month: number) =>
+    request<CalendarMonth>(`${V1}/calendar?year=${year}&month=${month}`),
+  calendarDay: (day: string) =>
+    request<{ date: string; submissions: SubmissionRow[] }>(
+      `${V1}/calendar/day?day=${encodeURIComponent(day)}`,
+    ),
+  weeklyReport: () => request<WeeklyReportData>(`${V1}/reports/weekly`),
+  problemDetail: (contest_id: number, index: string) =>
+    request<ProblemDetailData>(`${V1}/problems/${contest_id}/${index}`),
+  getNote: (contest_id: number, index: string) =>
+    request<ProblemNote>(`${V1}/problems/${contest_id}/${index}/notes`),
+  saveNote: (contest_id: number, index: string, body: string) =>
+    request<ProblemNote>(`${V1}/problems/${contest_id}/${index}/notes`, {
+      method: 'PUT',
+      body: JSON.stringify({ body }),
+    }),
+  settings: () => request<SettingsData>(`${V1}/settings`),
+  setGoal: (target: number) =>
+    request<SettingsData>(`${V1}/settings/goal`, {
+      method: 'POST',
+      body: JSON.stringify({ target }),
+    }),
+  disconnectHandle: () =>
+    request<{ ok: boolean }>(`${V1}/settings/handle`, { method: 'DELETE' }),
+  deleteAccount: () =>
+    request<{ ok: boolean }>(`${V1}/auth/account`, { method: 'DELETE' }),
+  exportData: () => request<Record<string, unknown>>(`${V1}/export`),
+
   /* Demo — no auth, read-only, honestly labelled seed data. */
   demoDashboard: () => request<DashboardData>(`${V1}/demo/dashboard`),
   demoRecommendations: () => request<Recommendation[]>(`${V1}/demo/recommendations`),
@@ -162,4 +204,16 @@ export const api = {
     request<{ due: RevisionItem[]; upcoming: RevisionItem[]; done: RevisionItem[] }>(
       `${V1}/demo/revisions`,
     ),
+  demoAnalytics: () => request<AnalyticsData>(`${V1}/demo/analytics`),
+  demoCalendar: (year: number, month: number) =>
+    request<CalendarMonth>(`${V1}/demo/calendar?year=${year}&month=${month}`),
+  demoCalendarDay: (day: string) =>
+    request<{ date: string; submissions: SubmissionRow[] }>(
+      `${V1}/demo/calendar/day?day=${encodeURIComponent(day)}`,
+    ),
+  demoWeeklyReport: () => request<WeeklyReportData>(`${V1}/demo/reports/weekly`),
+  demoProblemDetail: (contest_id: number, index: string) =>
+    request<ProblemDetailData>(`${V1}/demo/problems/${contest_id}/${index}`),
+  demoSettings: () => request<SettingsData>(`${V1}/demo/settings`),
+  demoExport: () => request<Record<string, unknown>>(`${V1}/demo/export`),
 };

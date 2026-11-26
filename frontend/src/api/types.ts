@@ -83,6 +83,121 @@ export interface SyncStatus {
   error: string | null;
 }
 
+/* ---------- Phase 2 ---------- */
+
+export interface DifficultyBucket {
+  bucket: string;
+  attempted: number;
+  solved: number;
+  acceptance: number;
+}
+
+export interface Milestone {
+  threshold: number;
+  unlocked: boolean;
+  solved: number;
+}
+
+export interface ContestAnalysis {
+  contest_id: number;
+  contest_name: string;
+  date: string;
+  old_rating: number | null;
+  new_rating: number;
+  delta: number | null;
+  solved_that_day: number;
+  attempted_that_day: number;
+  weak_tags_that_day: string[];
+}
+
+export interface AnalyticsData {
+  peak_rating: number | null;
+  current_rating: number | null;
+  streak: number;
+  longest_streak: number;
+  solved: number;
+  buckets: DifficultyBucket[];
+  tag_strengths: TagStrength[];
+  milestones: Milestone[];
+  contests: ContestAnalysis[];
+}
+
+export interface CalendarDay {
+  date: string;
+  solved: number;
+  attempted: number;
+}
+
+export interface CalendarMonth {
+  year: number;
+  month: number;
+  days: CalendarDay[];
+}
+
+export interface WeekStats {
+  week_start: string;
+  solved: number;
+  attempted: number;
+  acceptance: number;
+  tag_acceptance: Record<string, { solved: number; attempted: number; acceptance: number }>;
+}
+
+export interface WeakMovement {
+  tag: string;
+  this_week: number | null;
+  last_week: number | null;
+  delta: number | null;
+  weak_score: number;
+}
+
+export interface WeeklyReportData {
+  current: WeekStats;
+  previous: WeekStats;
+  weak_movement: WeakMovement[];
+  focus: string[];
+  top_tags: { tag: string; solved: number; attempted: number; acceptance: number }[];
+  archive: WeekStats[];
+}
+
+export interface ProblemNote {
+  body: string;
+  updated_at: string | null;
+}
+
+export interface ProblemDetailData {
+  problem: ProblemRef;
+  attempts: number;
+  wrong_attempts: number;
+  solved: boolean;
+  first_attempt: string | null;
+  last_attempt: string | null;
+  submissions: {
+    verdict: string;
+    language: string | null;
+    submitted_at: string;
+    time_consumed: number | null;
+    memory_consumed: number | null;
+  }[];
+  revision: {
+    id: number;
+    interval_days: number;
+    due_date: string;
+    last_result: string | null;
+  } | null;
+  note: ProblemNote;
+  preference: string | null;
+}
+
+export interface SettingsData {
+  email: string | null;
+  cf_handle: string | null;
+  rank: string | null;
+  current_rating: number | null;
+  weekly_goal: number;
+  solved_this_week: number;
+  week_start: string;
+}
+
 /** Codeforces rank from rating — colours come from the --rank-* tokens. */
 export function rankOf(rating: number | null): { name: string; token: string } {
   if (rating === null || rating === undefined) return { name: 'Unrated', token: 'var(--rank-newbie)' };

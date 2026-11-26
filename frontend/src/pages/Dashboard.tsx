@@ -2,6 +2,7 @@
    Recent submissions. TanStack Query caches data so the Render cold start
    hurts only the first load (skeleton + ColdStartBanner meanwhile). */
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { toast } from 'sonner';
@@ -59,6 +60,13 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
   const [heatMode, setHeatMode] = useState<'day' | 'week'>('day');
   const [copied, setCopied] = useState(false);
   const [planRef] = useAutoAnimate<HTMLDivElement>();
+  /* Weekly goal progress (Phase 2) — its own small query so the dashboard
+     does not wait on it; it renders once the settings call lands. */
+  const settingsQuery = useQuery({
+    queryKey: demo ? ['demo-settings'] : ['settings'],
+    queryFn: demo ? api.demoSettings : api.settings,
+    staleTime: 60_000,
+  });
 
   // ColdStartBanner only if the first load is actually slow (>1.5s).
   useEffect(() => {
@@ -195,6 +203,67 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
           sub={t.subRevisions}
           icon={<CalendarCheck2 size={16} aria-hidden />}
         />
+      </div>
+
+      {/* Weekly goal + insights links (Phase 2) */}
+      <div className="grid items-start gap-4 lg:grid-cols-12">
+        <Card className="min-w-0 lg:col-span-8">
+          {settingsQuery.data ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium">
+                  {t.weeklyGoal}:{' '}
+                  {t.settingsGoalProgress(
+                    settingsQuery.data.solved_this_week,
+                    settingsQuery.data.weekly_goal,
+                  )}
+                </p>
+                <Link
+                  to={demo ? '/demo/settings' : '/app/settings'}
+                  className="text-xs font-medium text-primary hover:no-underline"
+                >
+                  {t.navSettings} →
+                </Link>
+              </div>
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-surface-2">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-500"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.round(
+                        (settingsQuery.data.solved_this_week /
+                          Math.max(1, settingsQuery.data.weekly_goal)) *
+                          100,
+                      ),
+                    )}%`,
+                  }}
+                />
+              </div>
+              {settingsQuery.data.solved_this_week >= settingsQuery.data.weekly_goal && (
+                <p className="text-xs text-success">{t.weeklyGoalDone}</p>
+              )}
+            </div>
+          ) : (
+            <Skeleton className="h-[52px] w-full" />
+          )}
+        </Card>
+        <Card title={t.insightsTitle} className="min-w-0 lg:col-span-4">
+          <div className="flex flex-col gap-2">
+            <Link
+              to={demo ? '/demo/analytics' : '/app/analytics'}
+              className="text-sm font-medium text-primary hover:no-underline"
+            >
+              {t.viewAnalytics} →
+            </Link>
+            <Link
+              to={demo ? '/demo/reports/weekly' : '/app/reports/weekly'}
+              className="text-sm font-medium text-primary hover:no-underline"
+            >
+              {t.viewWeeklyReport} →
+            </Link>
+          </div>
+        </Card>
       </div>
 
       {/* Row 2 — rating chart + today's plan */}

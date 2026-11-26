@@ -10,13 +10,17 @@ import { Command } from 'cmdk';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+  BarChart3,
+  CalendarDays,
   Compass,
+  FileText,
   Home,
   LayoutDashboard,
   Moon,
   RefreshCw,
   RotateCw,
   Search,
+  Settings,
   Sun,
   Target,
 } from 'lucide-react';
@@ -166,6 +170,18 @@ function CommandPaletteInner({
           </Command.Item>
           <Command.Item onSelect={() => go(`${base}/revision`)}>
             <RotateCw size={16} aria-hidden /> {t.navRevision}
+          </Command.Item>
+          <Command.Item onSelect={() => go(`${base}/analytics`)}>
+            <BarChart3 size={16} aria-hidden /> {t.navAnalytics}
+          </Command.Item>
+          <Command.Item onSelect={() => go(`${base}/calendar`)}>
+            <CalendarDays size={16} aria-hidden /> {t.navCalendar}
+          </Command.Item>
+          <Command.Item onSelect={() => go(`${base}/reports/weekly`)}>
+            <FileText size={16} aria-hidden /> {t.navWeekly}
+          </Command.Item>
+          <Command.Item onSelect={() => go(`${base}/settings`)}>
+            <Settings size={16} aria-hidden /> {t.navSettings}
           </Command.Item>
         </Command.Group>
         <Command.Group heading={t.paletteActions}>

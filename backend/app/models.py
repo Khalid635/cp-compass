@@ -47,6 +47,8 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     platform = Column(String, nullable=False, default="codeforces")
     current_rating = Column(Integer, nullable=True)
+    # Weekly practice goal: problems to solve per week (Phase 2, Settings).
+    weekly_goal = Column(Integer, nullable=False, default=5)
     created_at = Column(DateTime, default=_now, nullable=False)
 
 
@@ -115,6 +117,10 @@ class RatingHistory(Base):
     contest_id = Column(Integer, nullable=False)
     contest_name = Column(String, nullable=False)
     rating = Column(Integer, nullable=False)  # newRating
+    # Rating before the contest (from user.rating's oldRating). NULL on
+    # rows synced before Phase 2 — the delta is then chained from the
+    # previous contest's rating instead.
+    old_rating = Column(Integer, nullable=True)
     rated_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=_now, nullable=False)
 

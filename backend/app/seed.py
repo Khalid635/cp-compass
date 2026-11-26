@@ -552,3 +552,294 @@ def dashboard_payload():
         "synced": True,
         "demo": True,
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — demo payloads for the new pages. All computed from the same
+# deterministic SUBMISSIONS / RATING_HISTORY above, so demo numbers always
+# agree with the demo dashboard. Nothing here is invented.
+# ---------------------------------------------------------------------------
+
+# One sample note so the Problem Detail notes feature is visible in demo.
+DEMO_NOTES = {
+    (1360, "E"): "DP on grid — the corner cells need their own base case.",
+    (1366, "C"): "Greedy works here because the path cost only depends on\n"
+                 "the colour of the two ends. Check the editorial idea.",
+}
+
+DEMO_WEEKLY_GOAL = 5
+
+
+def _demo_longest_streak():
+    days = sorted({s["submitted_at"][:10] for s in SUBMISSIONS if s["verdict"] == "OK"})
+    if not days:
+        return 0
+    best = run = 1
+    prev = date.fromisoformat(days[0])
+    for dstr in days[1:]:
+        d = date.fromisoformat(dstr)
+        run = run + 1 if (d - prev).days == 1 else 1
+        best = max(best, run)
+        prev = d
+    return best
+
+
+def _demo_buckets():
+    buckets = [("800-1199", 800, 1199), ("1200-1599", 1200, 1599),
+               ("1600-1999", 1600, 1999), ("2000+", 2000, None)]
+    per = {b[0]: {"attempted": set(), "solved": set()} for b in buckets}
+    per["unrated"] = {"attempted": set(), "solved": set()}
+    for s in SUBMISSIONS:
+        rating = s["rating"]
+        if rating is None:
+            bucket = "unrated"
+        else:
+            bucket = next(
+                (b[0] for b in buckets
+                 if rating >= b[1] and (b[2] is None or rating <= b[2])),
+                "unrated",
+            )
+        per[bucket]["attempted"].add((s["contest_id"], s["index"]))
+        if s["verdict"] == "OK":
+            per[bucket]["solved"].add((s["contest_id"], s["index"]))
+    out = []
+    for bid, _lo, _hi in buckets:
+        attempted = len(per[bid]["attempted"])
+        solved = len(per[bid]["solved"])
+        out.append({"bucket": bid, "attempted": attempted, "solved": solved,
+                    "acceptance": round(solved / attempted, 2) if attempted else 0.0})
+    attempted = len(per["unrated"]["attempted"])
+    solved = len(per["unrated"]["solved"])
+    out.append({"bucket": "unrated", "attempted": attempted, "solved": solved,
+                "acceptance": round(solved / attempted, 2) if attempted else 0.0})
+    return out
+
+
+def _demo_contests():
+    by_day = {}
+    for s in SUBMISSIONS:
+        day = s["submitted_at"][:10]
+        cell = by_day.setdefault(day, {"solved": set(), "attempted": set(), "tags": {}})
+        cell["attempted"].add((s["contest_id"], s["index"]))
+        if s["verdict"] == "OK":
+            cell["solved"].add((s["contest_id"], s["index"]))
+        for tag in s["tags"]:
+            t = cell["tags"].setdefault(tag, [0, 0])
+            t[1] += 1
+            if s["verdict"] == "OK":
+                t[0] += 1
+    out = []
+    prev = None
+    for p in RATING_HISTORY:
+        day = p["date"][:10]
+        cell = by_day.get(day, {"solved": set(), "attempted": set(), "tags": {}})
+        weak_tags = sorted(
+            tag for tag, (s, a) in cell["tags"].items() if a >= 2 and s / a < 0.5)
+        out.append({
+            "contest_id": int(p["contest"].replace("Round #", "")),
+            "contest_name": p["contest"],
+            "date": day,
+            "old_rating": prev,
+            "new_rating": p["rating"],
+            "delta": p["rating"] - prev if prev is not None else None,
+            "solved_that_day": len(cell["solved"]),
+            "attempted_that_day": len(cell["attempted"]),
+            "weak_tags_that_day": weak_tags,
+        })
+        prev = p["rating"]
+    out.reverse()
+    return out
+
+
+def analytics_payload():
+    return {
+        "peak_rating": max(p["rating"] for p in RATING_HISTORY),
+        "current_rating": RATING,
+        "streak": _streak(),
+        "longest_streak": _demo_longest_streak(),
+        "solved": len(SOLVED_KEYS),
+        "buckets": _demo_buckets(),
+        "tag_strengths": TAG_STRENGTHS,
+        "milestones": [
+            {"threshold": th, "unlocked": len(SOLVED_KEYS) >= th,
+             "solved": len(SOLVED_KEYS)}
+            for th in (10, 25, 50, 100, 200)
+        ],
+        "contests": _demo_contests(),
+    }
+
+
+def calendar_payload(year, month):
+    from calendar import monthrange
+
+    first = date(year, month, 1)
+    last = date(year, month, monthrange(year, month)[1])
+    per_day = {}
+    for s in SUBMISSIONS:
+        d = date.fromisoformat(s["submitted_at"][:10])
+        if first <= d <= last:
+            cell = per_day.setdefault(d.isoformat(), {"solved": 0, "attempted": 0})
+            cell["attempted"] += 1
+            if s["verdict"] == "OK":
+                cell["solved"] += 1
+    days = [{"date": d, **c} for d, c in sorted(per_day.items())]
+    return {"year": year, "month": month, "days": days}
+
+
+def day_submissions(d):
+    rows = [s for s in SUBMISSIONS if s["submitted_at"][:10] == d.isoformat()]
+    rows.sort(key=lambda s: s["submitted_at"], reverse=True)
+    return [_recent_row(s) for s in rows]
+
+
+def _demo_week_stats(monday):
+    start = monday
+    end = monday + timedelta(days=7)
+    attempted, solved = set(), set()
+    tag_attempted, tag_solved = {}, {}
+    for s in SUBMISSIONS:
+        d = date.fromisoformat(s["submitted_at"][:10])
+        if not (start <= d < end):
+            continue
+        key = (s["contest_id"], s["index"])
+        attempted.add(key)
+        if s["verdict"] == "OK":
+            solved.add(key)
+        for tag in s["tags"]:
+            tag_attempted.setdefault(tag, set()).add(key)
+            if s["verdict"] == "OK":
+                tag_solved.setdefault(tag, set()).add(key)
+    tag_acc = {
+        tag: {"solved": len(tag_solved.get(tag, set())),
+              "attempted": len(a),
+              "acceptance": round(len(tag_solved.get(tag, set())) / len(a), 2) if a else 0.0}
+        for tag, a in tag_attempted.items()
+    }
+    return {
+        "week_start": monday.isoformat(),
+        "solved": len(solved),
+        "attempted": len(attempted),
+        "acceptance": round(len(solved) / len(attempted), 2) if attempted else 0.0,
+        "tag_acceptance": tag_acc,
+    }
+
+
+def weekly_report_payload():
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    prev_monday = monday - timedelta(days=7)
+    current = _demo_week_stats(monday)
+    previous = _demo_week_stats(prev_monday)
+    weak = [t for t in TAG_STRENGTHS if t["weak"]]
+    movement = []
+    for w in weak:
+        tag = w["tag"]
+        cur = current["tag_acceptance"].get(tag)
+        prv = previous["tag_acceptance"].get(tag)
+        movement.append({
+            "tag": tag,
+            "this_week": cur["acceptance"] if cur else None,
+            "last_week": prv["acceptance"] if prv else None,
+            "delta": (round(cur["acceptance"] - prv["acceptance"], 2)
+                      if cur and prv else None),
+            "weak_score": w.get("weak_score", 0.5),
+        })
+    movement.sort(key=lambda m: (m["delta"] is None,
+                                 m["delta"] if m["delta"] is not None else 0))
+    focus = [t["tag"] for t in sorted(weak, key=lambda t: t["acceptance"])[:3]]
+    top_tags = sorted(
+        current["tag_acceptance"].items(), key=lambda kv: -kv[1]["attempted"])[:5]
+    archive = []
+    for i in range(8):
+        ws = _demo_week_stats(monday - timedelta(days=7 * (i + 1)))
+        if ws["attempted"] > 0:
+            archive.append(ws)
+    return {
+        "current": current,
+        "previous": previous,
+        "weak_movement": movement,
+        "focus": focus,
+        "top_tags": [{"tag": tag, **vals} for tag, vals in top_tags],
+        "archive": archive,
+    }
+
+
+def _demo_problem_lookup(contest_id, index):
+    for cid, idx, name, rating, tags in FAMOUS:
+        if cid == contest_id and idx == index:
+            return {"contest_id": cid, "index": idx, "name": name,
+                    "rating": rating, "tags": tags}
+    for cid, idx, name, rating, tags in POOL:
+        if cid == contest_id and idx == index:
+            return {"contest_id": cid, "index": idx, "name": name,
+                    "rating": rating, "tags": tags}
+    for s in SUBMISSIONS:
+        if s["contest_id"] == contest_id and s["index"] == index:
+            return {"contest_id": contest_id, "index": index, "name": s["name"],
+                    "rating": s["rating"], "tags": s["tags"]}
+    return None
+
+
+def problem_detail_payload(contest_id, index):
+    prob = _demo_problem_lookup(contest_id, index)
+    if prob is None:
+        return None
+    subs = [s for s in SUBMISSIONS
+            if s["contest_id"] == contest_id and s["index"] == index]
+    subs.sort(key=lambda s: s["submitted_at"], reverse=True)
+    solved = any(s["verdict"] == "OK" for s in subs)
+    note_body = DEMO_NOTES.get((contest_id, index), "")
+    return {
+        "problem": prob,
+        "attempts": len(subs),
+        "wrong_attempts": sum(1 for s in subs if s["verdict"] != "OK"),
+        "solved": solved,
+        "first_attempt": subs[-1]["submitted_at"] if subs else None,
+        "last_attempt": subs[0]["submitted_at"] if subs else None,
+        "submissions": [{
+            "verdict": s["verdict"], "language": s["language"],
+            "submitted_at": s["submitted_at"],
+            "time_consumed": None, "memory_consumed": None,
+        } for s in subs],
+        "revision": None,
+        "note": {"body": note_body, "updated_at": None},
+        "preference": None,
+    }
+
+
+def settings_payload():
+    monday = date.today() - timedelta(days=date.today().weekday())
+    week = _demo_week_stats(monday)
+    return {
+        "email": None,
+        "cf_handle": HANDLE,
+        "rank": RANK,
+        "current_rating": RATING,
+        "weekly_goal": DEMO_WEEKLY_GOAL,
+        "solved_this_week": week["solved"],
+        "week_start": monday.isoformat(),
+    }
+
+
+def export_payload():
+    return {
+        "handle": HANDLE,
+        "email": None,
+        "exported_at": datetime.utcnow().isoformat(),
+        "submissions": [
+            {"cf_id": s["id"], "verdict": s["verdict"],
+             "submitted_at": s["submitted_at"]} for s in SUBMISSIONS],
+        "tag_stats": TAG_STRENGTHS,
+        "revisions": REVISIONS["due"] + REVISIONS["upcoming"] + REVISIONS["done"],
+        "rating_history": [
+            {"contest_id": int(p["contest"].replace("Round #", "")),
+             "contest_name": p["contest"], "old_rating": None,
+             "new_rating": p["rating"], "date": p["date"][:10]}
+            for p in RATING_HISTORY],
+        "preferences": [],
+        "notes": [{"contest_id": cid, "index": idx, "body": body,
+                   "updated_at": None}
+                  for (cid, idx), body in DEMO_NOTES.items()],
+        "daily_stats": [],
+        "weekly_reports": [],
+    }

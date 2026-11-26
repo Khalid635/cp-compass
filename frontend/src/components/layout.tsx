@@ -5,12 +5,16 @@ import type { ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
+  BarChart3,
+  CalendarDays,
   Compass,
+  FileText,
   LayoutDashboard,
   LogOut,
   Moon,
   RefreshCw,
   RotateCw,
+  Settings,
   Sun,
   Target,
   Zap,
@@ -35,9 +39,13 @@ export function Logo({ size = 28 }: { size?: number }) {
 
 function navItems(base: string, t: Dict) {
   return [
-    { to: base, label: t.navDashboard, icon: LayoutDashboard, end: true },
-    { to: `${base}/practice`, label: t.navPractice, icon: Target },
-    { to: `${base}/revision`, label: t.navRevision, icon: RotateCw },
+    { to: base, label: t.navDashboard, icon: LayoutDashboard, end: true, mobile: true },
+    { to: `${base}/practice`, label: t.navPractice, icon: Target, mobile: true },
+    { to: `${base}/revision`, label: t.navRevision, icon: RotateCw, mobile: true },
+    { to: `${base}/analytics`, label: t.navAnalytics, icon: BarChart3, mobile: false },
+    { to: `${base}/calendar`, label: t.navCalendar, icon: CalendarDays, mobile: true },
+    { to: `${base}/reports/weekly`, label: t.navWeekly, icon: FileText, mobile: false },
+    { to: `${base}/settings`, label: t.navSettings, icon: Settings, mobile: true },
   ];
 }
 
@@ -228,6 +236,12 @@ export function AppShell({
                       {t.cfHandleLine(user.cf_handle)}
                     </p>
                   )}
+                  <Link
+                    to={`${base}/settings`}
+                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-text hover:bg-hover hover:no-underline"
+                  >
+                    <Settings size={14} aria-hidden /> {t.navSettings}
+                  </Link>
                   <button
                     onClick={() => {
                       logout();
@@ -249,12 +263,14 @@ export function AppShell({
           {children}
         </main>
 
-        {/* Bottom tab bar — mobile */}
+        {/* Bottom tab bar — mobile. Five primary pages; Analytics and the
+            Weekly report live in the sidebar on desktop, in the "/" palette
+            and in Dashboard links on mobile. */}
         <nav
           className="frost sticky bottom-0 z-20 flex border-t border-border md:hidden"
           aria-label="Main"
         >
-          {NAV.map((item) => (
+          {NAV.filter((item) => item.mobile).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

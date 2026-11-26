@@ -239,4 +239,91 @@ export interface Dict {
   // copy training plan
   copyPlan: string;
   copied: string;
+  // Phase 2 nav
+  navAnalytics: string;
+  navCalendar: string;
+  navWeekly: string;
+  navSettings: string;
+  // Phase 2 analytics
+  analyticsTitle: string;
+  statPeakRating: string;
+  statLongestStreak: string;
+  difficultyDist: string;
+  difficultySuccess: string;
+  milestonesTitle: string;
+  milestoneUnlocked: string;
+  milestoneLocked: (n: number) => string;
+  contestsTitle: string;
+  contestSolvedDay: (solved: number, attempted: number) => string;
+  contestWeakTags: string;
+  contestFirst: string;
+  noContests: string;
+  noContestsHint: string;
+  // Phase 2 calendar
+  calendarTitle: string;
+  calendarToday: string;
+  calendarSelectDay: string;
+  calendarNoData: string;
+  calendarSolved: (n: number) => string;
+  calendarAttempted: (n: number) => string;
+  calendarStreakDay: string;
+  daySubmissions: string;
+  // Phase 2 weekly report
+  weeklyTitle: string;
+  weekSolved: string;
+  weekAttempted: string;
+  weekAcceptance: string;
+  weekVsLast: (delta: number) => string;
+  weekFocus: string;
+  weekFocusEmpty: string;
+  weekTopTags: string;
+  weakMovement: string;
+  movementNoData: string;
+  weeklyArchive: string;
+  weeklyExport: string;
+  weeklyExported: string;
+  // Phase 2 problem detail
+  problemAttempts: string;
+  problemSolved: string;
+  problemNotSolved: string;
+  problemFirstAttempt: string;
+  problemLastAttempt: string;
+  problemSubmissions: string;
+  problemNotes: string;
+  notePlaceholder: string;
+  noteSave: string;
+  noteSaved: string;
+  notePreview: string;
+  noteEdit: string;
+  noteEmpty: string;
+  revisionStatus: string;
+  revisionNoRevision: string;
+  // Phase 2 settings
+  settingsTitle: string;
+  settingsAccount: string;
+  settingsHandle: string;
+  settingsRank: string;
+  settingsGoal: string;
+  settingsGoalHint: string;
+  settingsGoalSave: string;
+  settingsGoalSaved: string;
+  settingsGoalProgress: (solved: number, target: number) => string;
+  settingsDisconnect: string;
+  settingsDisconnectConfirm: string;
+  settingsDisconnected: string;
+  settingsExport: string;
+  settingsExportHint: string;
+  settingsExported: string;
+  settingsDelete: string;
+  settingsDeleteConfirm: string;
+  settingsDeleteHint: string;
+  settingsDemoNote: string;
+  settingsDemoAccount: string;
+  settingsAppearance: string;
+  // Phase 2 dashboard additions
+  weeklyGoal: string;
+  weeklyGoalDone: string;
+  viewAnalytics: string;
+  viewWeeklyReport: string;
+  insightsTitle: string;
 }

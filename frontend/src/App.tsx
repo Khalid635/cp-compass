@@ -16,6 +16,11 @@ import { Skeleton } from './components/ui';
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Practice = lazy(() => import('./pages/Practice'));
 const Revision = lazy(() => import('./pages/Revision'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const Calendar = lazy(() => import('./pages/Calendar'));
+const WeeklyReport = lazy(() => import('./pages/WeeklyReport'));
+const ProblemDetail = lazy(() => import('./pages/ProblemDetail'));
+const Settings = lazy(() => import('./pages/Settings'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -73,6 +78,11 @@ function AppRoutes() {
           <Route index element={<Dashboard demo />} />
           <Route path="practice" element={<Practice demo />} />
           <Route path="revision" element={<Revision demo />} />
+          <Route path="analytics" element={<Analytics demo />} />
+          <Route path="calendar" element={<Calendar demo />} />
+          <Route path="reports/weekly" element={<WeeklyReport demo />} />
+          <Route path="problems/:contestId/:index" element={<ProblemDetail demo />} />
+          <Route path="settings" element={<Settings demo theme={theme} toggleTheme={toggleTheme} />} />
         </Route>
 
         {/* Real app — JWT required */}
@@ -89,6 +99,11 @@ function AppRoutes() {
           <Route index element={<Dashboard />} />
           <Route path="practice" element={<Practice />} />
           <Route path="revision" element={<Revision />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="calendar" element={<Calendar />} />
+          <Route path="reports/weekly" element={<WeeklyReport />} />
+          <Route path="problems/:contestId/:index" element={<ProblemDetail />} />
+          <Route path="settings" element={<Settings theme={theme} toggleTheme={toggleTheme} />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

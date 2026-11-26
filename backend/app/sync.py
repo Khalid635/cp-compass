@@ -147,9 +147,12 @@ def _store_rating_history(db: Session, user: User, history: list[dict]) -> None:
             db.add(RatingHistory(
                 user_id=user.id, contest_id=contest_id,
                 contest_name=row.get("contestName", ""),
-                rating=row["newRating"], rated_at=rated_at))
+                rating=row["newRating"],
+                old_rating=row.get("oldRating"),
+                rated_at=rated_at))
         else:
             existing.rating = row["newRating"]
+            existing.old_rating = row.get("oldRating")
             existing.rated_at = rated_at
     db.commit()
 

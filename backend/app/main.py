@@ -9,7 +9,7 @@ Schema is managed by Alembic; migrations run automatically at startup.
 import asyncio
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,7 +29,11 @@ from .auth import (
 )
 from .cf import CFError, cf
 from .db import SessionLocal, get_db
-from .models import CfAccount, Submission, User
+from .models import (
+    CfAccount, DailyStat, Problem, ProblemNote, ProblemPreference,
+    RatingHistory, RefreshToken, Revision, Submission, SyncJob, User,
+    WeeklyReport,
+)
 
 V1 = "/api/v1"
 
@@ -105,6 +109,14 @@ class ReviewIn(BaseModel):
     result: str  # again | hard | good | easy
 
 
+class GoalIn(BaseModel):
+    target: int  # problems per week, 1..50
+
+
+class NoteIn(BaseModel):
+    body: str
+
+
 class AuthOut(BaseModel):
     access_token: str
     refresh_token: str
@@ -124,6 +136,7 @@ async def _rating_history(handle: str) -> list[dict]:
     try:
         rows = await cf.user_rating(handle)
         hist = [{"contest": r["contestName"], "rating": r["newRating"],
+                 "old_rating": r.get("oldRating"),
                  "date": datetime.utcfromtimestamp(r["ratingUpdateTimeSeconds"]).isoformat()}
                 for r in rows]
     except CFError:
@@ -339,18 +352,171 @@ def revision_counts(user: User = Depends(get_current_user), db: Session = Depend
             for tab in ("due", "upcoming", "done")}
 
 
+# ---------- Phase 2: analytics / calendar / weekly report ----------
+@app.get(f"{V1}/analytics")
+def analytics(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if _cf_handle(db, user) is None:
+        raise HTTPException(400, "Connect your Codeforces handle first")
+    return services.analytics(db, user.id)
+
+
+@app.get(f"{V1}/calendar")
+def calendar(year: int = Query(...), month: int = Query(...),
+             user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if month < 1 or month > 12:
+        raise HTTPException(400, "Month must be 1..12")
+    return services.calendar_month(db, user.id, year, month)
+
+
+@app.get(f"{V1}/calendar/day")
+def calendar_day(day: str = Query(...),
+                 user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        d = date.fromisoformat(day)
+    except ValueError:
+        raise HTTPException(400, "Day must be YYYY-MM-DD")
+    return {"date": d.isoformat(), "submissions": services.day_submissions(db, user.id, d)}
+
+
+@app.get(f"{V1}/reports/weekly")
+def weekly_report(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if _cf_handle(db, user) is None:
+        raise HTTPException(400, "Connect your Codeforces handle first")
+    return services.weekly_report(db, user.id)
+
+
+# ---------- Phase 2: problem detail + notes ----------
+@app.get(f"{V1}/problems/{{contest_id}}/{{index}}")
+async def problem_detail(contest_id: int, index: str,
+                         user: User = Depends(get_current_user),
+                         db: Session = Depends(get_db)):
+    detail = services.problem_detail(db, user.id, contest_id, index)
+    if detail is not None:
+        return detail
+    # Not in the local catalog yet — look it up in the public problemset
+    # so any Codeforces problem has a detail page (with empty user data).
+    try:
+        problems = await cf.problemset()
+    except CFError as exc:
+        raise HTTPException(502, f"Codeforces didn't respond: {exc}")
+    for p in problems:
+        if p.get("contestId") == contest_id and p.get("index") == index:
+            return {
+                "problem": {"contest_id": contest_id, "index": index,
+                            "name": p.get("name", ""), "rating": p.get("rating"),
+                            "tags": p.get("tags", [])},
+                "attempts": 0, "wrong_attempts": 0, "solved": False, "first_attempt": None,
+                "last_attempt": None, "submissions": [], "revision": None,
+                "note": {"body": "", "updated_at": None}, "preference": None,
+            }
+    raise HTTPException(404, "Problem not found on Codeforces")
+
+
+@app.get(f"{V1}/problems/{{contest_id}}/{{index}}/notes")
+def get_note(contest_id: int, index: str,
+             user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    detail = services.problem_detail(db, user.id, contest_id, index)
+    if detail is None:
+        raise HTTPException(404, "Problem not found")
+    return detail["note"]
+
+
+@app.put(f"{V1}/problems/{{contest_id}}/{{index}}/notes")
+def put_note(contest_id: int, index: str, body: NoteIn,
+             user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    note = services.save_note(db, user.id, contest_id, index, body.body)
+    if note is None:
+        raise HTTPException(404, "Problem not found")
+    return note
+
+
+# ---------- Phase 2: settings ----------
+@app.get(f"{V1}/settings")
+def settings(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return services.settings_data(db, user)
+
+
+@app.post(f"{V1}/settings/goal")
+def set_goal(body: GoalIn, user: User = Depends(get_current_user),
+             db: Session = Depends(get_db)):
+    if body.target < 1 or body.target > 50:
+        raise HTTPException(400, "Weekly goal must be 1..50 problems")
+    user.weekly_goal = body.target
+    db.commit()
+    return services.settings_data(db, user)
+
+
+@app.delete(f"{V1}/settings/handle")
+def disconnect_handle(user: User = Depends(get_current_user),
+                      db: Session = Depends(get_db)):
+    """Disconnects the Codeforces handle. Submissions and stats stay —
+    reconnecting the same handle links them back."""
+    account = services.get_cf_account(db, user.id)
+    if account is None:
+        raise HTTPException(400, "No handle connected")
+    db.delete(account)
+    db.commit()
+    return {"ok": True}
+
+
+@app.delete(f"{V1}/auth/account")
+def delete_account(user: User = Depends(get_current_user),
+                   db: Session = Depends(get_db)):
+    """Deletes the account and everything attached to it. Child rows are
+    deleted explicitly — SQLite does not enforce ON DELETE CASCADE unless
+    foreign_keys is on, so never rely on it here."""
+    revoke_all_refresh_tokens(db, user.id)
+    db.query(RefreshToken).filter_by(user_id=user.id).delete()
+    db.query(SyncJob).filter_by(user_id=user.id).delete()
+    db.query(WeeklyReport).filter_by(user_id=user.id).delete()
+    db.query(DailyStat).filter_by(user_id=user.id).delete()
+    db.query(ProblemNote).filter_by(user_id=user.id).delete()
+    db.query(ProblemPreference).filter_by(user_id=user.id).delete()
+    db.query(Revision).filter_by(user_id=user.id).delete()
+    db.query(RatingHistory).filter_by(user_id=user.id).delete()
+    db.query(Submission).filter_by(user_id=user.id).delete()
+    db.query(CfAccount).filter_by(user_id=user.id).delete()
+    db.delete(user)
+    db.commit()
+    return {"ok": True}
+
+
 # ---------- export ----------
 @app.get(f"{V1}/export")
 def export_data(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     subs = db.query(Submission).filter_by(user_id=user.id).all()
     return {
         "handle": _cf_handle(db, user), "email": user.email,
+        "exported_at": datetime.utcnow().isoformat(),
         "submissions": [
             {"cf_id": s.cf_submission_id, "verdict": s.verdict,
              "submitted_at": s.submitted_at.isoformat()} for s in subs],
         "tag_stats": services.tag_stats(db, user.id),
         "revisions": services.revision_list(db, user.id, "due")
-        + services.revision_list(db, user.id, "upcoming"),
+        + services.revision_list(db, user.id, "upcoming")
+        + services.revision_list(db, user.id, "done"),
+        "rating_history": [
+            {"contest_id": r.contest_id, "contest_name": r.contest_name,
+             "old_rating": r.old_rating, "new_rating": r.rating,
+             "date": r.rated_at.date().isoformat()}
+            for r in db.query(RatingHistory).filter_by(user_id=user.id)
+            .order_by(RatingHistory.rated_at.asc()).all()],
+        "preferences": services.list_preferences(db, user.id),
+        "notes": [
+            {"contest_id": p.contest_id, "index": p.index, "body": n.body,
+             "updated_at": n.updated_at.isoformat()}
+            for n, p in db.query(ProblemNote, Problem)
+            .join(Problem, ProblemNote.problem_id == Problem.id)
+            .filter(ProblemNote.user_id == user.id).all()],
+        "daily_stats": [
+            {"date": r.day.isoformat(), "solved": r.solved, "attempted": r.attempted}
+            for r in db.query(DailyStat).filter_by(user_id=user.id)
+            .order_by(DailyStat.day.asc()).all()],
+        "weekly_reports": [
+            {"week_start": r.week_start.isoformat(), "solved": r.solved,
+             "attempted": r.attempted, "tag_acceptance": r.tag_acceptance or {}}
+            for r in db.query(WeeklyReport).filter_by(user_id=user.id)
+            .order_by(WeeklyReport.week_start.asc()).all()],
     }
 
 
@@ -368,3 +534,47 @@ def demo_recommendations():
 @app.get(f"{V1}/demo/revisions")
 def demo_revisions():
     return seed.REVISIONS
+
+
+@app.get(f"{V1}/demo/analytics")
+def demo_analytics():
+    return seed.analytics_payload()
+
+
+@app.get(f"{V1}/demo/calendar")
+def demo_calendar(year: int = Query(...), month: int = Query(...)):
+    if month < 1 or month > 12:
+        raise HTTPException(400, "Month must be 1..12")
+    return seed.calendar_payload(year, month)
+
+
+@app.get(f"{V1}/demo/calendar/day")
+def demo_calendar_day(day: str = Query(...)):
+    try:
+        d = date.fromisoformat(day)
+    except ValueError:
+        raise HTTPException(400, "Day must be YYYY-MM-DD")
+    return {"date": d.isoformat(), "submissions": seed.day_submissions(d)}
+
+
+@app.get(f"{V1}/demo/reports/weekly")
+def demo_weekly_report():
+    return seed.weekly_report_payload()
+
+
+@app.get(f"{V1}/demo/problems/{{contest_id}}/{{index}}")
+def demo_problem_detail(contest_id: int, index: str):
+    detail = seed.problem_detail_payload(contest_id, index)
+    if detail is None:
+        raise HTTPException(404, "Problem not found")
+    return detail
+
+
+@app.get(f"{V1}/demo/settings")
+def demo_settings():
+    return seed.settings_payload()
+
+
+@app.get(f"{V1}/demo/export")
+def demo_export():
+    return seed.export_payload()
