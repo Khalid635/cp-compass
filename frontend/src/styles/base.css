@@ -35,13 +35,19 @@ select {
   font: inherit;
 }
 
-a {
-  color: var(--primary);
-  text-decoration: none;
-}
+/* Plain links default to the primary colour. This MUST live in @layer base:
+   unlayered author CSS beats Tailwind's layered utilities, so a bare `a`
+   rule here used to override every text-* colour utility on links
+   (e.g. text-on-primary on "Open on CF" rendered indigo-on-indigo). */
+@layer base {
+  a {
+    color: var(--primary);
+    text-decoration: none;
+  }
 
-a:hover {
-  text-decoration: underline;
+  a:hover {
+    text-decoration: underline;
+  }
 }
 
 /* Thin, quiet scrollbars. */

@@ -10,24 +10,27 @@
 
 ## Status
 
-MVP build চলছে — P1: Dashboard, Practice, Revision, Landing, Demo, Login/Register + Codeforces sync + demo mode (seed data)। P2 (Analytics, Problem detail, Contests, Settings) পরে।
+MVP (P1) শেষ + ল্যাপটপে যাচাই করা 2026-11-26: Dashboard, Practice, Revision, Landing, Demo, Login/Register + Codeforces sync + demo mode (seed data)। Build পাস, `/api/health` OK, Khalid_Bin_Masud handle-এ live sync যাচাই করা। P2 (Analytics, Problem detail, Contests, Settings) পরে।
 
 পূর্ণ পরিকল্পনা: `~/workspace/goals/become-a-skilled-software-developer-and-ai-ml-engineer/files/cp-compass-full-plan/cp-compass-full-plan.pdf`
 
-## Run (dev)
+## Run (dev, laptop Windows)
 
 ```bash
-# Frontend
+# Frontend — D:\Projects\cp-compass\frontend
 npm install
 npm run dev        # http://localhost:5173
 
-# Backend
-cd backend
-python -m venv .venv
-.venv\Scripts\activate   # laptop (Windows)
+# Backend — D:\Projects\cp-compass\backend
+py -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn main:app --port 8004
+.venv\Scripts\uvicorn app.main:app --host 127.0.0.1 --port 8004
 ```
+
+- Demo (লগইন ছাড়া, seed ডাটা): http://localhost:5173/demo
+- আসল ব্যবহার: Register → Codeforces handle যুক্ত করো → "Sync now"
+- আসল SECRET_KEY-এর জন্য `backend\.env.example` কপি করে `.env` বানাও — `.env` কখনো commit করবে না (dev default শুধু local test-এর জন্য)।
 
 ## Structure
 

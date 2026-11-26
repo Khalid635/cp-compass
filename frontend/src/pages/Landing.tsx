@@ -93,7 +93,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
               <div className="rounded-md border border-border bg-bg p-4">
                 <p className="text-sm font-medium">Today’s plan</p>
                 <p className="mt-1 text-sm text-muted">
-                  1366C Palindromic Paths · 1300 — dp-তে তোমার acceptance 32%
+                  1366C Palindromic Paths · 1300 — dp-তে তোমার acceptance 42%
                 </p>
                 <p className="mt-1 text-sm text-muted">
                   1360C Similar Pairs · 1200 — তোমার rating-এর কাছাকাছি

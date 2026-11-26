@@ -31,10 +31,10 @@ export function StatCard({
         {icon && <span className="text-muted">{icon}</span>}
       </div>
       <p className="tabular mt-2 font-mono text-[32px] font-semibold leading-none">{value}</p>
-      <div className="mt-2 flex items-center gap-2 text-xs">
+      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
         {delta && (
           <span
-            className="rounded-full px-2 py-0.5 font-medium"
+            className="whitespace-nowrap rounded-full px-2 py-0.5 font-medium"
             style={{
               color: delta.good ? 'var(--success)' : 'var(--danger)',
               background: delta.good
