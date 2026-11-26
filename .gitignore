@@ -22,3 +22,10 @@ probe-*.js
 shots.js 
 served-*.txt 
 sync-*.bundle 
+
+# blueprint pass: probe output, DB backup, local dev launchers (never commit)
+shots-blueprint/
+*.bak
+run-backend.bat
+start-backend.ps1
+smoke_live.py

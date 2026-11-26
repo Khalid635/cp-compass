@@ -187,6 +187,9 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
                     />
                   </div>
                   <p className="mt-1 text-xs text-muted">{formatWhy(p.why, t)}</p>
+                  {p.score !== undefined && (
+                    <p className="mt-1 font-mono text-xs text-muted">{t.recScore(p.score)}</p>
+                  )}
                 </div>
               ))}
               {d.today_plan.revisions.map((r) => (

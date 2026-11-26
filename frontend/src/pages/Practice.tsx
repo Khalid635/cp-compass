@@ -115,6 +115,7 @@ export default function Practice({ demo = false }: { demo?: boolean }) {
               key={`${p.contest_id}${p.index}`}
               problem={p}
               why={p.why}
+              score={p.score}
               demo={demo}
               actionState={states[`${p.contest_id}${p.index}`] ?? null}
               onAction={(act) =>

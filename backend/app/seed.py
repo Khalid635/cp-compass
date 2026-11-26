@@ -464,9 +464,19 @@ def _recommendations():
         return {"kind": "near_rating", "user_rating": RATING,
                 "problem_rating": rating}
 
+    def score_for(tags, rating):
+        # Demo mirror of the real 0-100 formula: weak-tag bonus + closeness
+        # to the rating+100 sweet spot, on a 55 base.
+        s = 55
+        if any(t in weak_names for t in tags):
+            s += 25
+        s += max(0, 20 - abs(rating - (RATING + 100)) * 0.1)
+        return min(99, int(s))
+
     def entry(cid, idx, name, rating, tags):
         return {"contest_id": cid, "index": idx, "name": name,
-                "rating": rating, "tags": tags, "why": why_for(tags, rating)}
+                "rating": rating, "tags": tags, "why": why_for(tags, rating),
+                "score": score_for(tags, rating)}
 
     in_band, rest = [], []
     for cid, idx, name, rating, tags in FAMOUS:

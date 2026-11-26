@@ -186,4 +186,5 @@ export const bn: Dict = {
   whyNearRating: (userRating, rating) =>
     `তোমার rating ${userRating}-এর কাছাকাছি — এই প্রবলেমটি ${rating} rating-এর।`,
   whyDemoOutOfBand: ' (ডেমো: rating-ব্যান্ডের বাইরের প্র্যাকটিস)',
+  recScore: (s: number) => `স্কোর ${s}/100`,
 };

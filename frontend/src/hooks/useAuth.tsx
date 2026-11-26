@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { api } from '../api/client';
+import { api, clearTokens, storeTokens } from '../api/client';
 
 export interface AuthUser {
   email: string;
@@ -25,7 +25,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    if (!localStorage.getItem('cp_token')) {
+    if (!localStorage.getItem('cp_access_token')) {
+      // Legacy single-token sessions (pre-refresh era) are invalid now.
+      clearTokens();
       setUser(null);
       setLoading(false);
       return;
@@ -34,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const me = await api.me();
       setUser(me);
     } catch {
-      localStorage.removeItem('cp_token');
+      clearTokens();
       setUser(null);
     } finally {
       setLoading(false);
@@ -47,20 +49,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.login(email, password);
-    localStorage.setItem('cp_token', res.token);
+    storeTokens(res.access_token, res.refresh_token);
     const me = await api.me();
     setUser(me);
   }, []);
 
   const register = useCallback(async (email: string, password: string) => {
     const res = await api.register(email, password);
-    localStorage.setItem('cp_token', res.token);
+    storeTokens(res.access_token, res.refresh_token);
     const me = await api.me();
     setUser(me);
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('cp_token');
+    void api.logout().catch(() => undefined); // revoke server-side, best effort
+    clearTokens();
     setUser(null);
   }, []);
 

@@ -192,4 +192,5 @@ export const en: Dict = {
   whyNearRating: (userRating, rating) =>
     `Near your rating of ${userRating} — this problem is rated ${rating}.`,
   whyDemoOutOfBand: ' (Demo: practice outside the rating band)',
+  recScore: (s: number) => `Score ${s}/100`,
 };

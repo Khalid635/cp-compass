@@ -13,6 +13,8 @@ export interface ProblemRef {
 
 export interface Recommendation extends ProblemRef {
   why: WhyInfo;
+  /** Rule-based score 0–100 (blueprint §6). Absent on old demo payloads. */
+  score?: number;
 }
 
 export interface SubmissionRow {
@@ -30,6 +32,14 @@ export interface TagStrength {
   avg_wrong_attempts: number;
   last_solve: string | null;
   weak: boolean;
+  /** Weighted weakness 0–1 (blueprint §5). Absent on old demo payloads. */
+  weak_score?: number;
+  factors?: {
+    acceptance: number;
+    wrong_ratio: number;
+    recent_acceptance: number;
+    avg_attempted_rating: number | null;
+  };
 }
 
 export interface RatingPoint {

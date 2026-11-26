@@ -1,23 +1,73 @@
-"""CP Compass API — FastAPI. JWT auth on everything except /api/health
-and the read-only demo routes. No Celery: sync runs in BackgroundTasks.
+"""CP Compass API — FastAPI. JWT auth on everything except /api/v1/health
+and the read-only demo routes.
+
+API version: /api/v1 (the old unversioned /api was removed in the
+blueprint pass — the frontend is the only client and it was updated).
+Sync runs in the DB-backed worker loop (app.sync), not BackgroundTasks.
+Schema is managed by Alembic; migrations run automatically at startup.
 """
+import asyncio
 import time
+from contextlib import asynccontextmanager
 from datetime import datetime
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from . import seed, services, sync as sync_engine
-from .auth import create_token, get_current_user, hash_password, verify_password
+from .auth import (
+    get_current_user,
+    hash_password,
+    issue_tokens,
+    refresh_tokens,
+    revoke_all_refresh_tokens,
+    revoke_refresh_token,
+    verify_password,
+)
 from .cf import CFError, cf
-from .db import Base, SessionLocal, engine, get_db
-from .models import ProblemFeedback, Revision, Submission, User
+from .db import SessionLocal, get_db
+from .models import CfAccount, Submission, User
 
-Base.metadata.create_all(bind=engine)
+V1 = "/api/v1"
 
-app = FastAPI(title="CP Compass API", version="0.1.0")
+
+def _run_migrations() -> None:
+    """Applies Alembic migrations at startup so `uvicorn` just works.
+    Failures are logged, not fatal — the endpoints will fail loudly
+    instead of the process dying silently at import time."""
+    try:
+        import os
+
+        from alembic import command
+        from alembic.config import Config
+
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        cfg = Config(os.path.join(backend_dir, "alembic.ini"))
+        cfg.set_main_option("script_location", os.path.join(backend_dir, "alembic"))
+        command.upgrade(cfg, "head")
+    except Exception as exc:  # noqa: BLE001 — startup must not crash here
+        print(f"[startup] alembic upgrade failed: {exc}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _run_migrations()
+    db = SessionLocal()
+    try:
+        recovered = sync_engine.recover_stale_jobs(db)
+        if recovered:
+            print(f"[startup] recovered {recovered} stale sync job(s)")
+    finally:
+        db.close()
+    worker_task = asyncio.create_task(sync_engine.worker_loop())
+    yield
+    worker_task.cancel()
+
+
+app = FastAPI(title="CP Compass API", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -40,10 +90,14 @@ class HandleIn(BaseModel):
     handle: str
 
 
+class RefreshIn(BaseModel):
+    refresh_token: str
+
+
 class FeedbackIn(BaseModel):
     contest_id: int
     index: str
-    action: str  # later | not_interested
+    action: str  # later | dismissed | interested (not_interested accepted)
 
 
 class ReviewIn(BaseModel):
@@ -52,7 +106,9 @@ class ReviewIn(BaseModel):
 
 
 class AuthOut(BaseModel):
-    token: str
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
     email: str
     cf_handle: str | None
 
@@ -81,13 +137,18 @@ def _problem_json(p) -> dict:
             "rating": p.rating, "tags": p.tags or []}
 
 
+def _cf_handle(db: Session, user: User) -> str | None:
+    account = services.get_cf_account(db, user.id)
+    return account.handle if account else None
+
+
 # ---------- health / auth ----------
-@app.get("/api/health")
+@app.get(f"{V1}/health")
 def health():
     return {"status": "ok", "service": "cp-compass", "demo": True}
 
 
-@app.post("/api/auth/register", response_model=AuthOut, status_code=status.HTTP_201_CREATED)
+@app.post(f"{V1}/auth/register", response_model=AuthOut, status_code=status.HTTP_201_CREATED)
 def register(body: RegisterIn, db: Session = Depends(get_db)):
     if db.query(User).filter_by(email=body.email).first():
         raise HTTPException(400, "Email already registered")
@@ -96,24 +157,49 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
     user = User(email=body.email, password_hash=hash_password(body.password))
     db.add(user)
     db.commit()
-    return AuthOut(token=create_token(user.id), email=user.email, cf_handle=None)
+    tokens = issue_tokens(db, user.id)
+    return AuthOut(**tokens, email=user.email, cf_handle=None)
 
 
-@app.post("/api/auth/login", response_model=AuthOut)
+@app.post(f"{V1}/auth/login", response_model=AuthOut)
 def login(body: LoginIn, db: Session = Depends(get_db)):
     user = db.query(User).filter_by(email=body.email).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(401, "Wrong email or password")
-    return AuthOut(token=create_token(user.id), email=user.email, cf_handle=user.cf_handle)
+    tokens = issue_tokens(db, user.id)
+    return AuthOut(**tokens, email=user.email, cf_handle=_cf_handle(db, user))
 
 
-@app.get("/api/auth/me")
-def me(user: User = Depends(get_current_user)):
-    return {"email": user.email, "cf_handle": user.cf_handle,
+@app.post(f"{V1}/auth/refresh", response_model=AuthOut)
+def refresh(body: RefreshIn, db: Session = Depends(get_db)):
+    result = refresh_tokens(db, body.refresh_token)
+    if result is None:
+        raise HTTPException(401, "Invalid or expired refresh token")
+    tokens, user_id = result
+    user = db.query(User).get(user_id)
+    return AuthOut(**tokens, email=user.email if user else "",
+                    cf_handle=_cf_handle(db, user) if user else None)
+
+
+@app.post(f"{V1}/auth/logout")
+def logout(body: RefreshIn, db: Session = Depends(get_db)):
+    if not revoke_refresh_token(db, body.refresh_token):
+        raise HTTPException(401, "Invalid refresh token")
+    return {"ok": True}
+
+
+@app.post(f"{V1}/auth/logout-all")
+def logout_all(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return {"ok": True, "revoked": revoke_all_refresh_tokens(db, user.id)}
+
+
+@app.get(f"{V1}/auth/me")
+def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return {"email": user.email, "cf_handle": _cf_handle(db, user),
             "current_rating": user.current_rating}
 
 
-@app.post("/api/auth/handle")
+@app.post(f"{V1}/auth/handle")
 async def set_handle(body: HandleIn, user: User = Depends(get_current_user),
                      db: Session = Depends(get_db)):
     handle = body.handle.strip()
@@ -123,41 +209,38 @@ async def set_handle(body: HandleIn, user: User = Depends(get_current_user),
         info = await cf.verify_handle(handle)
     except CFError as exc:
         raise HTTPException(400, f"Codeforces could not verify this handle: {exc}")
-    user.cf_handle = handle
+    account = services.get_cf_account(db, user.id)
+    if account is None:
+        account = CfAccount(user_id=user.id, handle=handle,
+                            handle_norm=handle.lower(), rank=info.get("rank"))
+        db.add(account)
+    else:
+        account.handle = handle
+        account.handle_norm = handle.lower()
+        account.rank = info.get("rank")
     user.current_rating = info.get("rating")
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(400, "This handle is already connected to another account")
     return {"cf_handle": handle, "current_rating": user.current_rating,
             "rank": info.get("rank")}
 
 
 # ---------- sync ----------
-@app.post("/api/sync")
-def start_sync(background: BackgroundTasks, user: User = Depends(get_current_user),
+@app.post(f"{V1}/sync", status_code=status.HTTP_202_ACCEPTED)
+def start_sync(user: User = Depends(get_current_user),
                db: Session = Depends(get_db)):
-    if not user.cf_handle:
+    if _cf_handle(db, user) is None:
         raise HTTPException(400, "Connect your Codeforces handle first")
-    job = sync_engine.get_or_create_job(db, user.id)
+    job = sync_engine.enqueue_sync(db, user.id)
     if job is None:
         raise HTTPException(409, "A sync is already running")
-    job_id = job.id
-    user_id = user.id  # pass only primitives: the request session closes
-    db.close()  # background task opens its own session
-
-    def _run():
-        session = SessionLocal()
-        try:
-            u = session.query(User).get(user_id)
-            j = session.query(sync_engine.SyncJob).get(job_id)
-            import asyncio
-            asyncio.run(sync_engine.run_sync(session, u, j))
-        finally:
-            session.close()
-
-    background.add_task(_run)
-    return {"job_id": job_id, "status": "running"}
+    return {"job_id": job.id, "status": "pending"}
 
 
-@app.get("/api/sync/status")
+@app.get(f"{V1}/sync/status")
 def sync_status(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     job = sync_engine.latest_job(db, user.id)
     if not job:
@@ -168,9 +251,10 @@ def sync_status(user: User = Depends(get_current_user), db: Session = Depends(ge
 
 
 # ---------- dashboard ----------
-@app.get("/api/dashboard")
+@app.get(f"{V1}/dashboard")
 async def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if not user.cf_handle:
+    handle = _cf_handle(db, user)
+    if not handle:
         return {"has_handle": False, "synced": False, "user": {"handle": None},
                 "stats": None, "rating_history": [], "today_plan": {"problems": [], "revisions": []},
                 "tag_strengths": [], "heatmap": [], "recent": []}
@@ -185,11 +269,11 @@ async def dashboard(user: User = Depends(get_current_user), db: Session = Depend
     return {
         "has_handle": True,
         "synced": db.query(Submission).filter_by(user_id=user.id).first() is not None,
-        "user": {"handle": user.cf_handle, "rating": user.current_rating},
+        "user": {"handle": handle, "rating": user.current_rating},
         "stats": {"rating": user.current_rating, "solved": solved,
                   "streak": services.current_streak(db, user.id),
                   "revisions_due": len(due)},
-        "rating_history": await _rating_history(user.cf_handle),
+        "rating_history": await _rating_history(handle),
         "today_plan": {"problems": recs, "revisions": due[:2]},
         "tag_strengths": services.tag_stats(db, user.id),
         "heatmap": services.heatmap(db, user.id),
@@ -198,12 +282,12 @@ async def dashboard(user: User = Depends(get_current_user), db: Session = Depend
 
 
 # ---------- recommendations ----------
-@app.get("/api/recommendations")
+@app.get(f"{V1}/recommendations")
 async def recommendations(
         user: User = Depends(get_current_user), db: Session = Depends(get_db),
         tag: str | None = None, min_rating: int | None = None,
         max_rating: int | None = None, hide_solved: bool = True):
-    if not user.cf_handle:
+    if _cf_handle(db, user) is None:
         raise HTTPException(400, "Connect your Codeforces handle first")
     try:
         problems = await cf.problemset()
@@ -214,31 +298,32 @@ async def recommendations(
                               hide_solved=hide_solved)
 
 
-@app.post("/api/recommendations/action")
+@app.post(f"{V1}/recommendations/action")
 def recommendation_action(body: FeedbackIn, user: User = Depends(get_current_user),
                           db: Session = Depends(get_db)):
-    if body.action not in ("later", "not_interested"):
+    action = body.action
+    if action == "not_interested":  # legacy frontend name
+        action = "dismissed"
+    if action not in ("later", "dismissed", "interested"):
         raise HTTPException(400, "Unknown action")
-    fb = db.query(ProblemFeedback).filter_by(
-        user_id=user.id, contest_id=body.contest_id, problem_index=body.index).first()
-    if fb is None:
-        fb = ProblemFeedback(user_id=user.id, contest_id=body.contest_id,
-                             problem_index=body.index, action=body.action)
-        db.add(fb)
-    else:
-        fb.action = body.action
-    db.commit()
+    services.set_preference(db, user.id, body.contest_id, body.index, action)
     return {"ok": True}
 
 
+@app.get(f"{V1}/practice/preferences")
+def practice_preferences(user: User = Depends(get_current_user),
+                         db: Session = Depends(get_db)):
+    return services.list_preferences(db, user.id)
+
+
 # ---------- revisions ----------
-@app.get("/api/revisions")
+@app.get(f"{V1}/revisions")
 def revisions(tab: str = Query("due", pattern="^(due|upcoming|done)$"),
               user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return services.revision_list(db, user.id, tab)
 
 
-@app.post("/api/revisions/review")
+@app.post(f"{V1}/revisions/review")
 def review(body: ReviewIn, user: User = Depends(get_current_user),
            db: Session = Depends(get_db)):
     rev = services.review_revision(db, user.id, body.revision_id, body.result)
@@ -248,18 +333,18 @@ def review(body: ReviewIn, user: User = Depends(get_current_user),
             "interval_days": rev.interval_days}
 
 
-@app.get("/api/revisions/counts")
+@app.get(f"{V1}/revisions/counts")
 def revision_counts(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return {tab: len(services.revision_list(db, user.id, tab))
             for tab in ("due", "upcoming", "done")}
 
 
 # ---------- export ----------
-@app.get("/api/export")
+@app.get(f"{V1}/export")
 def export_data(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     subs = db.query(Submission).filter_by(user_id=user.id).all()
     return {
-        "handle": user.cf_handle, "email": user.email,
+        "handle": _cf_handle(db, user), "email": user.email,
         "submissions": [
             {"cf_id": s.cf_submission_id, "verdict": s.verdict,
              "submitted_at": s.submitted_at.isoformat()} for s in subs],
@@ -270,16 +355,16 @@ def export_data(user: User = Depends(get_current_user), db: Session = Depends(ge
 
 
 # ---------- demo (no auth, read-only, honestly labelled) ----------
-@app.get("/api/demo/dashboard")
+@app.get(f"{V1}/demo/dashboard")
 def demo_dashboard():
     return seed.dashboard_payload()
 
 
-@app.get("/api/demo/recommendations")
+@app.get(f"{V1}/demo/recommendations")
 def demo_recommendations():
     return seed.RECOMMENDATIONS
 
 
-@app.get("/api/demo/revisions")
+@app.get(f"{V1}/demo/revisions")
 def demo_revisions():
     return seed.REVISIONS

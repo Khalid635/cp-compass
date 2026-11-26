@@ -190,4 +190,5 @@ export interface Dict {
   whyWeakWrong: (tag: string, avg: number, rating: number) => string;
   whyNearRating: (userRating: number, rating: number) => string;
   whyDemoOutOfBand: string;
+  recScore: (s: number) => string;
 }
