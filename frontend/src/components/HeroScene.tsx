@@ -1,4 +1,4 @@
-/* 3D landing hero — a restrained compass: thin fuchsia rings, tick marks,
+/* 3D landing hero — a restrained compass: thin gold rings, tick marks,
    a slowly settling needle, three orbiting dots, a faint particle field.
    R3F with frameloop="demand": a frame is requested only while the scene
    is mounted and visible (the Rig re-invalidates each frame; the wrapper
@@ -55,13 +55,13 @@ function Compass({
   const primary = useMemo(
     () =>
       getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() ||
-      (theme === 'dark' ? '#e879f9' : '#a21caf'),
+      (theme === 'dark' ? '#d9a514' : '#92600a'),
     [theme],
   );
   const muted = useMemo(
     () =>
       getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() ||
-      (theme === 'dark' ? '#b8a3ab' : '#6e5d66'),
+      (theme === 'dark' ? '#b3a284' : '#6e6252'),
     [theme],
   );
 

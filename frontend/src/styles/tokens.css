@@ -1,36 +1,30 @@
 @import "tailwindcss";
 
 /* CP Compass design tokens — ONE accent, everything else neutral.
-   Full new combination (2026-11-27): warm plum-charcoal base + fuchsia
-   accent. NOT indigo, NOT Hisab AI lime.
-   Why fuchsia: every other vivid hue is already taken — green = success /
-   Pupil, cyan = Specialist, blue = Expert, violet = Candidate Master,
-   orange = Master, amber = warning, red = danger / Grandmaster. Fuchsia
-   (~300 deg) is ~60 deg from danger red and is no CF rank and no
-   semantic colour. Rank-CM violet (#c084fc) sits ~22 deg away, but rank
-   colours appear only as small label text (always with the number/title
-   next to them), while the accent appears on interactive chrome — the
-   contexts never collide.
-   Contrast verified with a WCAG script (all text pairs >= 4.5:1, focus
-   ring >= 3:1): dark primary #e879f9 on bg 7.98:1, on-primary on primary
-   7.31:1; light primary #a21caf on white 6.32:1, white on primary 6.32:1.
-   Light semantic + rank colours were darkened one step vs the old tokens
-   (old emerald-600/amber-600/orange-600 rank greens failed 4.5:1).
-   Borders are intentionally quiet hairlines (as before, slightly more
-   visible than the old tokens); the focus ring carries the 3:1 rule. */
+   Alternative colour direction (2026-11-27): warm brass-gold accent
+   on a warm brown near-black base. Branch colour-gold.
+   Why gold: hue ~45 deg — a luxury feel. The tightest fight is accent
+   vs warning amber #fbbf24 (~2 deg apart in hue); gold is darker and
+   less saturated, and warning is used rarely in this UI, so the clash
+   is survivable — but any warning shown next to gold chrome will read
+   as the same family. Rank Master orange #fb923c sits ~13 deg away.
+   Contrast verified with a WCAG script (all text pairs >= 4.5:1):
+   dark primary #d9a514 on bg 8.63:1, on-primary on primary 7.63:1;
+   light primary #92600a on bg 5.07:1. Semantic + rank colours
+   unchanged. */
 
 :root[data-theme="dark"] {
-  --bg: #0f0a0e;
-  --surface: #171016;
-  --surface-2: #1f151c;
-  --primary: #e879f9;
-  --on-primary: #2a0a24;
-  --text: #f6eef0;
-  --muted: #b8a3ab;
-  --border: #41303a;
-  --hover: #1f151c;
-  --active: #2a1c24;
-  --ring: #e879f9;
+  --bg: #100d08;
+  --surface: #181209;
+  --surface-2: #201a0e;
+  --primary: #d9a514;
+  --on-primary: #241a05;
+  --text: #f7f1e6;
+  --muted: #b3a284;
+  --border: #3d3222;
+  --hover: #201a0e;
+  --active: #2c2414;
+  --ring: #d9a514;
   --success: #34d399;
   --warning: #fbbf24;
   --danger: #f87171;
@@ -45,17 +39,17 @@
 }
 
 :root[data-theme="light"] {
-  --bg: #faf7f8;
+  --bg: #faf8f3;
   --surface: #ffffff;
-  --surface-2: #f4eef1;
-  --primary: #a21caf;
+  --surface-2: #f3ede1;
+  --primary: #92600a;
   --on-primary: #ffffff;
-  --text: #1d1219;
-  --muted: #6e5d66;
-  --border: #ddcdd4;
-  --hover: #f4eef1;
-  --active: #eadfe4;
-  --ring: #a21caf;
+  --text: #1d1710;
+  --muted: #6e6252;
+  --border: #ddd2bd;
+  --hover: #f3ede1;
+  --active: #e9dfc9;
+  --ring: #92600a;
   --success: #047857;
   --warning: #b45309;
   --danger: #b91c1c;
