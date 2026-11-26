@@ -244,6 +244,17 @@ def _revisions():
 REVISIONS = _revisions()
 
 
+def _recent_row(s):
+    """Nested shape the frontend expects — same as services.recent_submissions."""
+    return {
+        "problem": {"contest_id": s["contest_id"], "index": s["index"],
+                    "name": s["name"], "rating": s["rating"], "tags": s["tags"]},
+        "verdict": s["verdict"],
+        "language": s["language"],
+        "submitted_at": s["submitted_at"],
+    }
+
+
 def dashboard_payload():
     solved = len(SOLVED_KEYS)
     return {
@@ -255,7 +266,7 @@ def dashboard_payload():
                        "revisions": REVISIONS["due"][:2]},
         "tag_strengths": TAG_STRENGTHS,
         "heatmap": HEATMAP,
-        "recent": SUBMISSIONS[:10],
+        "recent": [_recent_row(s) for s in SUBMISSIONS[:10]],
         "has_handle": True,
         "synced": True,
         "demo": True,

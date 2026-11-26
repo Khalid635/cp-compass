@@ -4,6 +4,7 @@ Rate limit: at most 1 call per 2 seconds, enforced process-wide with an
 asyncio lock + timestamp (single Render instance, so in-memory is enough).
 Retries use exponential backoff; a FAILED response is never hammered.
 """
+
 import asyncio
 import os
 import time
@@ -24,7 +25,9 @@ class CFClient:
         self._last_call = 0.0
         self._problemset_cache: tuple[float, list[dict]] | None = None
 
-    async def _get(self, path: str, params: dict | None = None, retries: int = 3) -> Any:
+    async def _get(
+        self, path: str, params: dict | None = None, retries: int = 3
+    ) -> Any:
         async with self._lock:
             wait = CF_MIN_INTERVAL_S - (time.monotonic() - self._last_call)
             if wait > 0:
@@ -39,14 +42,19 @@ class CFClient:
                 # NO_PROXY list (bare IPv6 entries) when reading env itself,
                 # and direct TLS fails because egress requires the proxy.
                 # trust_env=False stops httpx from re-parsing the env.
-                proxy = (os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY")
-                         or os.environ.get("http_proxy") or None)
+                proxy = (
+                    os.environ.get("https_proxy")
+                    or os.environ.get("HTTPS_PROXY")
+                    or os.environ.get("http_proxy")
+                    or None
+                )
                 # System CA bundle (includes the egress proxy's CA on this VM;
                 # on Render it is the stock Debian bundle).
                 bundle = "/etc/ssl/certs/ca-certificates.crt"
                 verify = bundle if os.path.exists(bundle) else True
-                async with httpx.AsyncClient(timeout=30, trust_env=False,
-                                             proxy=proxy, verify=verify) as client:
+                async with httpx.AsyncClient(
+                    timeout=30, trust_env=False, proxy=proxy, verify=verify
+                ) as client:
                     resp = await client.get(url, params=params or {})
                 data = resp.json()
                 if data.get("status") == "OK":
@@ -67,8 +75,12 @@ class CFClient:
             raise CFError("Handle not found on Codeforces")
         return result[0]
 
-    async def user_status(self, handle: str, start_from: int = 1, count: int = 1000) -> list[dict]:
-        return await self._get("/user.status", {"handle": handle, "from": start_from, "count": count})
+    async def user_status(
+        self, handle: str, start_from: int = 1, count: int = 1000
+    ) -> list[dict]:
+        return await self._get(
+            "/user.status", {"handle": handle, "from": start_from, "count": count}
+        )
 
     async def user_rating(self, handle: str) -> list[dict]:
         return await self._get("/user.rating", {"handle": handle})
