@@ -86,3 +86,121 @@ select {
   font-size: 11px;
   line-height: 1;
 }
+
+/* Frosted glass — restrained: sticky topbar, dropdowns, demo banner,
+   command palette. Translucent surface + blur + hairline border, never
+   a full glassmorphism wash. */
+.frost {
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Frosted glass with the primary tint — the demo banner only. */
+.frost-primary {
+  background: color-mix(
+    in srgb,
+    var(--primary) 10%,
+    color-mix(in srgb, var(--surface) 78%, transparent)
+  );
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Hero title shimmer — one slow teal sweep across the headline, subtle.
+   Frozen (static, still readable) under prefers-reduced-motion via the
+   global rule in animations.css. */
+.hero-shimmer {
+  background: linear-gradient(
+    100deg,
+    var(--text) 35%,
+    color-mix(in oklch, var(--primary) 65%, var(--text)) 50%,
+    var(--text) 65%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 7s linear infinite;
+}
+
+/* cmdk command palette — headless library, so the chrome lives here. */
+[cmdk-dialog] {
+  position: fixed;
+  left: 50%;
+  top: 16vh;
+  transform: translateX(-50%);
+  width: min(560px, calc(100vw - 32px));
+  z-index: 50;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+}
+
+[cmdk-overlay] {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+[cmdk-input] {
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+}
+
+[cmdk-input]::placeholder {
+  color: var(--muted);
+}
+
+[cmdk-list] {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+[cmdk-group-heading] {
+  padding: 8px 10px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+[cmdk-item] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+[cmdk-item][data-selected="true"] {
+  background: var(--hover);
+}
+
+[cmdk-item][data-disabled="true"] {
+  opacity: 0.5;
+}
+
+[cmdk-empty] {
+  padding: 24px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--muted);
+}

@@ -1,8 +1,9 @@
 /* AppShell: sidebar (240px, collapses to a bottom tab bar on mobile),
    topbar (56px) with sync status, language + theme toggles, account menu. */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import {
   Compass,
   LayoutDashboard,
@@ -20,6 +21,7 @@ import { formatTimeAgo, LanguageToggle, useLanguage } from '../i18n';
 import type { Dict } from '../i18n/dict';
 import { useAuth } from '../hooks/useAuth';
 import type { Theme } from '../hooks/useTheme';
+import { PaletteTrigger } from './CommandPalette';
 import { Button } from './ui';
 
 export function Logo({ size = 28 }: { size?: number }) {
@@ -51,6 +53,15 @@ function SyncChip() {
     mutationFn: api.startSync,
     onSettled: () => void qc.invalidateQueries({ queryKey: ['sync-status'] }),
   });
+
+  /* Toast once when a running sync finishes. */
+  const prevStatus = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data) return;
+    const prev = prevStatus.current;
+    prevStatus.current = data.status;
+    if (prev === 'running' && data.status === 'done') toast(t.toastSynced);
+  }, [data, t]);
 
   if (!data) return null;
   if (data.status === 'running') {
@@ -109,7 +120,7 @@ export function ColdStartBanner() {
 export function DemoBanner() {
   const { t } = useLanguage();
   return (
-    <div className="border-b border-primary/40 bg-primary/10 px-4 py-2.5 text-center text-sm">
+    <div className="frost-primary sticky top-14 z-10 border-b border-primary/40 px-4 py-2.5 text-center text-sm">
       {t.demoBanner}{' '}
       <Link to="/login" className="font-medium underline">
         {t.createAccount}
@@ -173,7 +184,7 @@ export function AppShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Topbar */}
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-bg/95 px-4 backdrop-blur-sm md:gap-3 md:px-6">
+        <header className="frost sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border px-4 md:gap-3 md:px-6">
           <Link to={base} className="md:hidden hover:no-underline">
             <Compass size={24} className="text-primary" aria-hidden />
           </Link>
@@ -186,6 +197,7 @@ export function AppShell({
               <SyncChip />
             )}
           </div>
+          <PaletteTrigger />
           <LanguageToggle />
           <button
             onClick={toggleTheme}
@@ -208,7 +220,7 @@ export function AppShell({
               {menuOpen && (
                 <div
                   role="menu"
-                  className="absolute right-0 mt-2 w-56 rounded-lg border border-border bg-surface p-2 shadow-lg"
+                  className="frost absolute right-0 mt-2 w-56 rounded-lg border border-border p-2 shadow-lg"
                 >
                   <p className="truncate px-2 py-1.5 text-xs text-muted">{user.email}</p>
                   {user.cf_handle && (
@@ -239,7 +251,7 @@ export function AppShell({
 
         {/* Bottom tab bar — mobile */}
         <nav
-          className="sticky bottom-0 z-20 flex border-t border-border bg-surface md:hidden"
+          className="frost sticky bottom-0 z-20 flex border-t border-border md:hidden"
           aria-label="Main"
         >
           {NAV.map((item) => (
@@ -271,6 +283,7 @@ export function LandingHeader({ theme, toggleTheme }: { theme: Theme; toggleThem
         <Logo />
       </Link>
       <div className="flex flex-wrap items-center justify-end gap-2">
+        <PaletteTrigger />
         <LanguageToggle />
         <button
           onClick={toggleTheme}

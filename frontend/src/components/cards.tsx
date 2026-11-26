@@ -1,13 +1,15 @@
 /* Feature cards: StatCard, ProblemCard, RevisionCard, RecentSubmissions,
    FilterBar — per the design spec. All user-facing text via i18n. */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ArrowUpRight, Check, Clock, ExternalLink, RotateCcw, X } from 'lucide-react';
+import gsap from 'gsap';
 import type { ProblemRef, RevisionItem, SubmissionRow, WhyInfo } from '../api/types';
 import { cfUrl, rankOf } from '../api/types';
 import { formatDateTime, formatWhy, useLanguage } from '../i18n';
 import type { Dict } from '../i18n/dict';
 import { Button, Card, RatingBadge, TagChip } from './ui';
+import { CountUp } from './CountUp';
 
 /* ---------- StatCard ---------- */
 export function StatCard({
@@ -16,12 +18,15 @@ export function StatCard({
   sub,
   delta,
   icon,
+  animate = false,
 }: {
   label: string;
   value: ReactNode;
   sub?: string;
   delta?: { text: string; good: boolean };
   icon?: ReactNode;
+  /** Count the number up on load / on change (skipped under reduced motion). */
+  animate?: boolean;
 }) {
   return (
     <div
@@ -32,7 +37,9 @@ export function StatCard({
         <p className="text-xs font-medium uppercase tracking-[0.04em] text-muted">{label}</p>
         {icon && <span className="text-muted">{icon}</span>}
       </div>
-      <p className="tabular mt-2 font-mono text-[32px] font-semibold leading-none">{value}</p>
+      <p className="tabular mt-2 font-mono text-[32px] font-semibold leading-none">
+        {animate && typeof value === 'number' ? <CountUp value={value} /> : value}
+      </p>
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
         {delta && (
           <span
@@ -74,9 +81,23 @@ export function ProblemCard({
   const hidden = actionState === 'hidden';
   if (hidden) return null;
   return (
-    <article className="flex min-w-0 flex-col rounded-lg border border-border bg-surface p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40">
+    <article className="group flex min-w-0 flex-col rounded-lg border border-border bg-surface p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40">
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-base font-semibold leading-snug">{problem.name}</h3>
+        <h3 className="text-base font-semibold leading-snug">
+          <a
+            href={cfUrl(problem)}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-text hover:text-primary hover:no-underline"
+          >
+            {problem.name}
+            <ArrowUpRight
+              size={15}
+              aria-hidden
+              className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+            />
+          </a>
+        </h3>
         <RatingBadge rating={problem.rating} rankName={rank.name} rankColor={rank.token} />
       </div>
       <p className="mt-1 font-mono text-[13px] font-medium text-muted">
@@ -122,7 +143,7 @@ export function ProblemCard({
   );
 }
 
-function resultLabel(result: string, t: Dict): string {
+export function resultLabel(result: string, t: Dict): string {
   switch (result) {
     case 'again':
       return t.reviewAgain;
@@ -157,6 +178,26 @@ export function RevisionCard({
     { id: 'good' as const, label: t.reviewGood, key: '3', hint: t.hintGood },
     { id: 'easy' as const, label: t.reviewEasy, key: '4', hint: t.hintEasy },
   ];
+  /* Circular reveal (GSAP clip-path) on the "reviewed" confirmation — one
+     place only, restrained; skipped under prefers-reduced-motion. */
+  const confirmRef = useRef<HTMLParagraphElement | null>(null);
+  const prevReviewed = useRef<string | null>(null);
+  useEffect(() => {
+    if (!reviewed || prevReviewed.current === reviewed || !confirmRef.current) return;
+    prevReviewed.current = reviewed;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    gsap.fromTo(
+      confirmRef.current,
+      { clipPath: 'circle(0% at 50% 50%)', opacity: 0 },
+      {
+        clipPath: 'circle(150% at 50% 50%)',
+        opacity: 1,
+        duration: 0.6,
+        ease: 'power2.out',
+        clearProps: 'clipPath,opacity',
+      },
+    );
+  }, [reviewed]);
   return (
     <article className="rounded-lg border border-border bg-surface p-6">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -193,7 +234,7 @@ export function RevisionCard({
         </a>
       </div>
       {reviewed ? (
-        <p className="mt-5 flex items-center gap-2 text-sm text-success">
+        <p ref={confirmRef} className="mt-5 flex items-center gap-2 text-sm text-success">
           <Check size={16} aria-hidden />{' '}
           {t.reviewedAs(
             resultLabel(reviewed, t),
@@ -259,10 +300,15 @@ export function RecentSubmissions({ rows }: { rows: SubmissionRow[] }) {
                     href={cfUrl(r.problem)}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-medium text-text hover:text-primary hover:no-underline"
+                    className="group inline-flex items-center gap-1 font-medium text-text hover:text-primary hover:no-underline"
                   >
                     {r.problem.contest_id}
                     {r.problem.index} — {r.problem.name}
+                    <ArrowUpRight
+                      size={13}
+                      aria-hidden
+                      className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                    />
                   </a>
                 </td>
                 <td className="py-3 pr-3">

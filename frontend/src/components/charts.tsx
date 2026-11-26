@@ -55,16 +55,41 @@ function ChartTooltip({
   );
 }
 
-export function RatingChart({ data }: { data: RatingPoint[] }) {
+export type ChartRange = 'day' | 'week' | 'month';
+
+/** Aggregate contest points by ISO week (Monday start) or calendar month,
+    keeping the last rating in each bucket — the rating at the end of that
+    week/month. 'day' returns the points unchanged. */
+function aggregateRating(
+  points: { name: string; rating: number; date: string }[],
+  range: ChartRange,
+) {
+  if (range === 'day') return points;
+  const keyOf = (date: string) => {
+    if (range === 'month') return date.slice(0, 7);
+    const dt = new Date(date.length === 10 ? `${date}T00:00:00` : date);
+    const monday = new Date(dt);
+    monday.setDate(dt.getDate() - ((dt.getDay() + 6) % 7));
+    return monday.toISOString().slice(0, 10);
+  };
+  const map = new Map<string, { name: string; rating: number; date: string }>();
+  for (const p of points) map.set(keyOf(p.date), p);
+  return [...map.values()];
+}
+
+export function RatingChart({ data, range = 'day' }: { data: RatingPoint[]; range?: ChartRange }) {
   const { t } = useLanguage();
   const points = useMemo(
     () =>
-      data.map((d) => ({
-        name: d.contest.replace('Round #', '#'),
-        rating: d.rating,
-        date: d.date,
-      })),
-    [data],
+      aggregateRating(
+        data.map((d) => ({
+          name: d.contest.replace('Round #', '#'),
+          rating: d.rating,
+          date: d.date,
+        })),
+        range,
+      ),
+    [data, range],
   );
   if (points.length < 2) {
     return (
@@ -210,8 +235,25 @@ function heatLevel(count: number): number {
   return 4;
 }
 
-export function Heatmap({ days }: { days: HeatDay[] }) {
+export function Heatmap({ days, mode = 'day' }: { days: HeatDay[]; mode?: 'day' | 'week' }) {
   const { t, lang } = useLanguage();
+  /* Weekly mode: one summed cell per ISO week (Monday start) instead of
+     one cell per day — the same colour scale, a single row. */
+  const weeks = useMemo(() => {
+    if (mode !== 'week') return null;
+    const map = new Map<string, { monday: string; count: number }>();
+    for (const d of days) {
+      const dt = new Date(`${d.date}T00:00:00`);
+      const monday = new Date(dt);
+      monday.setDate(dt.getDate() - ((dt.getDay() + 6) % 7));
+      const key = monday.toISOString().slice(0, 10);
+      const cur = map.get(key) ?? { monday: key, count: 0 };
+      cur.count += d.count;
+      map.set(key, cur);
+    }
+    return [...map.values()];
+  }, [days, mode]);
+
   const { columns, monthLabels } = useMemo(() => {
     if (days.length === 0) return { columns: [] as (HeatDay | null)[][], monthLabels: [] as { x: number; label: string }[] };
     const first = new Date(`${days[0].date}T00:00:00`);
@@ -242,8 +284,66 @@ export function Heatmap({ days }: { days: HeatDay[] }) {
   if (days.length === 0) {
     return <p className="py-8 text-center text-sm text-muted">{t.noActivityYet}</p>;
   }
-  const width = columns.length * 15;
+
   const total = days.reduce((a, d) => a + d.count, 0);
+  const legend = (
+    <div className="mt-2 flex items-center justify-end gap-1 text-xs text-muted">
+      {t.heatLess}
+      {[0, 1, 2, 3, 4].map((l) => (
+        <span
+          key={l}
+          className="inline-block h-3 w-3 rounded-[2px]"
+          style={{ background: `var(--heat-${l})` }}
+        />
+      ))}
+      {t.heatMore}
+    </div>
+  );
+
+  if (mode === 'week' && weeks) {
+    const weekMonthLabels: { x: number; label: string }[] = [];
+    let prevMonth = -1;
+    weeks.forEach((w, i) => {
+      const m = new Date(`${w.monday}T00:00:00`).getMonth();
+      if (m !== prevMonth) {
+        weekMonthLabels.push({
+          x: i * 15,
+          label: new Date(`${w.monday}T00:00:00`).toLocaleString(
+            lang === 'bn' ? 'bn-u-nu-latn' : 'en',
+            { month: 'short' },
+          ),
+        });
+        prevMonth = m;
+      }
+    });
+    return (
+      <div className="min-w-0 overflow-x-auto" role="img" aria-label={`Activity heatmap, ${total} accepted submissions`}>
+        <svg width={weeks.length * 15} height={52} className="block">
+          {weekMonthLabels.map((l) => (
+            <text key={l.label + l.x} x={l.x} y={10} fontSize={11} fill="var(--muted)">
+              {l.label}
+            </text>
+          ))}
+          {weeks.map((w, i) => (
+            <rect
+              key={w.monday}
+              x={i * 15}
+              y={18}
+              width={12}
+              height={12}
+              rx={2}
+              style={{ fill: `var(--heat-${heatLevel(w.count)})` }}
+            >
+              <title>{t.heatWeekTooltip(w.monday, w.count)}</title>
+            </rect>
+          ))}
+        </svg>
+        {legend}
+      </div>
+    );
+  }
+
+  const width = columns.length * 15;
   return (
     <div className="min-w-0 overflow-x-auto" role="img" aria-label={`Activity heatmap, ${total} accepted submissions`}>
       <svg width={width} height={132} className="block">
@@ -274,17 +374,7 @@ export function Heatmap({ days }: { days: HeatDay[] }) {
           }),
         )}
       </svg>
-      <div className="mt-2 flex items-center justify-end gap-1 text-xs text-muted">
-        {t.heatLess}
-        {[0, 1, 2, 3, 4].map((l) => (
-          <span
-            key={l}
-            className="inline-block h-3 w-3 rounded-[2px]"
-            style={{ background: `var(--heat-${l})` }}
-          />
-        ))}
-        {t.heatMore}
-      </div>
+      {legend}
     </div>
   );
 }

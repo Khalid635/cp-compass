@@ -157,6 +157,43 @@ export function Input({
   );
 }
 
+/* ---------- SegmentedControl ---------- */
+/** Small pill group (Days / Weeks / Months, Daily / Weekly). Same visual
+    language as the language toggle. */
+export function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  options: { id: T; label: string }[];
+  value: T;
+  onChange: (id: T) => void;
+  ariaLabel?: string;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={ariaLabel}
+      className="flex items-center rounded-md border border-border bg-surface-2 p-0.5"
+    >
+      {options.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          aria-pressed={value === o.id}
+          onClick={() => onChange(o.id)}
+          className={`h-7 cursor-pointer rounded px-2.5 text-xs font-medium whitespace-nowrap transition-colors ${
+            value === o.id ? 'bg-primary text-on-primary' : 'text-muted hover:text-text'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /* ---------- Tabs ---------- */
 export function Tabs<T extends string>({
   tabs,

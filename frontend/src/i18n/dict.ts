@@ -191,4 +191,52 @@ export interface Dict {
   whyNearRating: (userRating: number, rating: number) => string;
   whyDemoOutOfBand: string;
   recScore: (s: number) => string;
+  // toasts (Sonner)
+  toastSynced: string;
+  toastSavedLater: string;
+  toastNotInterested: string;
+  toastUndone: string;
+  toastReviewed: (result: string) => string;
+  toastCopied: string;
+  undo: string;
+  // command palette ("/" search)
+  palettePlaceholder: string;
+  palettePages: string;
+  paletteActions: string;
+  paletteProblems: string;
+  paletteNoResults: string;
+  paletteSearchHint: string;
+  paletteGoDemo: string;
+  paletteGoHome: string;
+  paletteToggleTheme: string;
+  paletteSwitchLanguage: string;
+  paletteNavigate: string;
+  paletteOpen: string;
+  paletteClose: string;
+  // practice filters + saved views
+  filterRatingBand: string;
+  clearFilters: (n: number) => string;
+  savedViews: string;
+  saveView: string;
+  saveViewName: string;
+  noSavedViews: string;
+  viewSaved: string;
+  deleteView: string;
+  // topic goal rings
+  topicGoals: string;
+  goalTarget: (pct: number) => string;
+  goalPractice: (tag: string) => string;
+  goalAttempted: (n: number) => string;
+  goalWeak: string;
+  goalOnTrack: string;
+  // chart ranges
+  rangeDays: string;
+  rangeWeeks: string;
+  rangeMonths: string;
+  activityDaily: string;
+  activityWeekly: string;
+  heatWeekTooltip: (date: string, count: number) => string;
+  // copy training plan
+  copyPlan: string;
+  copied: string;
 }

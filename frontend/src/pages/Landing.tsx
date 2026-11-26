@@ -38,6 +38,17 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
     { icon: GitBranch, title: t.feature3Title, text: t.feature3Text },
   ];
 
+  /* Section headings fade up once on scroll into view (same 450 ms Rise &
+     Settle as the hero, headings only). Skipped under reduced motion. */
+  const fadeUp = reduceMotion
+    ? {}
+    : {
+        initial: { opacity: 0, y: 12 },
+        whileInView: { opacity: 1, y: 0 },
+        viewport: { once: true, margin: '-40px' },
+        transition: { duration: 0.45, ease: 'easeOut' as const },
+      };
+
   const STEPS = [
     { n: '1', title: t.step1Title, text: t.step1Text },
     { n: '2', title: t.step2Title, text: t.step2Text },
@@ -85,7 +96,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
           </motion.p>
           <motion.h1
             {...rise(0.08)}
-            className="relative z-[1] mx-auto mt-5 max-w-[26ch] text-[clamp(2.25rem,5vw,3.5rem)] font-semibold leading-[1.1] tracking-tight"
+            className="hero-shimmer relative z-[1] mx-auto mt-5 max-w-[26ch] text-[clamp(2.25rem,5vw,3.5rem)] font-semibold leading-[1.1] tracking-tight"
           >
             {t.landingTitle}
           </motion.h1>
@@ -173,7 +184,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
 
       {/* Features */}
       <section className="mx-auto max-w-[1280px] px-4 pb-16 md:px-6">
-        <div className="grid gap-4 md:grid-cols-3">
+        <motion.div {...fadeUp} className="grid gap-4 md:grid-cols-3">
           {FEATURES.map((f) => (
             <Card key={f.title}>
               <f.icon size={20} className="text-primary" aria-hidden />
@@ -181,12 +192,14 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
               <p className="mt-1 text-sm text-muted">{f.text}</p>
             </Card>
           ))}
-        </div>
+        </motion.div>
       </section>
 
       {/* How it works */}
       <section className="mx-auto max-w-[1280px] px-4 pb-16 md:px-6">
-        <h2 className="text-2xl font-semibold tracking-tight">{t.howItWorks}</h2>
+        <motion.h2 {...fadeUp} className="text-2xl font-semibold tracking-tight">
+          {t.howItWorks}
+        </motion.h2>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           {STEPS.map((s) => (
             <Card key={s.n}>
@@ -218,7 +231,9 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
       {/* CTA + footer */}
       <footer className="border-t border-border">
         <div className="mx-auto max-w-[1280px] px-4 py-12 text-center md:px-6">
-          <h2 className="text-2xl font-semibold tracking-tight">{t.ctaTitle}</h2>
+          <motion.h2 {...fadeUp} className="text-2xl font-semibold tracking-tight">
+            {t.ctaTitle}
+          </motion.h2>
           <div className="mt-6 flex justify-center gap-3">
             <Link to="/demo">
               <Button className="h-11 px-6 text-base">{t.tryDemo}</Button>

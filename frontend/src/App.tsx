@@ -1,9 +1,12 @@
 import { lazy, Suspense } from 'react';
+import type { CSSProperties } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { useTheme } from './hooks/useTheme';
 import { AppShell } from './components/layout';
+import { PaletteProvider } from './components/CommandPalette';
 import Landing from './pages/Landing';
 import { LoginPage, RegisterPage } from './pages/Auth';
 import DemoLayout from './pages/Demo';
@@ -43,8 +46,24 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   const { theme, toggle: toggleTheme } = useTheme();
   return (
-    <Suspense fallback={<PageLoader />}>
-      <Routes>
+    <PaletteProvider theme={theme} toggleTheme={toggleTheme}>
+      <Toaster
+        position="bottom-right"
+        theme={theme}
+        duration={4000}
+        style={
+          {
+            '--normal-bg': 'var(--surface)',
+            '--normal-text': 'var(--text)',
+            '--normal-border': 'var(--border)',
+            '--success-bg': 'var(--surface)',
+            '--success-text': 'var(--text)',
+            '--success-border': 'var(--border)',
+          } as CSSProperties
+        }
+      />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
         <Route path="/" element={<Landing theme={theme} toggleTheme={toggleTheme} />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -74,7 +93,8 @@ function AppRoutes() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </Suspense>
+      </Suspense>
+    </PaletteProvider>
   );
 }
 

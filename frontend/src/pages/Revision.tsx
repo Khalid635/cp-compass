@@ -2,11 +2,12 @@
    time, Again/Hard/Good/Easy + keys 1–4. Intervals: 1/3/7/14/30 days. */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { CheckCircle2, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import { api } from '../api/client';
 import type { RevisionItem } from '../api/types';
 import { formatDate, useLanguage } from '../i18n';
-import { RevisionCard } from '../components/cards';
+import { RevisionCard, resultLabel } from '../components/cards';
 import { Button, Card, EmptyState, Skeleton, Tabs } from '../components/ui';
 
 type Tab = 'due' | 'upcoming' | 'done';
@@ -46,6 +47,7 @@ export default function Revision({ demo = false }: { demo?: boolean }) {
       setReviewed((r) => ({ ...r, [vars.id]: vars.result }));
       void qc.invalidateQueries({ queryKey: ['revision-counts'] });
       void qc.invalidateQueries({ queryKey: ['revisions'] });
+      toast(t.toastReviewed(resultLabel(vars.result, t)));
     },
   });
 

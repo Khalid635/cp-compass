@@ -3,8 +3,13 @@
    hurts only the first load (skeleton + ColdStartBanner meanwhile). */
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
+import { toast } from 'sonner';
 import {
+  ArrowUpRight,
   CalendarCheck2,
+  Check,
+  Copy,
   Flame,
   Link2,
   RefreshCw,
@@ -15,9 +20,11 @@ import { api } from '../api/client';
 import { rankOf } from '../api/types';
 import { formatWhy, useLanguage } from '../i18n';
 import { Heatmap, RatingChart, TopicRadar } from '../components/charts';
+import type { ChartRange } from '../components/charts';
 import { RecentSubmissions, StatCard } from '../components/cards';
+import { GoalRings } from '../components/GoalRings';
 import { ColdStartBanner } from '../components/layout';
-import { Button, Card, EmptyState, RatingBadge, Skeleton } from '../components/ui';
+import { Button, Card, EmptyState, RatingBadge, SegmentedControl, Skeleton } from '../components/ui';
 import { HandleConnect } from './Auth';
 
 function DashboardSkeleton() {
@@ -48,6 +55,10 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
     staleTime: 60_000,
   });
   const [showColdStart, setShowColdStart] = useState(false);
+  const [range, setRange] = useState<ChartRange>('day');
+  const [heatMode, setHeatMode] = useState<'day' | 'week'>('day');
+  const [copied, setCopied] = useState(false);
+  const [planRef] = useAutoAnimate<HTMLDivElement>();
 
   // ColdStartBanner only if the first load is actually slow (>1.5s).
   useEffect(() => {
@@ -99,6 +110,38 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
   const delta =
     hist.length >= 2 ? hist[hist.length - 1].rating - hist[hist.length - 2].rating : 0;
 
+  /* Copy training plan — weak topics + today's problems + revisions, in the
+     active locale. Button flips to "Copied" for 2s + a toast confirms. */
+  const copyPlan = async () => {
+    const weak = d.tag_strengths.filter((tg) => tg.weak).map((tg) => tg.tag);
+    const lines: string[] = [
+      `${t.dashboard} — ${d.user.handle ?? ''}`,
+      weak.length > 0 ? t.weakRightNow(weak.join(', ')) : '',
+      `${t.todaysPlan}:`,
+      ...d.today_plan.problems.map(
+        (p) => `- ${p.contest_id}${p.index} — ${p.name} (${p.rating ?? '?'}) — ${formatWhy(p.why, t)}`,
+      ),
+      ...d.today_plan.revisions.map(
+        (r) => `- ${t.reviseLabel}: ${r.problem.contest_id}${r.problem.index} — ${r.problem.name}`,
+      ),
+      `${t.statRating}: ${d.stats?.rating ?? '—'} · ${t.statSolved}: ${d.stats?.solved ?? 0} · ${t.statStreak}: ${d.stats?.streak ?? 0}`,
+    ].filter(Boolean);
+    const text = lines.join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    toast(t.toastCopied);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="page-enter flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -122,6 +165,7 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
         <StatCard
           label={t.statRating}
           value={d.stats?.rating ?? '—'}
+          animate
           icon={<Trophy size={16} aria-hidden />}
           delta={
             delta !== 0
@@ -133,18 +177,21 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
         <StatCard
           label={t.statSolved}
           value={d.stats?.solved ?? 0}
+          animate
           icon={<Target size={16} aria-hidden />}
           sub={t.subSolved}
         />
         <StatCard
           label={t.statStreak}
           value={d.stats?.streak ?? 0}
+          animate
           sub={t.subStreak(d.stats?.streak ?? 0)}
           icon={<Flame size={16} aria-hidden />}
         />
         <StatCard
           label={t.statRevisionDue}
           value={d.stats?.revisions_due ?? 0}
+          animate
           sub={t.subRevisions}
           icon={<CalendarCheck2 size={16} aria-hidden />}
         />
@@ -156,18 +203,43 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
           title={t.ratingHistory}
           className="min-w-0 lg:col-span-8"
           action={
-            d.stats?.rating !== null && d.stats?.rating !== undefined ? (
-              <RatingBadge rating={d.stats.rating} rankName={rank.name} rankColor={rank.token} />
-            ) : undefined
+            <div className="flex flex-wrap items-center gap-2">
+              <SegmentedControl<ChartRange>
+                ariaLabel={t.ratingHistory}
+                options={[
+                  { id: 'day', label: t.rangeDays },
+                  { id: 'week', label: t.rangeWeeks },
+                  { id: 'month', label: t.rangeMonths },
+                ]}
+                value={range}
+                onChange={setRange}
+              />
+              {d.stats?.rating !== null && d.stats?.rating !== undefined ? (
+                <RatingBadge rating={d.stats.rating} rankName={rank.name} rankColor={rank.token} />
+              ) : undefined}
+            </div>
           }
         >
-          <RatingChart data={d.rating_history} />
+          <RatingChart data={d.rating_history} range={range} />
         </Card>
-        <Card title={t.todaysPlan} className="min-w-0 lg:col-span-4">
+        <Card
+          title={t.todaysPlan}
+          className="min-w-0 lg:col-span-4"
+          action={
+            <Button
+              variant="ghost"
+              className="h-8 shrink-0 whitespace-nowrap px-2 text-xs"
+              onClick={() => void copyPlan()}
+            >
+              {copied ? <Check size={13} aria-hidden /> : <Copy size={13} aria-hidden />}{' '}
+              {copied ? t.copied : t.copyPlan}
+            </Button>
+          }
+        >
           {d.today_plan.problems.length === 0 && d.today_plan.revisions.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted">{t.nothingPlanned}</p>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div ref={planRef} className="flex flex-col gap-3">
               {d.today_plan.problems.map((p) => (
                 <div key={`${p.contest_id}${p.index}`} className="rounded-md border border-border bg-bg p-3">
                   <div className="flex items-start justify-between gap-2">
@@ -175,10 +247,15 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
                       href={`https://codeforces.com/problemset/problem/${p.contest_id}/${p.index}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sm font-medium text-text hover:text-primary hover:no-underline"
+                      className="group inline-flex items-center gap-1 text-sm font-medium text-text hover:text-primary hover:no-underline"
                     >
                       {p.contest_id}
                       {p.index} — {p.name}
+                      <ArrowUpRight
+                        size={13}
+                        aria-hidden
+                        className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                      />
                     </a>
                     <RatingBadge
                       rating={p.rating}
@@ -224,10 +301,31 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
             </p>
           )}
         </Card>
-        <Card title={t.dailyActivity} className="min-w-0">
-          <Heatmap days={d.heatmap} />
+        <Card
+          title={t.dailyActivity}
+          className="min-w-0"
+          action={
+            <SegmentedControl<'day' | 'week'>
+              ariaLabel={t.dailyActivity}
+              options={[
+                { id: 'day', label: t.activityDaily },
+                { id: 'week', label: t.activityWeekly },
+              ]}
+              value={heatMode}
+              onChange={setHeatMode}
+            />
+          }
+        >
+          <Heatmap days={d.heatmap} mode={heatMode} />
         </Card>
       </div>
+
+      {/* Topic goal rings — real acceptance % per top tag, goal 80% */}
+      {d.tag_strengths.length > 0 && (
+        <Card title={t.topicGoals} className="min-w-0">
+          <GoalRings tags={d.tag_strengths} base={demo ? '/demo' : '/app'} />
+        </Card>
+      )}
 
       {/* Row 4 — recent submissions */}
       <Card title={t.recentSubmissions} className="min-w-0">
