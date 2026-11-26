@@ -13,3 +13,12 @@ Thumbs.db
 *.db
 *.db-journal
 *.tsbuildinfo 
+ 
+# scratch - probe and screenshot files, never commit 
+chrome-profile/ 
+shots/ 
+measure.js 
+probe-*.js 
+shots.js 
+served-*.txt 
+sync-*.bundle 
