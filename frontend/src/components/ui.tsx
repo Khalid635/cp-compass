@@ -82,7 +82,8 @@ export function RatingBadge({
       className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-xs font-medium"
       style={{
         color: rankColor,
-        background: `color-mix(in srgb, ${rankColor} 12%, transparent)`,
+        background: 'transparent',
+        border: `1px solid ${rankColor}`,
       }}
       title={rankName}
     >

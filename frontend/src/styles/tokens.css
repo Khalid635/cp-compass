@@ -1,29 +1,30 @@
 @import "tailwindcss";
 
 /* CP Compass design tokens — ONE accent, everything else neutral.
-   Alternative colour direction (2026-11-27): warm brass-gold accent
-   on a warm brown near-black base. Branch colour-gold.
-   Why gold: hue ~45 deg — a luxury feel. The tightest fight is accent
-   vs warning amber #fbbf24 (~2 deg apart in hue); gold is darker and
-   less saturated, and warning is used rarely in this UI, so the clash
-   is survivable — but any warning shown next to gold chrome will read
-   as the same family. Rank Master orange #fb923c sits ~13 deg away.
-   Contrast verified with a WCAG script (all text pairs >= 4.5:1):
-   dark primary #d9a514 on bg 8.63:1, on-primary on primary 7.63:1;
-   light primary #92600a on bg 5.07:1. Semantic + rank colours
-   unchanged. */
+   Amber is the WINNER (2026-11-27, merged to main): warm brass-gold
+   accent on a warm near-black base, less brown than the first gold
+   try (--bg #0d0c0a, --surface #15130f, --surface-2 #1d1a14,
+   --border #2c2820). Amber is now the primary, so there is no separate
+   yellow/orange warning colour in the UI: attention states (demo
+   banner, demo pill) use --primary, weak/error states use --danger.
+   Rank Master orange #fb923c sits ~13 deg from the accent.
+   Contrast re-verified with a WCAG script (all text pairs >= 4.5:1):
+   dark button text #080600 on primary #d9a514 9.01:1, subtitle
+   #b3a284 on bg 7.84:1, muted #b3a284 on surface 7.44:1; light
+   button #ffffff on #92600a 5.38:1, muted #6e6252 on bg 5.60:1.
+   Semantic + rank colours unchanged. */
 
 :root[data-theme="dark"] {
-  --bg: #100d08;
-  --surface: #181209;
-  --surface-2: #201a0e;
+  --bg: #0d0c0a;
+  --surface: #15130f;
+  --surface-2: #1d1a14;
   --primary: #d9a514;
-  --on-primary: #241a05;
+  --on-primary: #080600;
   --text: #f7f1e6;
   --muted: #b3a284;
-  --border: #3d3222;
-  --hover: #201a0e;
-  --active: #2c2414;
+  --border: #2c2820;
+  --hover: #1d1a14;
+  --active: #282219;
   --ring: #d9a514;
   --success: #34d399;
   --warning: #fbbf24;

@@ -109,7 +109,7 @@ export function ColdStartBanner() {
 export function DemoBanner() {
   const { t } = useLanguage();
   return (
-    <div className="border-b border-warning/40 bg-warning/10 px-4 py-2.5 text-center text-sm">
+    <div className="border-b border-primary/40 bg-primary/10 px-4 py-2.5 text-center text-sm">
       {t.demoBanner}{' '}
       <Link to="/login" className="font-medium underline">
         {t.createAccount}
@@ -179,7 +179,7 @@ export function AppShell({
           </Link>
           <div className="min-w-0 flex-1">
             {demo ? (
-              <span className="inline-flex items-center gap-2 rounded-full border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning">
+              <span className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
                 <Zap size={12} aria-hidden /> {t.demoMode}
               </span>
             ) : (

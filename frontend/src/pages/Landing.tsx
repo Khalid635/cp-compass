@@ -85,7 +85,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
           </motion.p>
           <motion.h1
             {...rise(0.08)}
-            className="mx-auto mt-5 max-w-3xl text-5xl font-semibold leading-[1.1] tracking-tight md:text-6xl"
+            className="relative z-[1] mx-auto mt-5 max-w-[26ch] text-[clamp(2.25rem,5vw,3.5rem)] font-semibold leading-[1.1] tracking-tight"
           >
             {t.landingTitle}
           </motion.h1>
@@ -109,7 +109,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
               <span className="h-2.5 w-2.5 rounded-full bg-danger/60" />
               <span className="h-2.5 w-2.5 rounded-full bg-warning/60" />
               <span className="h-2.5 w-2.5 rounded-full bg-success/60" />
-              <span className="ml-3 font-mono text-xs text-muted">cp-compass.app/demo</span>
+              <span className="ml-3 font-mono text-xs text-muted">demo</span>
             </div>
             <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
               {[

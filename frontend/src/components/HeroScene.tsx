@@ -1,5 +1,6 @@
 /* 3D landing hero — a restrained compass: thin gold rings, tick marks,
-   a slowly settling needle, three orbiting dots, a faint particle field.
+   a faint particle field. No needle, no orbit dots — both were removed
+   after review: in a still they read as stray marks crossing the heading.
    R3F with frameloop="demand": a frame is requested only while the scene
    is mounted and visible (the Rig re-invalidates each frame; the wrapper
    kicks one frame when the hero scrolls back into view). No
@@ -7,7 +8,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Float } from '@react-three/drei';
 import type { Theme } from '../hooks/useTheme';
 
 export type HeroPointer = { x: number; y: number };
@@ -46,8 +46,6 @@ function Compass({
   pausedRef: SharedRefs['pausedRef'];
 }) {
   const group = useRef<THREE.Group>(null!);
-  const needle = useRef<THREE.Group>(null!);
-  const orbit = useRef<THREE.Group>(null!);
   const ticks = useRef<THREE.InstancedMesh>(null!);
 
   /* Colours come from the design tokens (tokens.css) so the hero stays
@@ -56,12 +54,6 @@ function Compass({
     () =>
       getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() ||
       (theme === 'dark' ? '#d9a514' : '#92600a'),
-    [theme],
-  );
-  const muted = useMemo(
-    () =>
-      getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() ||
-      (theme === 'dark' ? '#b3a284' : '#6e6252'),
     [theme],
   );
 
@@ -100,9 +92,6 @@ function Compass({
     g.rotation.z = Math.sin(t * 0.08) * 0.04;
     g.rotation.x = THREE.MathUtils.lerp(g.rotation.x, -0.42 + pointerRef.current.y * 0.08, 0.04);
     g.rotation.y = THREE.MathUtils.lerp(g.rotation.y, pointerRef.current.x * 0.16, 0.04);
-    /* Needle settles like a real compass instead of spinning. */
-    needle.current.rotation.z = Math.sin(t * 0.35) * 0.26 + Math.sin(t * 0.13) * 0.12;
-    orbit.current.rotation.z = t * 0.06;
     if (!pausedRef.current) state.invalidate();
   });
 
@@ -120,39 +109,11 @@ function Compass({
         <boxGeometry args={[0.012, 0.09, 0.012]} />
         <meshBasicMaterial color={primary} transparent opacity={0.4} />
       </instancedMesh>
-      <group ref={needle}>
-        <mesh position={[0, 0.75, 0]}>
-          <coneGeometry args={[0.085, 1.5, 4]} />
-          <meshBasicMaterial color={primary} transparent opacity={0.9} />
-        </mesh>
-        <mesh position={[0, -0.75, 0]} rotation={[0, 0, Math.PI]}>
-          <coneGeometry args={[0.085, 1.5, 4]} />
-          <meshBasicMaterial color={muted} transparent opacity={0.45} />
-        </mesh>
-        <mesh>
-          <sphereGeometry args={[0.07, 16, 16]} />
-          <meshBasicMaterial color={primary} />
-        </mesh>
-      </group>
-      <Float speed={1.4} rotationIntensity={0} floatIntensity={0.5}>
-        <group ref={orbit}>
-          {[0, 2.1, 4.2].map((a, i) => (
-            <mesh key={a} position={[Math.cos(a) * 2.62, Math.sin(a) * 2.62, 0.1]}>
-              <sphereGeometry args={[0.05, 12, 12]} />
-              <meshBasicMaterial
-                color={i === 0 ? primary : muted}
-                transparent
-                opacity={i === 0 ? 0.95 : 0.6}
-              />
-            </mesh>
-          ))}
-        </group>
-      </Float>
       <points>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[particles, 3]} />
         </bufferGeometry>
-        <pointsMaterial size={0.035} color={primary} transparent opacity={0.35} sizeAttenuation />
+        <pointsMaterial size={0.025} color={primary} transparent opacity={0.15} sizeAttenuation />
       </points>
     </group>
   );

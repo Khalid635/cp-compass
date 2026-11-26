@@ -72,22 +72,33 @@ export default function Hero3D({ theme }: { theme: Theme }) {
 
   const showCanvas = mode === 'canvas' && !lost;
   return (
-    <div ref={boxRef} className="pointer-events-none absolute inset-0" aria-hidden>
+    <div ref={boxRef} className="pointer-events-none absolute inset-0 z-0" aria-hidden>
       {/* Soft glow behind poster + canvas (same as the old static hero). */}
       <div
         className="absolute left-1/2 top-0 h-[300px] w-[600px] -translate-x-1/2 rounded-full blur-3xl"
         style={{
           background:
-            'radial-gradient(600px circle at 50% 0%, color-mix(in oklch, var(--primary) 18%, transparent), transparent)',
+            'radial-gradient(600px circle at 50% 0%, color-mix(in oklch, var(--primary) 10%, transparent), transparent)',
         }}
       />
+      {/* Compass layer: faint, centre masked out so no ring crosses the
+          heading text; the outer ring arc stays visible around the copy. */}
       <div
-        className="absolute inset-x-0 top-0 h-[480px] md:h-[600px]"
+        className="absolute inset-x-0 top-0 h-[480px] opacity-10 md:h-[600px]"
         style={{
-          maskImage: 'linear-gradient(to bottom, black 55%, transparent 98%)',
-          WebkitMaskImage: 'linear-gradient(to bottom, black 55%, transparent 98%)',
+          maskImage:
+            'radial-gradient(closest-side, transparent 0%, transparent 40%, black 75%, black 100%)',
+          WebkitMaskImage:
+            'radial-gradient(closest-side, transparent 0%, transparent 40%, black 75%, black 100%)',
         }}
       >
+        <div
+          className="absolute inset-0"
+          style={{
+            maskImage: 'linear-gradient(to bottom, black 55%, transparent 98%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, black 55%, transparent 98%)',
+          }}
+        >
         {showCanvas ? (
           <Suspense fallback={<HeroPoster />}>
             <HeroScene
@@ -101,6 +112,7 @@ export default function Hero3D({ theme }: { theme: Theme }) {
         ) : (
           <HeroPoster />
         )}
+        </div>
       </div>
     </div>
   );
