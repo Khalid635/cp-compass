@@ -22,3 +22,8 @@ CF_MIN_INTERVAL_S = 2.0
 SYNC_LEASE_S = int(os.environ.get("SYNC_LEASE_S", "120"))
 WORKER_POLL_S = int(os.environ.get("WORKER_POLL_S", "2"))
 SYNC_MAX_ATTEMPTS = int(os.environ.get("SYNC_MAX_ATTEMPTS", "3"))
+
+# CORS: comma-separated allowed origins. Local dev defaults; production
+# sets this to the Vercel frontend URL (never "*" with credentials).
+CORS_ORIGINS = [o.strip() for o in os.environ.get(
+    "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]

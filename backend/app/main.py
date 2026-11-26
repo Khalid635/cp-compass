@@ -30,6 +30,7 @@ from .auth import (
 )
 from .cf import CFError, cf
 from .db import SessionLocal, get_db
+from .config import CORS_ORIGINS
 from .models import (
     CfAccount, DailyStat, Problem, ProblemNote, ProblemPreference,
     RatingHistory, RefreshToken, Revision, Submission, SyncJob, User,
@@ -91,7 +92,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="CP Compass API", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
 )
 

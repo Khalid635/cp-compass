@@ -1,40 +1,88 @@
 # CP Compass
 
-তোমার Codeforces ডাটা দেখে বলে দেয় — আজ কোন প্রবলেম করবে, কোন টপিকে তুমি দুর্বল, আর কোন প্রবলেমটা আবার দেখার সময় হয়েছে।
+A Codeforces progress tracker that turns your submissions into a daily plan:
+which topic is weak, which problem to solve today, and what to revise.
 
-## Stack (সব ফ্রি)
+- **Dashboard** — rating, solved, streak, revision due, rating history, topic
+  strength, daily activity heatmap, recent submissions
+- **Practice** — recommendations with a score and a reason, filter pills,
+  saved views, Save for Later / Not Interested, ML solvability %
+- **Revision** — spaced repetition (1 / 3 / 7 / 14 / 30 days) with
+  Again / Hard / Good / Easy grading
+- **Analytics** — peak rating, difficulty distribution, success rate by
+  difficulty, milestones, contest auto-analysis, how predictions work
+- **Calendar** — practice calendar from daily stats
+- **Weekly report** — weekly summary with vs-last-week deltas + JSON export
+- **Problem detail** — submissions, revision status, Markdown notes
+- **Settings** — handle, weekly goal, data export, account deletion
 
-- **Frontend:** Vite + React 19 + TypeScript + Tailwind CSS 4, Recharts, TanStack Query
-- **Backend:** FastAPI + SQLAlchemy + SQLite (dev) / Neon Postgres (prod)
-- **Deploy (পরে):** Vercel (frontend) + Render free (backend) + Neon free (Postgres) — মোট খরচ ৳০
+English + Bangla UI. Dark theme with a single teal accent.
 
-## Status
+## Live demo
 
-MVP (P1) শেষ + ল্যাপটপে যাচাই করা 2026-11-26: Dashboard, Practice, Revision, Landing, Demo, Login/Register + Codeforces sync + demo mode (seed data)। Build পাস, `/api/health` OK, Khalid_Bin_Masud handle-এ live sync যাচাই করা। P2 (Analytics, Problem detail, Contests, Settings) পরে।
+- Frontend: https://cp-compass.vercel.app *(deploy in progress — see below)*
+- Backend: https://cp-compass-api.onrender.com *(deploy in progress)*
 
-পূর্ণ পরিকল্পনা: `~/workspace/goals/become-a-skilled-software-developer-and-ai-ml-engineer/files/cp-compass-full-plan/cp-compass-full-plan.pdf`
+The demo account (`/demo`) is seeded example data and is strictly read-only.
 
-## Run (dev, laptop Windows)
+## Stack
+
+- Frontend: React 19 + Vite + TypeScript + Tailwind CSS 4, shadcn/ui,
+  Recharts, Three.js (landing hero only)
+- Backend: FastAPI + SQLAlchemy + Alembic, Argon2 password hashing,
+  JWT access (15 min) + refresh tokens (7 days, revocable)
+- ML: scikit-learn Random Forest solvability model (see below)
+- Database: Postgres (Neon free tier in production, SQLite locally)
+- Hosting (all free tier): Vercel (frontend) + Render (backend) + Neon (DB)
+
+## Run locally
 
 ```bash
-# Frontend — D:\Projects\cp-compass\frontend
-npm install
-npm run dev        # http://localhost:5173
-
-# Backend — D:\Projects\cp-compass\backend
-py -m venv .venv
-.venv\Scripts\activate
+# backend
+cd backend
+py -m venv .venv && .venv\Scripts\activate   # Windows
 pip install -r requirements.txt
-.venv\Scripts\uvicorn app.main:app --host 127.0.0.1 --port 8004
+cp .env.example .env                          # fill in SECRET_KEY
+uvicorn app.main:app --host 127.0.0.1 --port 8004
+
+# frontend
+cd frontend
+npm install
+npm run dev                                   # http://localhost:5173
 ```
 
-- Demo (লগইন ছাড়া, seed ডাটা): http://localhost:5173/demo
-- আসল ব্যবহার: Register → Codeforces handle যুক্ত করো → "Sync now"
-- আসল SECRET_KEY-এর জন্য `backend\.env.example` কপি করে `.env` বানাও — `.env` কখনো commit করবে না (dev default শুধু local test-এর জন্য)।
+Migrations run automatically at backend startup. The ML model trains in a
+background thread on first boot if no artifact exists yet.
 
-## Structure
+## How predictions work
 
-```
-frontend/   # Vite + React app
-backend/    # FastAPI app (auth, CF sync, recommendations, revisions)
-```
+The solvability model predicts the chance you solve a recommended problem.
+It is a **constrained Random Forest** (300 trees, max depth 4, min 10 samples
+per leaf), trained on your attempted problems: user rating, problem rating,
+rating difference, per-tag acceptance, previous attempts, and tag one-hots.
+
+- Held-out test (n=40): **AUC 0.834** vs the rule-based baseline AUC 0.317.
+  Logistic Regression and gradient boosting were evaluated and rejected
+  (linear extrapolation failed; boosting overfit ~200 rows and predicted
+  degenerate 0.00/0.99). Calibration did not help and was not shipped.
+- **A prediction, not a guarantee.** The model only learned from problems
+  already attempted — problems never tried are not in its training data, so
+  treat the % as a hint. The model is labelled "Trained on demo data" until
+  your own submission history is large enough; retrain from Settings.
+- Selection bias: the training set is attempted problems only, so it is
+  biased toward problems you chose to try.
+
+## Deploy (free tier)
+
+- `render.yaml` — Render Blueprint: one free Docker web service (Singapore).
+  Set `DATABASE_URL` (Neon) and `SECRET_KEY` in the Render dashboard.
+- `frontend/vercel.json` — Vite project, SPA fallback. Set `VITE_API_BASE`
+  to the Render backend URL in the Vercel project settings.
+- `.github/workflows/ci.yml` — pytest + frontend build on every push/PR.
+- See `docs/architecture.md` for the system diagram and the free-tier
+  limits (Neon 100 CU-hours/mo, Render 750 hrs/mo + 15-min sleep,
+  Vercel Hobby 100 GB/mo, personal non-commercial use).
+
+## License
+
+MIT — see `LICENSE`.

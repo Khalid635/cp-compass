@@ -32,3 +32,6 @@ smoke_live.py
 
 # Phase 3: trained ML model artifact (regenerated on boot, never commit)
 backend/ml_model.joblib
+
+# production secrets (Render env vars live here locally, never commit)
+.env.production

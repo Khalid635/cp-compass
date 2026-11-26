@@ -1,0 +1,16 @@
+# Render build context for the backend image: keep the image lean and
+# never ship local dev state.
+.venv/
+__pycache__/
+*.pyc
+*.db
+*.db-journal
+*.bak
+*.log
+.pytest_cache/
+ml_model.joblib
+smoke_*.py
+cleanup_users*.py
+probe-*.js
+run-backend.bat
+start-backend.ps1
