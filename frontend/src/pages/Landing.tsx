@@ -3,9 +3,11 @@
    The preview numbers match the live demo account (verified against
    /api/demo/dashboard): 1478 rating, 144 solved, 3-day streak, 3 due. */
 import { Link } from 'react-router-dom';
+import { motion, useReducedMotion } from 'motion/react';
 import { Compass, GitBranch, ListChecks, Target } from 'lucide-react';
 import { Button, Card } from '../components/ui';
 import { LandingHeader } from '../components/layout';
+import Hero3D from '../components/Hero3D';
 import { formatWhy, useLanguage } from '../i18n';
 import type { WhyInfo } from '../i18n/dict';
 import type { Theme } from '../hooks/useTheme';
@@ -17,6 +19,18 @@ const SPARK_POINTS =
 
 export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTheme: () => void }) {
   const { t } = useLanguage();
+  const reduceMotion = useReducedMotion();
+  /* One subtle Rise & Settle entrance for the hero copy (getlayers pick:
+     a single preset, headings only, 450 ms, staggered). Skipped entirely
+     under prefers-reduced-motion. */
+  const rise = (delay: number) =>
+    reduceMotion
+      ? {}
+      : {
+          initial: { opacity: 0, y: 12 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.45, delay, ease: 'easeOut' as const },
+        };
 
   const FEATURES = [
     { icon: Target, title: t.feature1Title, text: t.feature1Text },
@@ -58,26 +72,27 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
     <div className="min-h-screen">
       <LandingHeader theme={theme} toggleTheme={toggleTheme} />
 
-      {/* Hero */}
+      {/* Hero — 3D compass backdrop (lazy canvas, static poster fallback) */}
       <section className="relative mx-auto max-w-[1280px] overflow-x-clip px-4 pb-14 pt-10 text-center md:px-6 md:pt-14">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute left-1/2 top-0 h-[300px] w-[600px] -translate-x-1/2 rounded-full blur-3xl"
-          style={{
-            background:
-              'radial-gradient(600px circle at 50% 0%, color-mix(in srgb, var(--primary) 18%, transparent), transparent)',
-          }}
-        />
+        <Hero3D theme={theme} />
         <div className="relative">
-          <p className="mx-auto flex w-fit items-center gap-2 rounded-full border border-border bg-surface-2 px-3 py-1 text-xs text-muted">
+          <motion.p
+            {...rise(0)}
+            className="mx-auto flex w-fit items-center gap-2 rounded-full border border-border bg-surface-2 px-3 py-1 text-xs text-muted"
+          >
             <Compass size={14} className="text-primary" aria-hidden />
             {t.landingBadge}
-          </p>
-          <h1 className="mx-auto mt-5 max-w-3xl text-5xl font-semibold leading-[1.1] tracking-tight md:text-6xl">
+          </motion.p>
+          <motion.h1
+            {...rise(0.08)}
+            className="mx-auto mt-5 max-w-3xl text-5xl font-semibold leading-[1.1] tracking-tight md:text-6xl"
+          >
             {t.landingTitle}
-          </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base text-muted md:text-lg">{t.landingSub}</p>
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+          </motion.h1>
+          <motion.p {...rise(0.16)} className="mx-auto mt-4 max-w-xl text-base text-muted md:text-lg">
+            {t.landingSub}
+          </motion.p>
+          <motion.div {...rise(0.24)} className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <Link to="/demo">
               <Button className="h-11 px-6 text-base">{t.tryDemoNoLogin}</Button>
             </Link>
@@ -86,7 +101,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
                 {t.createAccount}
               </Button>
             </Link>
-          </div>
+          </motion.div>
 
           {/* Browser-frame dashboard preview (static mock, labelled as illustration) */}
           <div className="mx-auto mt-10 max-w-4xl overflow-hidden rounded-lg border border-border bg-surface text-left shadow-2xl">
