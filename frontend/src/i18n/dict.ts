@@ -191,6 +191,29 @@ export interface Dict {
   whyNearRating: (userRating: number, rating: number) => string;
   whyDemoOutOfBand: string;
   recScore: (s: number) => string;
+  // Phase 3 — ML solvability prediction
+  predSolvable: (pct: number) => string;
+  predTitle: string;
+  predSettingsTitle: string;
+  predModel: string;
+  predTrainedOn: string;
+  predData: string;
+  predRows: (rows: number, solved: number) => string;
+  predTestAuc: string;
+  predBaselineAuc: string;
+  predFeatures: string;
+  predBias: string;
+  predTrainedLabelDemo: string;
+  predTrainedLabelMixed: string;
+  predTrainedLabelReal: string;
+  predNotTrained: string;
+  predNotShipped: string;
+  predRetrain: string;
+  predRetrained: string;
+  predRetraining: string;
+  predRetrainFailed: string;
+  predPlatformTitle: string;
+  predPlatformNote: string;
   // toasts (Sonner)
   toastSynced: string;
   toastSavedLater: string;

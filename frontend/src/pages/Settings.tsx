@@ -7,9 +7,10 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Download, LogOut, RefreshCw, Trash2, Unlink } from 'lucide-react';
 import { api, ApiError } from '../api/client';
+import { trainedOnLabel } from '../api/types';
 import { useAuth } from '../hooks/useAuth';
 import type { Theme } from '../hooks/useTheme';
-import { LanguageToggle, useLanguage } from '../i18n';
+import { formatDateTime, LanguageToggle, useLanguage } from '../i18n';
 import { HandleConnect } from './Auth';
 import { Button, Card, EmptyState, Input, Skeleton } from '../components/ui';
 
@@ -34,7 +35,7 @@ export default function Settings({
   theme: Theme;
   toggleTheme: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { logout, refresh } = useAuth();
@@ -51,6 +52,24 @@ export default function Settings({
   useEffect(() => {
     if (query.data) setGoalInput(String(query.data.weekly_goal));
   }, [query.data?.weekly_goal]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Phase 3 — prediction model status + retrain. */
+  const mlQuery = useQuery({
+    queryKey: demo ? ['demo-ml-status'] : ['ml-status'],
+    queryFn: demo ? api.demoMlStatus : api.mlStatus,
+    staleTime: 30_000,
+  });
+  const retrain = useMutation({
+    mutationFn: api.retrainModel,
+    onSuccess: (data) => {
+      toast(data.trained ? t.predRetrained : t.predRetrainFailed);
+      void qc.invalidateQueries({ queryKey: ['ml-status'] });
+      void qc.invalidateQueries({ queryKey: ['demo-ml-status'] });
+    },
+    onError: (e) => {
+      toast(e instanceof ApiError ? e.message : t.predRetrainFailed);
+    },
+  });
 
   const saveGoal = useMutation({
     mutationFn: () => api.setGoal(Number(goal)),
@@ -235,6 +254,71 @@ export default function Settings({
         </div>
       </Card>
 
+
+      {/* Prediction model (Phase 3) */}
+      <Card title={t.predSettingsTitle} className="min-w-0">
+        {mlQuery.isPending ? (
+          <Skeleton className="h-[120px] w-full" />
+        ) : mlQuery.isError ? (
+          <p className="text-sm text-muted">{t.cfRetryAutoShort}</p>
+        ) : !mlQuery.data?.trained ? (
+          <p className="text-sm text-muted">{t.predNotTrained}</p>
+        ) : (
+          <>
+            <dl className="flex flex-col gap-2 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-muted">{t.predModel}</dt>
+                <dd className="font-medium">{mlQuery.data.model_type}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-muted">{t.predTrainedOn}</dt>
+                <dd className="font-medium">
+                  {mlQuery.data.trained_at
+                    ? formatDateTime(mlQuery.data.trained_at, lang)
+                    : '—'}{' '}
+                  · {trainedOnLabel(mlQuery.data, t)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-muted">{t.predData}</dt>
+                <dd className="font-mono font-medium">
+                  {t.predRows(mlQuery.data.n_rows ?? 0, mlQuery.data.n_solved ?? 0)}
+                </dd>
+              </div>
+              {mlQuery.data.shipped && (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted">{t.predTestAuc}</dt>
+                  <dd className="font-mono font-medium">
+                    {mlQuery.data.evaluation?.random_forest.test_auc ?? '—'} · {t.predBaselineAuc}{' '}
+                    {mlQuery.data.evaluation?.baseline.auc ?? '—'}
+                  </dd>
+                </div>
+              )}
+            </dl>
+            {!mlQuery.data.shipped && (
+              <p className="mt-3 text-sm text-muted">{t.predNotShipped}</p>
+            )}
+            <p className="mt-3 text-sm text-muted">{t.predBias}</p>
+            <div className="mt-4">
+              <Button
+                variant="secondary"
+                disabled={demo || retrain.isPending}
+                loading={retrain.isPending}
+                onClick={() => retrain.mutate()}
+                title={demo ? t.disabledInDemo : undefined}
+              >
+                <RefreshCw size={14} aria-hidden />{' '}
+                {retrain.isPending ? t.predRetraining : t.predRetrain}
+              </Button>
+            </div>
+          </>
+        )}
+      </Card>
+
+      {/* Other platforms (Phase 3 scaffolding — Codeforces only for now) */}
+      <Card title={t.predPlatformTitle} className="min-w-0">
+        <p className="text-sm text-muted">{t.predPlatformNote}</p>
+      </Card>
       {/* Appearance */}
       <Card title={t.settingsAppearance} className="min-w-0">
         <div className="flex flex-wrap items-center gap-4">

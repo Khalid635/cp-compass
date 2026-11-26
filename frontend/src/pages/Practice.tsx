@@ -61,6 +61,23 @@ export default function Practice({ demo = false }: { demo?: boolean }) {
     staleTime: 60_000,
   });
 
+  /* Phase 3 — solvability predictions, merged onto the cards by key. */
+  const predQuery = useQuery({
+    queryKey: demo ? ['demo-ml-predictions'] : ['ml-predictions'],
+    queryFn: () => (demo ? api.demoMlPredictions(24) : api.mlPredictions(24)),
+    staleTime: 60_000,
+    enabled: demo || query.isSuccess,
+  });
+  const solvByKey = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of predQuery.data?.recommendations ?? []) {
+      if (r.solvability !== undefined && r.solvability !== null) {
+        m.set(`${r.contest_id}${r.index}`, r.solvability);
+      }
+    }
+    return m;
+  }, [predQuery.data]);
+
   const { tagPills, bandPills } = useMemo(() => {
     const list = allQuery.data ?? [];
     const tagCounts = new Map<string, number>();
@@ -281,6 +298,7 @@ export default function Practice({ demo = false }: { demo?: boolean }) {
               problem={p}
               why={p.why}
               score={p.score}
+              solvability={solvByKey.get(`${p.contest_id}${p.index}`)}
               demo={demo}
               actionState={states[`${p.contest_id}${p.index}`] ?? null}
               onAction={(act) =>

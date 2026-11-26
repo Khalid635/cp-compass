@@ -65,6 +65,7 @@ export function ProblemCard({
   problem,
   why,
   score,
+  solvability,
   demo = false,
   onAction,
   actionState,
@@ -72,6 +73,8 @@ export function ProblemCard({
   problem: ProblemRef;
   why: WhyInfo;
   score?: number;
+  /** ML solvability 0–1 (Phase 3). null/undefined = no prediction. */
+  solvability?: number | null;
   demo?: boolean;
   onAction?: (action: 'later' | 'not_interested') => void;
   actionState?: 'later' | 'not_interested' | 'hidden' | null;
@@ -112,6 +115,11 @@ export function ProblemCard({
       <p className="mt-3 text-sm text-muted">{formatWhy(why, t)}</p>
       {score !== undefined && (
         <p className="mt-1 font-mono text-xs text-muted">{t.recScore(score)}</p>
+      )}
+      {solvability !== undefined && solvability !== null && (
+        <p className="mt-1 font-mono text-xs text-muted">
+          {t.predSolvable(Math.round(solvability * 100))}
+        </p>
       )}
       <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
         <a

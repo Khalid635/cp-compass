@@ -1,7 +1,7 @@
 /* Dashboard — 4 StatCards, RatingChart + Today's Plan, TopicRadar + Heatmap,
    Recent submissions. TanStack Query caches data so the Render cold start
    hurts only the first load (skeleton + ColdStartBanner meanwhile). */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
@@ -67,6 +67,23 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
     queryFn: demo ? api.demoSettings : api.settings,
     staleTime: 60_000,
   });
+  /* Phase 3 — solvability predictions for today's plan. Runs once the
+     dashboard says a handle is connected (auth mode); always in demo. */
+  const predictionsQuery = useQuery({
+    queryKey: demo ? ['demo-ml-predictions'] : ['ml-predictions'],
+    queryFn: () => (demo ? api.demoMlPredictions(24) : api.mlPredictions(24)),
+    staleTime: 60_000,
+    enabled: demo || query.data?.has_handle === true,
+  });
+  const solvByKey = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of predictionsQuery.data?.recommendations ?? []) {
+      if (r.solvability !== undefined && r.solvability !== null) {
+        m.set(`${r.contest_id}${r.index}`, r.solvability);
+      }
+    }
+    return m;
+  }, [predictionsQuery.data]);
 
   // ColdStartBanner only if the first load is actually slow (>1.5s).
   useEffect(() => {
@@ -309,7 +326,9 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
             <p className="py-6 text-center text-sm text-muted">{t.nothingPlanned}</p>
           ) : (
             <div ref={planRef} className="flex flex-col gap-3">
-              {d.today_plan.problems.map((p) => (
+              {d.today_plan.problems.map((p) => {
+                const solv = solvByKey.get(`${p.contest_id}${p.index}`);
+                return (
                 <div key={`${p.contest_id}${p.index}`} className="rounded-md border border-border bg-bg p-3">
                   <div className="flex items-start justify-between gap-2">
                     <a
@@ -336,8 +355,14 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
                   {p.score !== undefined && (
                     <p className="mt-1 font-mono text-xs text-muted">{t.recScore(p.score)}</p>
                   )}
+                  {solv !== undefined && (
+                    <p className="mt-1 font-mono text-xs text-muted">
+                      {t.predSolvable(Math.round(solv * 100))}
+                    </p>
+                  )}
                 </div>
-              ))}
+                );
+              })}
               {d.today_plan.revisions.map((r) => (
                 <div
                   key={r.id}

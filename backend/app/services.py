@@ -271,6 +271,7 @@ def recommend(db: Session, user: User, problems: list[dict], limit: int = 12,
         scored.append((score, {
             "contest_id": p["contestId"], "index": p["index"], "name": p["name"],
             "rating": pr, "tags": tags, "why": why, "score": score,
+            "platform": "codeforces",
         }))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [item for _, item in scored[:limit]]

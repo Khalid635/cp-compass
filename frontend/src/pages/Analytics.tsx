@@ -14,8 +14,8 @@ import {
 } from 'recharts';
 import { ArrowDownRight, ArrowUpRight, Award, Flame, RefreshCw, TrendingUp, Trophy } from 'lucide-react';
 import { api } from '../api/client';
-import { rankOf } from '../api/types';
-import { useLanguage } from '../i18n';
+import { rankOf, trainedOnLabel } from '../api/types';
+import { formatDateTime, useLanguage } from '../i18n';
 import { TopicRadar } from '../components/charts';
 import { StatCard } from '../components/cards';
 import { Button, Card, EmptyState, RatingBadge, Skeleton, TagChip } from '../components/ui';
@@ -35,10 +35,17 @@ function AnalyticsSkeleton() {
 }
 
 export default function Analytics({ demo = false }: { demo?: boolean }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const query = useQuery({
     queryKey: demo ? ['demo-analytics'] : ['analytics'],
     queryFn: demo ? api.demoAnalytics : api.analytics,
+    staleTime: 60_000,
+  });
+  /* Phase 3 — prediction model status + evaluation (read-only here;
+     retraining lives in Settings). */
+  const mlQuery = useQuery({
+    queryKey: demo ? ['demo-ml-status'] : ['ml-status'],
+    queryFn: demo ? api.demoMlStatus : api.mlStatus,
     staleTime: 60_000,
   });
 
@@ -300,6 +307,60 @@ export default function Analytics({ demo = false }: { demo?: boolean }) {
         )}
       </Card>
 
+
+      {/* Phase 3 — how predictions work */}
+      <Card title={t.predTitle} className="min-w-0">
+        {mlQuery.isPending ? (
+          <Skeleton className="h-[120px] w-full" />
+        ) : mlQuery.isError ? (
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-sm text-muted">{t.cfRetryAutoShort}</p>
+            <Button variant="secondary" onClick={() => void mlQuery.refetch()}>
+              <RefreshCw size={14} aria-hidden /> {t.retry}
+            </Button>
+          </div>
+        ) : !mlQuery.data?.trained ? (
+          <p className="text-sm text-muted">{t.predNotTrained}</p>
+        ) : !mlQuery.data.shipped ? (
+          <p className="text-sm text-muted">{t.predNotShipped}</p>
+        ) : (
+          <dl className="flex flex-col gap-2 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-muted">{t.predModel}</dt>
+              <dd className="font-medium">{mlQuery.data.model_type}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-muted">{t.predTrainedOn}</dt>
+              <dd className="font-medium">
+                {mlQuery.data.trained_at
+                  ? formatDateTime(mlQuery.data.trained_at, lang)
+                  : '—'}{' '}
+                · {trainedOnLabel(mlQuery.data, t)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-muted">{t.predData}</dt>
+              <dd className="font-mono font-medium">
+                {t.predRows(mlQuery.data.n_rows ?? 0, mlQuery.data.n_solved ?? 0)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-muted">{t.predTestAuc}</dt>
+              <dd className="font-mono font-medium">
+                {mlQuery.data.evaluation?.random_forest.test_auc ?? '—'} · {t.predBaselineAuc}{' '}
+                {mlQuery.data.evaluation?.baseline.auc ?? '—'}
+              </dd>
+            </div>
+            <div className="flex flex-col gap-1">
+              <dt className="text-muted">{t.predFeatures}</dt>
+              <dd className="font-mono text-xs text-muted">
+                {(mlQuery.data.features ?? []).join(', ')}
+              </dd>
+            </div>
+            <p className="mt-1 text-sm text-muted">{t.predBias}</p>
+          </dl>
+        )}
+      </Card>
       {demo && <p className="text-center text-xs text-muted">{t.demoFootnote}</p>}
     </div>
   );

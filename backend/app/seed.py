@@ -476,7 +476,8 @@ def _recommendations():
     def entry(cid, idx, name, rating, tags):
         return {"contest_id": cid, "index": idx, "name": name,
                 "rating": rating, "tags": tags, "why": why_for(tags, rating),
-                "score": score_for(tags, rating)}
+                "score": score_for(tags, rating),
+                "platform": "codeforces"}
 
     in_band, rest = [], []
     for cid, idx, name, rating, tags in FAMOUS:

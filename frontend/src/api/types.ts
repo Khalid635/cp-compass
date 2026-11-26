@@ -1,5 +1,5 @@
 /* Shared types — shapes match the FastAPI responses in backend/app/main.py. */
-import type { WhyInfo } from '../i18n/dict';
+import type { Dict, WhyInfo } from '../i18n/dict';
 
 export type { WhyInfo };
 
@@ -9,12 +9,74 @@ export interface ProblemRef {
   name: string;
   rating: number | null;
   tags: string[];
+  /** Codeforces for now — other OJs later (Phase 3 scaffolding). */
+  platform?: string;
 }
 
 export interface Recommendation extends ProblemRef {
   why: WhyInfo;
   /** Rule-based score 0–100 (blueprint §6). Absent on old demo payloads. */
   score?: number;
+}
+
+/* ---------- Phase 3 — ML solvability prediction ---------- */
+
+/** Held-out metrics for the rule-based baseline (as a probability). */
+export interface MlBaselineEval {
+  accuracy: number;
+  brier: number;
+  auc: number | null;
+}
+
+/** Held-out metrics for one ML candidate (CV + test split). */
+export interface MlModelEval {
+  cv_auc: number | null;
+  cv_brier: number;
+  test_accuracy: number;
+  test_brier: number;
+  test_auc: number | null;
+}
+
+export interface MlStatus {
+  trained: boolean;
+  reason?: string;
+  model_type?: string;
+  trained_at?: string;
+  n_rows?: number;
+  n_solved?: number;
+  demo_rows?: number;
+  real_rows?: number;
+  sources?: Record<string, number>;
+  features?: string[];
+  shipped?: boolean;
+  ship_reason?: string;
+  bias_note?: string;
+  evaluation?: {
+    baseline: MlBaselineEval;
+    random_forest: MlModelEval;
+    logreg: MlModelEval;
+    hist_gb: MlModelEval;
+    calibration: {
+      tried: string;
+      cv_brier_uncalibrated: number;
+      cv_brier_calibrated: number;
+      shipped_calibrated: boolean;
+    };
+  };
+}
+
+export interface MlPredictionsResponse {
+  recommendations: (Recommendation & { solvability?: number | null })[];
+  model: MlStatus;
+}
+
+/** Honest trained-on label: demo data, real data, or both. */
+export function trainedOnLabel(m: MlStatus, t: Dict): string {
+  const real = m.real_rows ?? 0;
+  const demo = m.demo_rows ?? 0;
+  if (real > 0 && demo > 0) return t.predTrainedLabelMixed;
+  if (real > 0) return t.predTrainedLabelReal;
+  return t.predTrainedLabelDemo;
 }
 
 export interface SubmissionRow {

@@ -5,6 +5,8 @@ import type {
   AnalyticsData,
   CalendarMonth,
   DashboardData,
+  MlPredictionsResponse,
+  MlStatus,
   ProblemDetailData,
   ProblemNote,
   Recommendation,
@@ -157,6 +159,13 @@ export const api = {
     request<
       { contest_id: number; index: string; name: string; rating: number | null; tags: string[]; state: string }[]
     >(`${V1}/practice/preferences`),
+
+  /* Phase 3 — ML solvability prediction */
+  mlStatus: () => request<MlStatus>(`${V1}/ml/status`),
+  retrainModel: () =>
+    request<MlStatus>(`${V1}/ml/retrain`, { method: 'POST' }),
+  mlPredictions: (limit = 24) =>
+    request<MlPredictionsResponse>(`${V1}/ml/predictions?limit=${limit}`),
   revisions: (tab: 'due' | 'upcoming' | 'done') =>
     request<RevisionItem[]>(`${V1}/revisions?tab=${tab}`),
   revisionCounts: () =>
@@ -215,5 +224,8 @@ export const api = {
   demoProblemDetail: (contest_id: number, index: string) =>
     request<ProblemDetailData>(`${V1}/demo/problems/${contest_id}/${index}`),
   demoSettings: () => request<SettingsData>(`${V1}/demo/settings`),
+  demoMlStatus: () => request<MlStatus>(`${V1}/demo/ml/status`),
+  demoMlPredictions: (limit = 24) =>
+    request<MlPredictionsResponse>(`${V1}/demo/ml/predictions?limit=${limit}`),
   demoExport: () => request<Record<string, unknown>>(`${V1}/demo/export`),
 };

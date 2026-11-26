@@ -7,6 +7,7 @@ Sync runs in the DB-backed worker loop (app.sync), not BackgroundTasks.
 Schema is managed by Alembic; migrations run automatically at startup.
 """
 import asyncio
+import threading
 import time
 from contextlib import asynccontextmanager
 from datetime import date, datetime
@@ -17,7 +18,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import seed, services, sync as sync_engine
+from . import ml, seed, services, sync as sync_engine
 from .auth import (
     get_current_user,
     hash_password,
@@ -56,6 +57,21 @@ def _run_migrations() -> None:
         print(f"[startup] alembic upgrade failed: {exc}")
 
 
+def _train_model_at_startup() -> None:
+    """Trains the ML model in the background on first boot (only if no
+    artifact exists yet). Never blocks or fails startup — prediction
+    calls train lazily if this has not finished."""
+    if ml.artifact_exists():
+        return
+    db = SessionLocal()
+    try:
+        ml.train_model(db)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[startup] ml training failed: {exc}")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _run_migrations()
@@ -67,6 +83,7 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
     worker_task = asyncio.create_task(sync_engine.worker_loop())
+    threading.Thread(target=_train_model_at_startup, daemon=True).start()
     yield
     worker_task.cancel()
 
@@ -329,6 +346,48 @@ def practice_preferences(user: User = Depends(get_current_user),
     return services.list_preferences(db, user.id)
 
 
+# ---------- Phase 3: ML solvability prediction ----------
+@app.get(f"{V1}/ml/status")
+def ml_status(user: User = Depends(get_current_user),
+              db: Session = Depends(get_db)):
+    """Model status + evaluation. Trains lazily on first call."""
+    return ml.model_status(db)
+
+
+@app.post(f"{V1}/ml/retrain")
+def ml_retrain(user: User = Depends(get_current_user),
+               db: Session = Depends(get_db)):
+    """Retrains the model on all current data (demo + your submissions).
+    Returns the evaluation report."""
+    if ml.training_running():
+        raise HTTPException(409, "Training is already running")
+    return ml.train_model(db)
+
+
+@app.get(f"{V1}/ml/predictions")
+async def ml_predictions(
+        user: User = Depends(get_current_user), db: Session = Depends(get_db),
+        limit: int = Query(24, ge=1, le=50)):
+    """Recommendations with a solvability probability each. The model
+    trains lazily on first call (demo + your data)."""
+    if _cf_handle(db, user) is None:
+        raise HTTPException(400, "Connect your Codeforces handle first")
+    try:
+        problems = await cf.problemset()
+    except CFError as exc:
+        raise HTTPException(502, f"Codeforces didn't respond: {exc}")
+    recs = services.recommend(db, user, problems, limit=limit)
+    result = ml.predict_for_user(db, user, recs)
+    by_key = {(p["contest_id"], p["index"]): p["probability"]
+              for p in result["predictions"]}
+    out = []
+    for rec in recs:
+        rec = dict(rec)
+        rec["solvability"] = by_key.get((rec["contest_id"], rec["index"]))
+        out.append(rec)
+    return {"recommendations": out, "model": result["model"]}
+
+
 # ---------- revisions ----------
 @app.get(f"{V1}/revisions")
 def revisions(tab: str = Query("due", pattern="^(due|upcoming|done)$"),
@@ -529,6 +588,26 @@ def demo_dashboard():
 @app.get(f"{V1}/demo/recommendations")
 def demo_recommendations():
     return seed.RECOMMENDATIONS
+
+
+@app.get(f"{V1}/demo/ml/status")
+def demo_ml_status():
+    return ml.model_status(None)
+
+
+@app.get(f"{V1}/demo/ml/predictions")
+def demo_ml_predictions(limit: int = Query(24, ge=1, le=50)):
+    """Demo recommendations with a solvability probability each."""
+    recs = seed.RECOMMENDATIONS[:limit]
+    result = ml.predict_for_demo(recs)
+    by_key = {(p["contest_id"], p["index"]): p["probability"]
+              for p in result["predictions"]}
+    out = []
+    for rec in recs:
+        rec = dict(rec)
+        rec["solvability"] = by_key.get((rec["contest_id"], rec["index"]))
+        out.append(rec)
+    return {"recommendations": out, "model": result["model"]}
 
 
 @app.get(f"{V1}/demo/revisions")

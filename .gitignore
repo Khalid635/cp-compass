@@ -29,3 +29,6 @@ shots-blueprint/
 run-backend.bat
 start-backend.ps1
 smoke_live.py
+
+# Phase 3: trained ML model artifact (regenerated on boot, never commit)
+backend/ml_model.joblib
