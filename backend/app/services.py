@@ -166,16 +166,21 @@ def recommend(db: Session, user: User, problems: list[dict], limit: int = 12,
         weak_hit = [t for t in tags if t in weak]
         # Weak-tag problems first, then closest to the user's rating.
         score = (len(weak_hit) > 0, -abs(pr - rating))
+        # Structured "why" — the frontend renders the sentence in the
+        # active locale (EN/BN). Never build a sentence here.
         if weak_hit:
             w = weak[weak_hit[0]]
             if w["acceptance"] < WEAK_ACCEPTANCE:
-                why = (f"{weak_hit[0]}-তে তোমার acceptance {int(w['acceptance'] * 100)}% — "
-                       f"এই প্রবলেমটি {pr} rating-এর।")
+                why = {"kind": "weak_acceptance", "tag": weak_hit[0],
+                       "acceptance": int(w["acceptance"] * 100),
+                       "problem_rating": pr, "user_rating": rating}
             else:
-                why = (f"{weak_hit[0]}-তে প্রতি প্রবলেমে গড়ে {w['avg_wrong_attempts']}টি ভুল attempt — "
-                       f"এই প্রবলেমটি {pr} rating-এর।")
+                why = {"kind": "weak_wrong", "tag": weak_hit[0],
+                       "avg_wrong_attempts": w["avg_wrong_attempts"],
+                       "problem_rating": pr, "user_rating": rating}
         else:
-            why = f"তোমার rating {rating}-এর কাছাকাছি — এই প্রবলেমটি {pr} rating-এর।"
+            why = {"kind": "near_rating", "user_rating": rating,
+                   "problem_rating": pr}
         scored.append((score, {
             "contest_id": p["contestId"], "index": p["index"], "name": p["name"],
             "rating": pr, "tags": tags, "why": why,

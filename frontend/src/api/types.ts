@@ -1,4 +1,7 @@
 /* Shared types — shapes match the FastAPI responses in backend/app/main.py. */
+import type { WhyInfo } from '../i18n/dict';
+
+export type { WhyInfo };
 
 export interface ProblemRef {
   contest_id: number;
@@ -9,7 +12,7 @@ export interface ProblemRef {
 }
 
 export interface Recommendation extends ProblemRef {
-  why: string;
+  why: WhyInfo;
 }
 
 export interface SubmissionRow {
@@ -87,13 +90,4 @@ export function rankOf(rating: number | null): { name: string; token: string } {
 
 export function cfUrl(p: ProblemRef): string {
   return `https://codeforces.com/problemset/problem/${p.contest_id}/${p.index}`;
-}
-
-export function timeAgo(iso: string | null): string {
-  if (!iso) return 'never';
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
-  return `${Math.floor(s / 86400)} d ago`;
 }

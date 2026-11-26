@@ -19,6 +19,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { HeatDay, RatingPoint, TagStrength } from '../api/types';
+import { useLanguage } from '../i18n';
 
 /* Rank bands for the rating chart background (6% opacity). */
 const BANDS = [
@@ -55,6 +56,7 @@ function ChartTooltip({
 }
 
 export function RatingChart({ data }: { data: RatingPoint[] }) {
+  const { t } = useLanguage();
   const points = useMemo(
     () =>
       data.map((d) => ({
@@ -67,12 +69,12 @@ export function RatingChart({ data }: { data: RatingPoint[] }) {
   if (points.length < 2) {
     return (
       <p className="py-8 text-center text-sm text-muted">
-        Not enough contests yet — your rating graph appears after a few contests.
+        {t.notEnoughContests}
       </p>
     );
   }
   return (
-    <div className="h-64 w-full" role="img" aria-label="Rating history chart">
+    <div className="h-64 w-full min-w-0" role="img" aria-label="Rating history chart">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
           <defs>
@@ -130,11 +132,12 @@ export function RatingChart({ data }: { data: RatingPoint[] }) {
 }
 
 export function TopicRadar({ tags }: { tags: TagStrength[] }) {
+  const { t } = useLanguage();
   const top = useMemo(() => [...tags].sort((a, b) => b.attempted - a.attempted).slice(0, 8), [tags]);
   if (top.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-muted">
-        No tag data yet — sync your submissions to see topic strengths.
+        {t.noTagData}
       </p>
     );
   }
@@ -142,7 +145,7 @@ export function TopicRadar({ tags }: { tags: TagStrength[] }) {
   if (top.length > 6) {
     // More than 6 tags: horizontal bars read better than a crowded radar.
     return (
-      <div className="h-64 w-full" role="img" aria-label="Topic acceptance bar chart">
+      <div className="h-64 w-full min-w-0" role="img" aria-label="Topic acceptance bar chart">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 8 }}>
             <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
@@ -176,7 +179,7 @@ export function TopicRadar({ tags }: { tags: TagStrength[] }) {
     );
   }
   return (
-    <div className="h-64 w-full" role="img" aria-label="Topic strength radar chart">
+    <div className="h-64 w-full min-w-0" role="img" aria-label="Topic strength radar chart">
       <ResponsiveContainer width="100%" height="100%">
         <RadarChart data={data} outerRadius="72%">
           <PolarGrid stroke="var(--border)" />
@@ -208,6 +211,7 @@ function heatLevel(count: number): number {
 }
 
 export function Heatmap({ days }: { days: HeatDay[] }) {
+  const { t, lang } = useLanguage();
   const { columns, monthLabels } = useMemo(() => {
     if (days.length === 0) return { columns: [] as (HeatDay | null)[][], monthLabels: [] as { x: number; label: string }[] };
     const first = new Date(`${days[0].date}T00:00:00`);
@@ -224,21 +228,24 @@ export function Heatmap({ days }: { days: HeatDay[] }) {
       if (m !== prevMonth) {
         labels.push({
           x: ci * 15,
-          label: new Date(`${firstReal.date}T00:00:00`).toLocaleString('en', { month: 'short' }),
+          label: new Date(`${firstReal.date}T00:00:00`).toLocaleString(
+            lang === 'bn' ? 'bn-u-nu-latn' : 'en',
+            { month: 'short' },
+          ),
         });
         prevMonth = m;
       }
     });
     return { columns: cols, monthLabels: labels };
-  }, [days]);
+  }, [days, lang]);
 
   if (days.length === 0) {
-    return <p className="py-8 text-center text-sm text-muted">No activity yet.</p>;
+    return <p className="py-8 text-center text-sm text-muted">{t.noActivityYet}</p>;
   }
   const width = columns.length * 15;
   const total = days.reduce((a, d) => a + d.count, 0);
   return (
-    <div className="overflow-x-auto" role="img" aria-label={`Activity heatmap, ${total} accepted submissions`}>
+    <div className="min-w-0 overflow-x-auto" role="img" aria-label={`Activity heatmap, ${total} accepted submissions`}>
       <svg width={width} height={132} className="block">
         {monthLabels.map((l) => (
           <text key={l.label + l.x} x={l.x} y={10} fontSize={11} fill="var(--muted)">
@@ -260,7 +267,7 @@ export function Heatmap({ days }: { days: HeatDay[] }) {
                 style={{ fill: `var(--heat-${level})` }}
               >
                 <title>
-                  {day.date}: {day.count} solved
+                  {t.heatTooltip(day.date, day.count)}
                 </title>
               </rect>
             );
@@ -268,7 +275,7 @@ export function Heatmap({ days }: { days: HeatDay[] }) {
         )}
       </svg>
       <div className="mt-2 flex items-center justify-end gap-1 text-xs text-muted">
-        Less
+        {t.heatLess}
         {[0, 1, 2, 3, 4].map((l) => (
           <span
             key={l}
@@ -276,7 +283,7 @@ export function Heatmap({ days }: { days: HeatDay[] }) {
             style={{ background: `var(--heat-${l})` }}
           />
         ))}
-        More
+        {t.heatMore}
       </div>
     </div>
   );

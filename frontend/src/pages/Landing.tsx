@@ -1,42 +1,65 @@
 /* Landing — one promise, one blurred hero glow, 3 feature cards, 3 steps.
-   No fake testimonials, no fake user counts, no fake badges. */
+   No fake testimonials, no fake user counts, no fake badges.
+   The preview numbers match the live demo account (verified against
+   /api/demo/dashboard): 1478 rating, 144 solved, 3-day streak, 3 due. */
 import { Link } from 'react-router-dom';
 import { Compass, GitBranch, ListChecks, Target } from 'lucide-react';
 import { Button, Card } from '../components/ui';
 import { LandingHeader } from '../components/layout';
+import { formatWhy, useLanguage } from '../i18n';
+import type { WhyInfo } from '../i18n/dict';
 import type { Theme } from '../hooks/useTheme';
 
-const FEATURES = [
-  {
-    icon: Target,
-    title: 'Weak topics, proven by numbers',
-    text: 'Acceptance rate and wrong attempts per tag — not a guess. See exactly where you bleed rating.',
-  },
-  {
-    icon: ListChecks,
-    title: 'Smart picks, with a reason',
-    text: 'Every day, problems near your rating, on your weak tags, that you have not solved — each with one line saying why.',
-  },
-  {
-    icon: GitBranch,
-    title: 'Revision that sticks',
-    text: 'Hard-won problems come back on a 1 / 3 / 7 / 14 / 30-day schedule, so what you learned stays learned.',
-  },
-];
-
-const STEPS = [
-  { n: '1', title: 'Connect handle', text: 'Register and add your Codeforces handle. We verify it against the Codeforces API.' },
-  { n: '2', title: 'Sync', text: 'Your submissions sync in the background — incremental, resumable, never duplicated.' },
-  { n: '3', title: 'Practice', text: 'Open the dashboard and follow today’s plan. Solve on Codeforces, not here.' },
-];
+/* Static rating sparkline for the preview — the demo account's climb from
+   1120 to 1478, drawn from the seeded history (illustration, not a chart). */
+const SPARK_POINTS =
+  '0,45 20,48 40,43 60,36 80,29 100,24 120,19 140,15 160,16 180,13 200,10 220,11 240,8 260,8';
 
 export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTheme: () => void }) {
+  const { t } = useLanguage();
+
+  const FEATURES = [
+    { icon: Target, title: t.feature1Title, text: t.feature1Text },
+    { icon: ListChecks, title: t.feature2Title, text: t.feature2Text },
+    { icon: GitBranch, title: t.feature3Title, text: t.feature3Text },
+  ];
+
+  const STEPS = [
+    { n: '1', title: t.step1Title, text: t.step1Text },
+    { n: '2', title: t.step2Title, text: t.step2Text },
+    { n: '3', title: t.step3Title, text: t.step3Text },
+  ];
+
+  /* Today's plan preview — the demo account's actual top 2, with structured
+     "why" rendered in the active locale (same data as /demo). */
+  const PREVIEW_PLAN: { id: string; name: string; rating: number; why: WhyInfo }[] = [
+    {
+      id: '1366C',
+      name: 'Palindromic Paths',
+      rating: 1500,
+      why: { kind: 'near_rating', user_rating: 1478, problem_rating: 1500 },
+    },
+    {
+      id: '1360E',
+      name: 'Polygon',
+      rating: 1300,
+      why: {
+        kind: 'weak_acceptance',
+        tag: 'graphs',
+        acceptance: 49,
+        problem_rating: 1300,
+        user_rating: 1478,
+        demo_out_of_band: true,
+      },
+    },
+  ];
+
   return (
     <div className="min-h-screen">
       <LandingHeader theme={theme} toggleTheme={toggleTheme} />
 
       {/* Hero */}
-      <section className="relative mx-auto max-w-[1280px] px-4 pb-16 pt-16 text-center md:px-6 md:pt-24">
+      <section className="relative mx-auto max-w-[1280px] overflow-x-clip px-4 pb-14 pt-10 text-center md:px-6 md:pt-14">
         <div
           aria-hidden
           className="pointer-events-none absolute left-1/2 top-0 h-[300px] w-[600px] -translate-x-1/2 rounded-full blur-3xl"
@@ -48,28 +71,25 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
         <div className="relative">
           <p className="mx-auto flex w-fit items-center gap-2 rounded-full border border-border bg-surface-2 px-3 py-1 text-xs text-muted">
             <Compass size={14} className="text-primary" aria-hidden />
-            Codeforces only · 100% free
+            {t.landingBadge}
           </p>
-          <h1 className="mx-auto mt-6 max-w-3xl text-5xl font-semibold leading-[1.1] tracking-tight md:text-6xl">
-            Your Codeforces data knows what to practice next.
+          <h1 className="mx-auto mt-5 max-w-3xl text-5xl font-semibold leading-[1.1] tracking-tight md:text-6xl">
+            {t.landingTitle}
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base text-muted md:text-lg">
-            CP Compass turns your submissions into a daily plan: which topic is
-            weak, which problem to solve today, and what to revise.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <p className="mx-auto mt-4 max-w-xl text-base text-muted md:text-lg">{t.landingSub}</p>
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <Link to="/demo">
-              <Button className="h-11 px-6 text-base">Try demo — no login</Button>
+              <Button className="h-11 px-6 text-base">{t.tryDemoNoLogin}</Button>
             </Link>
             <Link to="/register">
               <Button variant="secondary" className="h-11 px-6 text-base">
-                Create account
+                {t.createAccount}
               </Button>
             </Link>
           </div>
 
           {/* Browser-frame dashboard preview (static mock, labelled as illustration) */}
-          <div className="mx-auto mt-12 max-w-4xl overflow-hidden rounded-lg border border-border bg-surface text-left shadow-2xl">
+          <div className="mx-auto mt-10 max-w-4xl overflow-hidden rounded-lg border border-border bg-surface text-left shadow-2xl">
             <div className="flex items-center gap-1.5 border-b border-border bg-surface-2 px-4 py-2.5">
               <span className="h-2.5 w-2.5 rounded-full bg-danger/60" />
               <span className="h-2.5 w-2.5 rounded-full bg-warning/60" />
@@ -78,10 +98,10 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
             </div>
             <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
               {[
-                ['Rating', '1478'],
-                ['Solved', '156'],
-                ['Streak', '2 days'],
-                ['Due today', '3'],
+                [t.previewRating, '1478'],
+                [t.previewSolved, '144'],
+                [t.previewStreak, t.previewStreakValue],
+                [t.previewDue, '3'],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-md border border-border bg-bg p-3">
                   <p className="text-[11px] uppercase tracking-wide text-muted">{label}</p>
@@ -89,19 +109,48 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
                 </div>
               ))}
             </div>
-            <div className="px-4 pb-4">
-              <div className="rounded-md border border-border bg-bg p-4">
-                <p className="text-sm font-medium">Today’s plan</p>
-                <p className="mt-1 text-sm text-muted">
-                  1366C Palindromic Paths · 1300 — dp-তে তোমার acceptance 42%
-                </p>
-                <p className="mt-1 text-sm text-muted">
-                  1360C Similar Pairs · 1200 — তোমার rating-এর কাছাকাছি
-                </p>
+            <div className="grid gap-3 px-4 pb-4 sm:grid-cols-5">
+              <div className="rounded-md border border-border bg-bg p-4 sm:col-span-3">
+                <p className="text-sm font-medium">{t.previewTodayPlan}</p>
+                {PREVIEW_PLAN.map((p) => (
+                  <p key={p.id} className="mt-2 text-sm text-muted">
+                    <span className="font-mono font-medium text-text">
+                      {p.id} {p.name} · {p.rating}
+                    </span>
+                    {' — '}
+                    {formatWhy(p.why, t)}
+                  </p>
+                ))}
+              </div>
+              <div className="rounded-md border border-border bg-bg p-4 sm:col-span-2">
+                <p className="text-sm font-medium">{t.previewRatingTrend}</p>
+                <svg
+                  viewBox="0 0 260 56"
+                  className="mt-2 h-14 w-full"
+                  preserveAspectRatio="none"
+                  aria-hidden
+                >
+                  <defs>
+                    <linearGradient id="previewFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.2} />
+                      <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <polygon points={`${SPARK_POINTS} 260,56 0,56`} fill="url(#previewFill)" />
+                  <polyline
+                    points={SPARK_POINTS}
+                    fill="none"
+                    stroke="var(--primary)"
+                    strokeWidth={2}
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <p className="mt-1 font-mono text-xs text-muted">1120 → 1478</p>
               </div>
             </div>
             <p className="border-t border-border px-4 py-2 text-center text-xs text-muted">
-              Illustration from the demo account — try the live demo above.
+              {t.previewCaption}
             </p>
           </div>
         </div>
@@ -122,7 +171,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
 
       {/* How it works */}
       <section className="mx-auto max-w-[1280px] px-4 pb-16 md:px-6">
-        <h2 className="text-2xl font-semibold tracking-tight">How it works</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">{t.howItWorks}</h2>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           {STEPS.map((s) => (
             <Card key={s.n}>
@@ -139,12 +188,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
       {/* Built with */}
       <section className="border-t border-border">
         <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-4 px-4 py-8 md:px-6">
-          <p className="text-sm text-muted">
-            Built with <span className="font-medium text-text">FastAPI</span>,{' '}
-            <span className="font-medium text-text">PostgreSQL</span> and{' '}
-            <span className="font-medium text-text">React</span>. Data comes from the
-            public Codeforces API.
-          </p>
+          <p className="text-sm text-muted">{t.builtWith('FastAPI', 'PostgreSQL', 'React')}</p>
           <a
             href="https://codeforces.com"
             target="_blank"
@@ -159,22 +203,18 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
       {/* CTA + footer */}
       <footer className="border-t border-border">
         <div className="mx-auto max-w-[1280px] px-4 py-12 text-center md:px-6">
-          <h2 className="text-2xl font-semibold tracking-tight">
-            Stop picking problems at random.
-          </h2>
+          <h2 className="text-2xl font-semibold tracking-tight">{t.ctaTitle}</h2>
           <div className="mt-6 flex justify-center gap-3">
             <Link to="/demo">
-              <Button className="h-11 px-6 text-base">Try demo</Button>
+              <Button className="h-11 px-6 text-base">{t.tryDemo}</Button>
             </Link>
             <Link to="/register">
               <Button variant="secondary" className="h-11 px-6 text-base">
-                Create account
+                {t.createAccount}
               </Button>
             </Link>
           </div>
-          <p className="mt-8 text-xs text-muted">
-            CP Compass is a personal project. It is not affiliated with Codeforces.
-          </p>
+          <p className="mt-8 text-xs text-muted">{t.footerNote}</p>
         </div>
       </footer>
     </div>

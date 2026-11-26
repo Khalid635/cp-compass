@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import { api } from '../api/client';
 import type { RevisionItem } from '../api/types';
+import { formatDate, useLanguage } from '../i18n';
 import { RevisionCard } from '../components/cards';
 import { Button, Card, EmptyState, Skeleton, Tabs } from '../components/ui';
 
@@ -12,6 +13,7 @@ type Tab = 'due' | 'upcoming' | 'done';
 type Result = 'again' | 'hard' | 'good' | 'easy';
 
 export default function Revision({ demo = false }: { demo?: boolean }) {
+  const { t, lang } = useLanguage();
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>('due');
   const [index, setIndex] = useState(0);
@@ -75,12 +77,12 @@ export default function Revision({ demo = false }: { demo?: boolean }) {
 
   return (
     <div className="page-enter flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Revision</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{t.revision}</h1>
       <Tabs<Tab>
         tabs={[
-          { id: 'due', label: 'Due today', count: counts.due },
-          { id: 'upcoming', label: 'Upcoming', count: counts.upcoming },
-          { id: 'done', label: 'Done', count: counts.done },
+          { id: 'due', label: t.tabDue, count: counts.due },
+          { id: 'upcoming', label: t.tabUpcoming, count: counts.upcoming },
+          { id: 'done', label: t.tabDone, count: counts.done },
         ]}
         active={tab}
         onChange={setTab}
@@ -92,13 +94,13 @@ export default function Revision({ demo = false }: { demo?: boolean }) {
         <Card>
           <EmptyState
             icon={<CheckCircle2 size={40} aria-hidden />}
-            title={tab === 'due' ? 'No revisions due. Nice.' : 'Nothing here yet'}
+            title={tab === 'due' ? t.noRevisionsDue : t.nothingHere}
             text={
               tab === 'due'
-                ? 'You are all caught up. Problems you struggle with will appear here tomorrow.'
+                ? t.allCaughtUp
                 : tab === 'upcoming'
-                  ? 'Reviewed problems return on their schedule — 1, 3, 7, 14, then 30 days.'
-                  : 'Problems you have reviewed will show up here.'
+                  ? t.upcomingHint
+                  : t.doneHint
             }
           />
         </Card>
@@ -119,7 +121,7 @@ export default function Revision({ demo = false }: { demo?: boolean }) {
                 disabled={index === 0}
                 onClick={() => setIndex((i) => Math.max(0, i - 1))}
               >
-                <ChevronLeft size={14} aria-hidden /> Previous
+                <ChevronLeft size={14} aria-hidden /> {t.previous}
               </Button>
               <span className="font-mono text-sm text-muted">
                 {index + 1} / {items.length}
@@ -129,7 +131,7 @@ export default function Revision({ demo = false }: { demo?: boolean }) {
                 disabled={index >= items.length - 1}
                 onClick={() => setIndex((i) => Math.min(items.length - 1, i + 1))}
               >
-                Next <ChevronRight size={14} aria-hidden />
+                {t.next} <ChevronRight size={14} aria-hidden />
               </Button>
             </div>
           )}
@@ -138,7 +140,7 @@ export default function Revision({ demo = false }: { demo?: boolean }) {
 
       {tab === 'upcoming' && items.length > 0 && (
         <div className="mx-auto w-full max-w-2xl">
-          <Card title="Coming up">
+          <Card title={t.comingUp}>
             <ul className="flex flex-col gap-2">
               {items.slice(0, 10).map((r) => (
                 <li key={r.id} className="flex items-center gap-2 text-sm">
@@ -148,10 +150,7 @@ export default function Revision({ demo = false }: { demo?: boolean }) {
                     {r.problem.index} — {r.problem.name}
                   </span>
                   <span className="font-mono text-xs text-muted">
-                    {new Date(r.due_date).toLocaleDateString('en-GB', {
-                      day: 'numeric',
-                      month: 'short',
-                    })}
+                    {formatDate(r.due_date, lang)}
                   </span>
                 </li>
               ))}
@@ -160,11 +159,7 @@ export default function Revision({ demo = false }: { demo?: boolean }) {
         </div>
       )}
 
-      {demo && (
-        <p className="text-center text-xs text-muted">
-          Demo data — reviews are disabled here; they work on your own account.
-        </p>
-      )}
+      {demo && <p className="text-center text-xs text-muted">{t.demoRevisionNote}</p>}
     </div>
   );
 }

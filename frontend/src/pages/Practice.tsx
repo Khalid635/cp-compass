@@ -4,12 +4,14 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { api } from '../api/client';
+import { useLanguage } from '../i18n';
 import { FilterBar, ProblemCard } from '../components/cards';
 import { Button, Card, EmptyState, Skeleton } from '../components/ui';
 
 type ActionState = 'later' | 'not_interested' | 'hidden' | null;
 
 export default function Practice({ demo = false }: { demo?: boolean }) {
+  const { t } = useLanguage();
   const qc = useQueryClient();
   const [tag, setTag] = useState('');
   const [minRating, setMinRating] = useState('');
@@ -54,13 +56,13 @@ export default function Practice({ demo = false }: { demo?: boolean }) {
 
   const tags = useMemo(() => {
     const all = new Set<string>();
-    (query.data ?? []).forEach((p) => p.tags.forEach((t) => all.add(t)));
+    (query.data ?? []).forEach((p) => p.tags.forEach((tg) => all.add(tg)));
     return [...all].sort();
   }, [query.data]);
 
   return (
     <div className="page-enter flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Practice</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{t.practice}</h1>
       <FilterBar
         tags={tags}
         tag={tag}
@@ -85,11 +87,11 @@ export default function Practice({ demo = false }: { demo?: boolean }) {
         <Card>
           <EmptyState
             icon={<RefreshCw size={40} aria-hidden />}
-            title="Codeforces didn't respond"
-            text="We'll retry automatically."
+            title={t.cfNoResponse}
+            text={t.cfRetryAutoShort}
             action={
               <Button onClick={() => void query.refetch()}>
-                <RefreshCw size={14} aria-hidden /> Retry
+                <RefreshCw size={14} aria-hidden /> {t.retry}
               </Button>
             }
           />
@@ -100,8 +102,8 @@ export default function Practice({ demo = false }: { demo?: boolean }) {
         <Card>
           <EmptyState
             icon={<RefreshCw size={40} aria-hidden />}
-            title="No problems match"
-            text="Try widening the rating range or clearing the tag filter. New suggestions appear after you sync more submissions."
+            title={t.noProblemsMatch}
+            text={t.noProblemsMatchHint}
           />
         </Card>
       )}
@@ -123,11 +125,7 @@ export default function Practice({ demo = false }: { demo?: boolean }) {
         </div>
       )}
 
-      {demo && (
-        <p className="text-center text-xs text-muted">
-          Demo data — Later / Not interested are disabled here; they work on your own account.
-        </p>
-      )}
+      {demo && <p className="text-center text-xs text-muted">{t.demoPracticeNote}</p>}
     </div>
   );
 }

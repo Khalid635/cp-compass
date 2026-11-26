@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api/client';
 import { rankOf } from '../api/types';
+import { formatWhy, useLanguage } from '../i18n';
 import { Heatmap, RatingChart, TopicRadar } from '../components/charts';
 import { RecentSubmissions, StatCard } from '../components/cards';
 import { ColdStartBanner } from '../components/layout';
@@ -27,11 +28,11 @@ function DashboardSkeleton() {
           <Skeleton key={i} className="h-[118px] w-full" />
         ))}
       </div>
-      <div className="grid gap-4 lg:grid-cols-12">
+      <div className="grid items-start gap-4 lg:grid-cols-12">
         <Skeleton className="h-[320px] w-full lg:col-span-8" />
         <Skeleton className="h-[320px] w-full lg:col-span-4" />
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         <Skeleton className="h-[300px] w-full" />
         <Skeleton className="h-[300px] w-full" />
       </div>
@@ -40,6 +41,7 @@ function DashboardSkeleton() {
 }
 
 export default function Dashboard({ demo = false }: { demo?: boolean }) {
+  const { t } = useLanguage();
   const query = useQuery({
     queryKey: demo ? ['demo-dashboard'] : ['dashboard'],
     queryFn: demo ? api.demoDashboard : api.dashboard,
@@ -50,8 +52,8 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
   // ColdStartBanner only if the first load is actually slow (>1.5s).
   useEffect(() => {
     if (!query.isPending) return;
-    const t = setTimeout(() => setShowColdStart(true), 1500);
-    return () => clearTimeout(t);
+    const tt = setTimeout(() => setShowColdStart(true), 1500);
+    return () => clearTimeout(tt);
   }, [query.isPending]);
 
   if (query.isPending) {
@@ -68,11 +70,11 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
       <Card>
         <EmptyState
           icon={<RefreshCw size={40} aria-hidden />}
-          title="Codeforces didn't respond"
-          text="We'll retry automatically. If this keeps happening, check your connection and try again."
+          title={t.cfNoResponse}
+          text={t.cfRetryAuto}
           action={
             <Button onClick={() => void query.refetch()}>
-              <RefreshCw size={14} aria-hidden /> Retry
+              <RefreshCw size={14} aria-hidden /> {t.retry}
             </Button>
           }
         />
@@ -85,12 +87,9 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
   if (!d.has_handle) {
     return (
       <div className="page-enter">
-        <h1 className="mb-4 text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <h1 className="mb-4 text-2xl font-semibold tracking-tight">{t.dashboard}</h1>
         <HandleConnect onDone={() => void query.refetch()} />
-        <p className="mt-4 text-sm text-muted">
-          After connecting your handle, press “Sync now” in the top bar to pull
-          your submissions.
-        </p>
+        <p className="mt-4 text-sm text-muted">{t.connectHandleHint}</p>
       </div>
     );
   }
@@ -104,7 +103,7 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
     <div className="page-enter flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Dashboard
+          {t.dashboard}
           {d.user.handle && (
             <span className="ml-3 font-mono text-sm font-medium text-muted">
               {d.user.handle}
@@ -113,7 +112,7 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
         </h1>
         {!d.synced && !demo && (
           <p className="text-sm text-muted">
-            No submissions synced yet — press <strong>Sync now</strong> above.
+            {t.noSyncYet}
           </p>
         )}
       </div>
@@ -121,41 +120,41 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
       {/* Row 1 — stat cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
-          label="Current rating"
+          label={t.statRating}
           value={d.stats?.rating ?? '—'}
           icon={<Trophy size={16} aria-hidden />}
           delta={
             delta !== 0
-              ? { text: `${delta > 0 ? '+' : ''}${delta} last contest`, good: delta > 0 }
+              ? { text: `${delta > 0 ? '+' : ''}${delta}`, good: delta > 0 }
               : undefined
           }
-          sub={rank.name}
+          sub={delta !== 0 ? `${rank.name} · ${t.lastContest}` : rank.name}
         />
         <StatCard
-          label="Total solved"
+          label={t.statSolved}
           value={d.stats?.solved ?? 0}
           icon={<Target size={16} aria-hidden />}
-          sub="accepted submissions"
+          sub={t.subSolved}
         />
         <StatCard
-          label="Streak"
+          label={t.statStreak}
           value={d.stats?.streak ?? 0}
-          sub={d.stats?.streak === 1 ? 'day in a row' : 'days in a row'}
+          sub={t.subStreak(d.stats?.streak ?? 0)}
           icon={<Flame size={16} aria-hidden />}
         />
         <StatCard
-          label="Revision due"
+          label={t.statRevisionDue}
           value={d.stats?.revisions_due ?? 0}
-          sub="problems waiting"
+          sub={t.subRevisions}
           icon={<CalendarCheck2 size={16} aria-hidden />}
         />
       </div>
 
       {/* Row 2 — rating chart + today's plan */}
-      <div className="grid gap-4 lg:grid-cols-12">
+      <div className="grid items-start gap-4 lg:grid-cols-12">
         <Card
-          title="Rating history"
-          className="lg:col-span-8"
+          title={t.ratingHistory}
+          className="min-w-0 lg:col-span-8"
           action={
             d.stats?.rating !== null && d.stats?.rating !== undefined ? (
               <RatingBadge rating={d.stats.rating} rankName={rank.name} rankColor={rank.token} />
@@ -164,11 +163,9 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
         >
           <RatingChart data={d.rating_history} />
         </Card>
-        <Card title="Today's plan" className="lg:col-span-4">
+        <Card title={t.todaysPlan} className="min-w-0 lg:col-span-4">
           {d.today_plan.problems.length === 0 && d.today_plan.revisions.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted">
-              Nothing planned yet — sync your submissions first.
-            </p>
+            <p className="py-6 text-center text-sm text-muted">{t.nothingPlanned}</p>
           ) : (
             <div className="flex flex-col gap-3">
               {d.today_plan.problems.map((p) => (
@@ -189,7 +186,7 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
                       rankColor={rankOf(p.rating).token}
                     />
                   </div>
-                  <p className="mt-1 text-xs text-muted">{p.why}</p>
+                  <p className="mt-1 text-xs text-muted">{formatWhy(p.why, t)}</p>
                 </div>
               ))}
               {d.today_plan.revisions.map((r) => (
@@ -199,7 +196,7 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
                 >
                   <Link2 size={14} className="shrink-0 text-muted" aria-hidden />
                   <span className="min-w-0 flex-1 truncate">
-                    Revise: {r.problem.contest_id}
+                    {t.reviseLabel}: {r.problem.contest_id}
                     {r.problem.index} — {r.problem.name}
                   </span>
                 </div>
@@ -210,34 +207,32 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
       </div>
 
       {/* Row 3 — radar + heatmap */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Topic strength — acceptance % by tag">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <Card title={t.topicStrength} className="min-w-0">
           <TopicRadar tags={d.tag_strengths} />
-          {d.tag_strengths.filter((t) => t.weak).length > 0 && (
+          {d.tag_strengths.filter((tg) => tg.weak).length > 0 && (
             <p className="mt-2 text-sm text-muted">
-              Weak right now:{' '}
-              {d.tag_strengths
-                .filter((t) => t.weak)
-                .map((t) => t.tag)
-                .join(', ')}
-              . Practice picks target these first.
+              {t.weakRightNow(
+                d.tag_strengths
+                  .filter((tg) => tg.weak)
+                  .map((tg) => tg.tag)
+                  .join(', '),
+              )}
             </p>
           )}
         </Card>
-        <Card title="Daily activity — accepted submissions">
+        <Card title={t.dailyActivity} className="min-w-0">
           <Heatmap days={d.heatmap} />
         </Card>
       </div>
 
       {/* Row 4 — recent submissions */}
-      <Card title="Recent submissions">
+      <Card title={t.recentSubmissions} className="min-w-0">
         <RecentSubmissions rows={d.recent} />
       </Card>
 
       {demo && (
-        <p className="text-center text-xs text-muted">
-          Demo data — seeded example account. Your own dashboard fills up as you sync.
-        </p>
+        <p className="text-center text-xs text-muted">{t.demoFootnote}</p>
       )}
     </div>
   );

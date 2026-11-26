@@ -5,6 +5,7 @@ import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Compass } from 'lucide-react';
 import { ApiError } from '../api/client';
+import { useLanguage } from '../i18n';
 import { useAuth } from '../hooks/useAuth';
 import { Button, Card, Input } from '../components/ui';
 
@@ -17,6 +18,7 @@ export function RegisterPage() {
 }
 
 function AuthPage({ mode }: { mode: 'login' | 'register' }) {
+  const { t } = useLanguage();
   const { login, register, user } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -33,7 +35,7 @@ function AuthPage({ mode }: { mode: 'login' | 'register' }) {
       else await register(email, password);
       navigate('/app', { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.');
+      setError(err instanceof ApiError ? err.message : t.somethingWrong);
     } finally {
       setBusy(false);
     }
@@ -45,18 +47,16 @@ function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           <Compass size={32} className="text-primary" aria-hidden />
           <h1 className="text-2xl font-semibold tracking-tight">
-            {mode === 'login' ? 'Welcome back' : 'Create your account'}
+            {mode === 'login' ? t.welcomeBack : t.createAccountTitle}
           </h1>
           <p className="text-sm text-muted">
-            {mode === 'login'
-              ? 'Log in to see your practice plan.'
-              : 'One account, one Codeforces handle. Free forever.'}
+            {mode === 'login' ? t.loginSub : t.registerSub}
           </p>
         </div>
         <Card>
           <form onSubmit={submit} className="flex flex-col gap-4">
             <label className="flex flex-col gap-1 text-sm font-medium">
-              Email
+              {t.email}
               <Input
                 type="email"
                 required
@@ -67,14 +67,14 @@ function AuthPage({ mode }: { mode: 'login' | 'register' }) {
               />
             </label>
             <label className="flex flex-col gap-1 text-sm font-medium">
-              Password
+              {t.password}
               <Input
                 type="password"
                 required
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 6 characters"
+                placeholder={t.passwordPlaceholder}
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
             </label>
@@ -84,25 +84,25 @@ function AuthPage({ mode }: { mode: 'login' | 'register' }) {
               </p>
             )}
             <Button type="submit" loading={busy} className="w-full">
-              {mode === 'login' ? 'Log in' : 'Create account'}
+              {mode === 'login' ? t.logIn : t.createAccountBtn}
             </Button>
           </form>
         </Card>
         <p className="mt-4 text-center text-sm text-muted">
           {mode === 'login' ? (
             <>
-              No account yet? <Link to="/register">Create one</Link>
+              {t.noAccountYet} <Link to="/register">{t.createAccount}</Link>
             </>
           ) : (
             <>
-              Already have an account? <Link to="/login">Log in</Link>
+              {t.haveAccount} <Link to="/login">{t.logIn}</Link>
             </>
           )}
         </p>
         {mode === 'register' && user && (
           <p className="mt-2 flex items-center justify-center gap-1 text-center text-xs text-muted">
             <CheckCircle2 size={14} className="text-success" aria-hidden />
-            Account created — next, connect your handle.
+            {t.accountCreated}
           </p>
         )}
       </div>
@@ -113,6 +113,7 @@ function AuthPage({ mode }: { mode: 'login' | 'register' }) {
 /* Handle-connect step — shown after register, and from the dashboard when
    no handle is connected yet. */
 export function HandleConnect({ onDone }: { onDone?: () => void }) {
+  const { t } = useLanguage();
   const { setHandle: connectHandle } = useAuth();
   const [handle, setHandle] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -126,28 +127,25 @@ export function HandleConnect({ onDone }: { onDone?: () => void }) {
       await connectHandle(handle.trim());
       onDone?.();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not verify the handle.');
+      setError(err instanceof ApiError ? err.message : t.handleVerifyError);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Card title="Connect your Codeforces handle">
-      <p className="mb-4 text-sm text-muted">
-        We check the handle against the Codeforces API — a wrong handle gives a
-        clear error, never partial data.
-      </p>
+    <Card title={t.connectHandleTitle}>
+      <p className="mb-4 text-sm text-muted">{t.connectHandleText}</p>
       <form onSubmit={submit} className="flex flex-col gap-3 sm:flex-row">
         <Input
           value={handle}
           onChange={(e) => setHandle(e.target.value)}
-          placeholder="e.g. tourist"
+          placeholder={t.handlePlaceholder}
           className="flex-1"
           aria-label="Codeforces handle"
         />
         <Button type="submit" loading={busy}>
-          Verify & connect
+          {t.verifyConnect}
         </Button>
       </form>
       {error && (

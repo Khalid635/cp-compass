@@ -1,10 +1,12 @@
 /* Feature cards: StatCard, ProblemCard, RevisionCard, RecentSubmissions,
-   FilterBar — per the design spec. */
+   FilterBar — per the design spec. All user-facing text via i18n. */
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { ArrowUpRight, Check, Clock, ExternalLink, RotateCcw, X } from 'lucide-react';
-import type { ProblemRef, RevisionItem, SubmissionRow } from '../api/types';
+import type { ProblemRef, RevisionItem, SubmissionRow, WhyInfo } from '../api/types';
 import { cfUrl, rankOf } from '../api/types';
+import { formatDateTime, formatWhy, useLanguage } from '../i18n';
+import type { Dict } from '../i18n/dict';
 import { Button, Card, RatingBadge, TagChip } from './ui';
 
 /* ---------- StatCard ---------- */
@@ -60,16 +62,17 @@ export function ProblemCard({
   actionState,
 }: {
   problem: ProblemRef;
-  why: string;
+  why: WhyInfo;
   demo?: boolean;
   onAction?: (action: 'later' | 'not_interested') => void;
   actionState?: 'later' | 'not_interested' | 'hidden' | null;
 }) {
+  const { t } = useLanguage();
   const rank = rankOf(problem.rating);
   const hidden = actionState === 'hidden';
   if (hidden) return null;
   return (
-    <article className="flex flex-col rounded-lg border border-border bg-surface p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40">
+    <article className="flex min-w-0 flex-col rounded-lg border border-border bg-surface p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40">
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-base font-semibold leading-snug">{problem.name}</h3>
         <RatingBadge rating={problem.rating} rankName={rank.name} rankColor={rank.token} />
@@ -79,11 +82,11 @@ export function ProblemCard({
         {problem.index}
       </p>
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {problem.tags.map((t) => (
-          <TagChip key={t} tag={t} />
+        {problem.tags.map((tg) => (
+          <TagChip key={tg} tag={tg} />
         ))}
       </div>
-      <p className="mt-3 text-sm text-muted">{why}</p>
+      <p className="mt-3 text-sm text-muted">{formatWhy(why, t)}</p>
       <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
         <a
           href={cfUrl(problem)}
@@ -91,27 +94,42 @@ export function ProblemCard({
           rel="noreferrer"
           className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-on-primary transition-colors hover:opacity-90"
         >
-          Open on CF <ExternalLink size={14} aria-hidden />
+          {t.openOnCf} <ExternalLink size={14} aria-hidden />
         </a>
         <Button
           variant="secondary"
           disabled={demo || actionState === 'later'}
           onClick={() => onAction?.('later')}
-          title={demo ? 'Disabled in demo mode' : undefined}
+          title={demo ? t.disabledInDemo : undefined}
         >
-          <Clock size={14} aria-hidden /> {actionState === 'later' ? 'Saved for later' : 'Later'}
+          <Clock size={14} aria-hidden /> {actionState === 'later' ? t.savedForLater : t.later}
         </Button>
         <Button
           variant="ghost"
           disabled={demo}
           onClick={() => onAction?.('not_interested')}
-          title={demo ? 'Disabled in demo mode' : undefined}
+          title={demo ? t.disabledInDemo : undefined}
         >
-          <X size={14} aria-hidden /> Not interested
+          <X size={14} aria-hidden /> {t.notInterested}
         </Button>
       </div>
     </article>
   );
+}
+
+function resultLabel(result: string, t: Dict): string {
+  switch (result) {
+    case 'again':
+      return t.reviewAgain;
+    case 'hard':
+      return t.reviewHard;
+    case 'good':
+      return t.reviewGood;
+    case 'easy':
+      return t.reviewEasy;
+    default:
+      return result;
+  }
 }
 
 /* ---------- RevisionCard ---------- */
@@ -126,12 +144,13 @@ export function RevisionCard({
   onReview?: (result: 'again' | 'hard' | 'good' | 'easy') => void;
   reviewed?: string | null;
 }) {
+  const { t } = useLanguage();
   const rank = rankOf(revision.problem.rating);
   const options = [
-    { id: 'again' as const, label: 'Again', key: '1', hint: '1 day' },
-    { id: 'hard' as const, label: 'Hard', key: '2', hint: 'same interval' },
-    { id: 'good' as const, label: 'Good', key: '3', hint: 'next interval' },
-    { id: 'easy' as const, label: 'Easy', key: '4', hint: 'skip ahead' },
+    { id: 'again' as const, label: t.reviewAgain, key: '1', hint: t.hintAgain },
+    { id: 'hard' as const, label: t.reviewHard, key: '2', hint: t.hintHard },
+    { id: 'good' as const, label: t.reviewGood, key: '3', hint: t.hintGood },
+    { id: 'easy' as const, label: t.reviewEasy, key: '4', hint: t.hintEasy },
   ];
   return (
     <article className="rounded-lg border border-border bg-surface p-6">
@@ -150,15 +169,13 @@ export function RevisionCard({
         />
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {revision.problem.tags.map((t) => (
-          <TagChip key={t} tag={t} />
+        {revision.problem.tags.map((tg) => (
+          <TagChip key={tg} tag={tg} />
         ))}
       </div>
       <p className="mt-4 text-sm text-muted">
-        Last attempt: {revision.wrong_attempts} wrong attempt
-        {revision.wrong_attempts === 1 ? '' : 's'} · Interval: {revision.interval_days} day
-        {revision.interval_days === 1 ? '' : 's'}
-        {revision.last_result ? ` · Last review: ${revision.last_result}` : ''}
+        {t.lastAttempt(revision.wrong_attempts, revision.interval_days)}
+        {revision.last_result ? t.lastReview(resultLabel(revision.last_result, t)) : ''}
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         <a
@@ -167,13 +184,16 @@ export function RevisionCard({
           rel="noreferrer"
           className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-on-primary transition-colors hover:opacity-90"
         >
-          Open on CF <ExternalLink size={14} aria-hidden />
+          {t.openOnCf} <ExternalLink size={14} aria-hidden />
         </a>
       </div>
       {reviewed ? (
         <p className="mt-5 flex items-center gap-2 text-sm text-success">
-          <Check size={16} aria-hidden /> Reviewed as “{reviewed}” — next due in{' '}
-          {reviewed === 'again' ? '1 day' : 'a longer interval'}.
+          <Check size={16} aria-hidden />{' '}
+          {t.reviewedAs(
+            resultLabel(reviewed, t),
+            reviewed === 'again' ? t.reviewedNext1Day : t.reviewedNextLonger,
+          )}
         </p>
       ) : (
         <>
@@ -183,7 +203,7 @@ export function RevisionCard({
                 key={o.id}
                 disabled={demo}
                 onClick={() => onReview?.(o.id)}
-                title={demo ? 'Disabled in demo mode' : o.hint}
+                title={demo ? t.disabledInDemo : o.hint}
                 className="flex cursor-pointer flex-col items-center gap-0.5 rounded-md border border-border bg-surface-2 px-3 py-2.5 text-sm font-medium transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {o.label}
@@ -191,10 +211,7 @@ export function RevisionCard({
               </button>
             ))}
           </div>
-          <p className="mt-3 text-xs text-muted">
-            Press <span className="kbd">1</span>–<span className="kbd">4</span> to rate, or click a
-            button. Intervals: 1 → 3 → 7 → 14 → 30 days.
-          </p>
+          <p className="mt-3 text-xs text-muted">{t.rateKeysHint}</p>
         </>
       )}
     </article>
@@ -202,23 +219,24 @@ export function RevisionCard({
 }
 
 /* ---------- Recent submissions table ---------- */
-const VERDICT_STYLE: Record<string, { color: string; icon: ReactNode; label: string }> = {
-  OK: { color: 'var(--success)', icon: <Check size={14} aria-hidden />, label: 'Accepted' },
+const VERDICT_STYLE: Record<string, { color: string; icon: ReactNode }> = {
+  OK: { color: 'var(--success)', icon: <Check size={14} aria-hidden /> },
 };
 
 export function RecentSubmissions({ rows }: { rows: SubmissionRow[] }) {
+  const { t, lang } = useLanguage();
   if (rows.length === 0) {
-    return <p className="py-6 text-center text-sm text-muted">No submissions yet.</p>;
+    return <p className="py-6 text-center text-sm text-muted">{t.noSubmissionsYet}</p>;
   }
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
-            <th className="pb-2 pr-3 font-medium">Problem</th>
-            <th className="pb-2 pr-3 font-medium">Verdict</th>
-            <th className="hidden pb-2 pr-3 font-medium sm:table-cell">Language</th>
-            <th className="pb-2 text-right font-medium">Time</th>
+            <th className="pb-2 pr-3 font-medium">{t.thProblem}</th>
+            <th className="pb-2 pr-3 font-medium">{t.thVerdict}</th>
+            <th className="hidden pb-2 pr-3 font-medium sm:table-cell">{t.thLanguage}</th>
+            <th className="pb-2 text-right font-medium">{t.thTime}</th>
           </tr>
         </thead>
         <tbody>
@@ -226,8 +244,9 @@ export function RecentSubmissions({ rows }: { rows: SubmissionRow[] }) {
             const v = VERDICT_STYLE[r.verdict] ?? {
               color: 'var(--danger)',
               icon: <X size={14} aria-hidden />,
-              label: r.verdict.replace(/_/g, ' '),
             };
+            const label =
+              r.verdict === 'OK' ? t.verdictAccepted : r.verdict.replace(/_/g, ' ');
             return (
               <tr key={i} className="border-b border-border/60 last:border-0 hover:bg-hover">
                 <td className="py-3 pr-3">
@@ -246,19 +265,14 @@ export function RecentSubmissions({ rows }: { rows: SubmissionRow[] }) {
                     className="inline-flex items-center gap-1 font-medium"
                     style={{ color: v.color }}
                   >
-                    {v.icon} {v.label}
+                    {v.icon} {label}
                   </span>
                 </td>
                 <td className="hidden py-3 pr-3 font-mono text-xs text-muted sm:table-cell">
                   {r.language ?? '—'}
                 </td>
                 <td className="py-3 text-right text-muted">
-                  {new Date(r.submitted_at).toLocaleString('en-GB', {
-                    day: 'numeric',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {formatDateTime(r.submitted_at, lang)}
                 </td>
               </tr>
             );
@@ -291,28 +305,29 @@ export function FilterBar({
   hideSolved: boolean;
   setHideSolved: (v: boolean) => void;
 }) {
+  const { t } = useLanguage();
   const [showAllTags, setShowAllTags] = useState(false);
   const visibleTags = showAllTags ? tags : tags.slice(0, 10);
   return (
     <Card>
       <div className="flex flex-wrap items-end gap-4">
         <label className="flex flex-col gap-1 text-xs font-medium text-muted">
-          Tag
+          {t.filterTag}
           <select
             value={tag}
             onChange={(e) => setTag(e.target.value)}
             className="h-10 rounded-md border border-border bg-surface-2 px-2 text-sm text-text focus:border-ring focus:outline-none"
           >
-            <option value="">All tags</option>
-            {tags.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            <option value="">{t.filterAllTags}</option>
+            {tags.map((tg) => (
+              <option key={tg} value={tg}>
+                {tg}
               </option>
             ))}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted">
-          Min rating
+          {t.filterMinRating}
           <input
             type="number"
             value={minRating}
@@ -322,7 +337,7 @@ export function FilterBar({
           />
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted">
-          Max rating
+          {t.filterMaxRating}
           <input
             type="number"
             value={maxRating}
@@ -338,7 +353,7 @@ export function FilterBar({
             onChange={(e) => setHideSolved(e.target.checked)}
             className="h-4 w-4 accent-[var(--primary)]"
           />
-          Hide solved
+          {t.filterHideSolved}
         </label>
       </div>
       {tags.length > 10 && (
@@ -346,14 +361,14 @@ export function FilterBar({
           onClick={() => setShowAllTags((s) => !s)}
           className="mt-3 cursor-pointer text-xs text-primary hover:underline"
         >
-          {showAllTags ? 'Show fewer tags' : `Show all ${tags.length} tags`}
+          {showAllTags ? t.filterShowFewer : t.filterShowAll(tags.length)}
         </button>
       )}
       {visibleTags.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {visibleTags.map((t) => (
-            <button key={t} onClick={() => setTag(tag === t ? '' : t)} className="cursor-pointer">
-              <TagChip tag={t} weak={tag === t} />
+          {visibleTags.map((tg) => (
+            <button key={tg} onClick={() => setTag(tag === tg ? '' : tg)} className="cursor-pointer">
+              <TagChip tag={tg} weak={tag === tg} />
             </button>
           ))}
         </div>
