@@ -1,0 +1,111 @@
+/* CSS-only motion. transform + opacity only — never layout properties.
+   No bounce, spin loader, parallax or auto-play carousel anywhere. */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes slide-in-toast {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes banner-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.page-enter > * {
+  animation: fade-up 250ms var(--ease-out) both;
+}
+
+.page-enter > *:nth-child(2) {
+  animation-delay: 40ms;
+}
+
+.page-enter > *:nth-child(3) {
+  animation-delay: 80ms;
+}
+
+.page-enter > *:nth-child(4) {
+  animation-delay: 120ms;
+}
+
+.page-enter > *:nth-child(5) {
+  animation-delay: 160ms;
+}
+
+.page-enter > *:nth-child(6) {
+  animation-delay: 200ms;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--hover) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: var(--radius-sm);
+}
+
+.pulse-dot {
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+.toast-enter {
+  animation: slide-in-toast 250ms var(--ease-out) both;
+}
+
+.banner-enter {
+  animation: banner-drop 250ms var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

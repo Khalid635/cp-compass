@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+/* CP Compass design tokens — one accent, everything else neutral.
+   Dark-first. Values verified against the plan PDF; semantic hex values
+   (success/warning/danger) were missing from the plan and are set here. */
+
+:root[data-theme="dark"] {
+  --bg: #0b0f17;
+  --surface: #121826;
+  --surface-2: #1a2233;
+  --primary: #7c83ff;
+  --on-primary: #0b0f17;
+  --text: #e6eaf2;
+  --muted: #8b96ab;
+  --border: #243049;
+  --hover: #1a2233;
+  --active: #212b40;
+  --ring: #7c83ff;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --rank-newbie: #9ca3af;
+  --rank-pupil: #4ade80;
+  --rank-specialist: #2dd4bf;
+  --rank-expert: #60a5fa;
+  --rank-cm: #c084fc;
+  --rank-master: #fb923c;
+  --rank-gm: #f87171;
+  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+:root[data-theme="light"] {
+  --bg: #f7f8fb;
+  --surface: #ffffff;
+  --surface-2: #f0f2f8;
+  --primary: #4f46e5;
+  --on-primary: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e4e8f0;
+  --hover: #f0f2f8;
+  --active: #e6e9f2;
+  --ring: #4f46e5;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --rank-newbie: #6b7280;
+  --rank-pupil: #16a34a;
+  --rank-specialist: #0d9488;
+  --rank-expert: #2563eb;
+  --rank-cm: #9333ea;
+  --rank-master: #ea580c;
+  --rank-gm: #dc2626;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+:root {
+  --heat-0: var(--surface-2);
+  --heat-1: color-mix(in srgb, var(--primary) 25%, var(--surface));
+  --heat-2: color-mix(in srgb, var(--primary) 45%, var(--surface));
+  --heat-3: color-mix(in srgb, var(--primary) 70%, var(--surface));
+  --heat-4: var(--primary);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 400ms;
+}
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-hover: var(--hover);
+  --color-active: var(--active);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-rank-newbie: var(--rank-newbie);
+  --color-rank-pupil: var(--rank-pupil);
+  --color-rank-specialist: var(--rank-specialist);
+  --color-rank-expert: var(--rank-expert);
+  --color-rank-cm: var(--rank-cm);
+  --color-rank-master: var(--rank-master);
+  --color-rank-gm: var(--rank-gm);
+  --color-heat-0: var(--heat-0);
+  --color-heat-1: var(--heat-1);
+  --color-heat-2: var(--heat-2);
+  --color-heat-3: var(--heat-3);
+  --color-heat-4: var(--heat-4);
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
