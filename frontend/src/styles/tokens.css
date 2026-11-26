@@ -1,31 +1,39 @@
 @import "tailwindcss";
 
 /* CP Compass design tokens — ONE accent, everything else neutral.
-   Amber is the WINNER (2026-11-27, merged to main): warm brass-gold
-   accent on a warm near-black base, less brown than the first gold
-   try (--bg #0d0c0a, --surface #15130f, --surface-2 #1d1a14,
-   --border #2c2820). Amber is now the primary, so there is no separate
-   yellow/orange warning colour in the UI: attention states (demo
-   banner, demo pill) use --primary, weak/error states use --danger.
-   Rank Master orange #fb923c sits ~13 deg from the accent.
-   Contrast re-verified with a WCAG script (all text pairs >= 4.5:1):
-   dark button text #080600 on primary #d9a514 9.01:1, subtitle
-   #b3a284 on bg 7.84:1, muted #b3a284 on surface 7.44:1; light
-   button #ffffff on #92600a 5.38:1, muted #6e6252 on bg 5.60:1.
+   TEAL (2026-11-27, replaces amber on main): deep teal accent on a
+   cool green-tinted near-black base. Amber (5123913 + 5fb5e38) was
+   REJECTED by Khalid — "joghonno lagtese". Claude reviewed teal as
+   keepable: distinct from the generic indigo/purple "AI look",
+   matches the compass theme, looks good on dark.
+   Teal spec (Claude): dark --primary #2bb8c6, --on-primary #03181c
+   (dark text on the teal button — white text on this teal is only
+   ~2.4:1, dark text is ~7:1). Light --primary #0e7490.
+   KNOWN TENSION: teal sits ~15 deg from Codeforces Specialist cyan
+   #2dd4bf, and the demo rating 1478 IS Specialist (1400-1599).
+   Mitigation (kept from 5fb5e38): rating badges are outline style
+   with text ("Specialist 1478"), the accent is never used on a badge
+   — only on buttons, links and active nav.
+   Fixes from 5fb5e38 KEPT (they live in other files, untouched here):
+   compass opacity .10 + radial mask, no needle, no orbit dots;
+   heading 2 lines (26ch); weak hero glow (primary 10%); attention
+   states (demo banner, demo pill) use --primary, weak/error states
+   use --danger.
+   Contrast to be re-verified with a WCAG script after this edit.
    Semantic + rank colours unchanged. */
 
 :root[data-theme="dark"] {
-  --bg: #0d0c0a;
-  --surface: #15130f;
-  --surface-2: #1d1a14;
-  --primary: #d9a514;
-  --on-primary: #080600;
-  --text: #f7f1e6;
-  --muted: #b3a284;
-  --border: #2c2820;
-  --hover: #1d1a14;
-  --active: #282219;
-  --ring: #d9a514;
+  --bg: #0a0f0e;
+  --surface: #101a17;
+  --surface-2: #152420;
+  --primary: #2bb8c6;
+  --on-primary: #03181c;
+  --text: #edf5f1;
+  --muted: #93aca2;
+  --border: #26382f;
+  --hover: #152420;
+  --active: #1d2f28;
+  --ring: #2bb8c6;
   --success: #34d399;
   --warning: #fbbf24;
   --danger: #f87171;
@@ -40,17 +48,17 @@
 }
 
 :root[data-theme="light"] {
-  --bg: #faf8f3;
+  --bg: #f7faf9;
   --surface: #ffffff;
-  --surface-2: #f3ede1;
-  --primary: #92600a;
+  --surface-2: #edf3f0;
+  --primary: #0e7490;
   --on-primary: #ffffff;
-  --text: #1d1710;
-  --muted: #6e6252;
-  --border: #ddd2bd;
-  --hover: #f3ede1;
-  --active: #e9dfc9;
-  --ring: #92600a;
+  --text: #101a17;
+  --muted: #5f7268;
+  --border: #d3e0d9;
+  --hover: #edf3f0;
+  --active: #dce8e1;
+  --ring: #0e7490;
   --success: #047857;
   --warning: #b45309;
   --danger: #b91c1c;
