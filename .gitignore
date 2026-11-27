@@ -44,3 +44,6 @@ commit-msg.txt
 premium.patch
 frontend/tsconfig.tsbuildinfo
 start-backend.bat
+
+# archived scratch (kept, never commit)
+archive/
