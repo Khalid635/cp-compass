@@ -400,8 +400,10 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
       {/* Features — banded, to break the 3-card-grid monotony */}
       <section id="features" className="border-y border-border bg-surface">
         <div className="mx-auto max-w-[1280px] px-4 py-16 md:px-6">
-          <h2 className="sr-only">{t.navFeatures}</h2>
-          <motion.div {...fadeUp} className="grid gap-4 md:grid-cols-3">
+          <motion.h2 {...fadeUp} className="text-2xl font-semibold tracking-tight">
+            {t.navFeatures}
+          </motion.h2>
+          <motion.div {...fadeUp} className="mt-6 grid gap-4 md:grid-cols-3">
             {FEATURES.map((f, i) => (
               <GlassPanel key={f.title} className="p-5">
                 <f.icon size={20} className="text-primary" aria-hidden />
