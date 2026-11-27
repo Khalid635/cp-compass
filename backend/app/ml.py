@@ -22,11 +22,16 @@ numbers are stored in the model artifact):
   REJECTED: they overfit the 197 demo rows and predict degenerate
   values (1300-rated graphs 0.08 when the true rate is ~0.49; HistGB
   predicts 0.00/0.99). The shipped model is a CONSTRAINED Random
-  Forest (max_depth=4, min_samples_leaf=10): test AUC 0.821, Brier
-  0.148 vs baseline 0.467 / 0.358, and sane predictions (weak tags
-  ~0.35-0.55, strong tags ~0.8).
-- Sigmoid calibration was tried and REJECTED (CV Brier 0.157 vs 0.143
-  uncalibrated), so the shipped model is uncalibrated.
+  Forest (max_depth=4, min_samples_leaf=10) with sane predictions
+  (weak tags ~0.35-0.55, strong tags ~0.8).
+- NOTE (2026-11-27): the figures in this docstring are from the ORIGINAL
+  197-row demo training (test AUC 0.821, Brier 0.148; baseline 0.467 /
+  0.358; calibration rejected, CV Brier 0.157 vs 0.143). The LIVE numbers
+  are re-measured on every retrain, stored in the model artifact and
+  served by /ml/status — see README "How predictions work" for the
+  current snapshot (n=208 at last training: test AUC 0.856, Brier 0.129;
+  baseline 0.34 / 0.389; calibration SHIPPED, CV Brier 0.147 vs 0.148).
+  Do not quote the figures here without checking the artifact first.
 - SELECTION BIAS, stated plainly: the training rows are problems the
   user already attempted — never-attempted problems (most of the
   problemset) are not in the data. The model estimates "will you solve

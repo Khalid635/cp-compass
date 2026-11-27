@@ -95,10 +95,18 @@ export interface Dict {
   faqA2: string;
   faqQ3: string;
   faqA3: string;
+  faqQ4: string;
+  faqA4: string;
+  faqQ5: string;
+  faqA5: string;
+  faqQ6: string;
+  faqA6: string;
   showcaseTitle: string;
   showcaseCaption: string;
   showcaseDashboardCaption: string;
   showcaseAnalyticsCaption: string;
+  showcasePracticeCaption: string;
+  showcaseRevisionCaption: string;
   showcaseZoom: string;
   roadmapTitle: string;
   roadmapNote: string;
@@ -119,6 +127,17 @@ export interface Dict {
   whyD: string;
   whyR: string;
   whyP: string;
+  /** One-line explanation per factor (tooltip + breakdown rows). */
+  whyWExplain: string;
+  whyDExplain: string;
+  whyRExplain: string;
+  whyPExplain: string;
+  /** explainFactors() sentences, generated from the factor values. */
+  explainWeakTop: (tag: string, pct: number, pts: number) => string;
+  explainDifficultyTop: (rating: number, userRating: number, pts: number) => string;
+  explainRecentTop: (pts: number) => string;
+  explainPracticeTop: (pts: number) => string;
+  explainBalanced: (pts: number) => string;
   whyTotal: string;
   whyFormula: string;
   underHood: string;

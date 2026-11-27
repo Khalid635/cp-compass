@@ -94,6 +94,28 @@
   --heat-0: var(--surface-2);
 }
 
+/* Indigo COMPARISON variant (realtimecolors palette Khalid shared
+   2026-11-27: bg #050315, text #fbfbfe, primary #2f27ce, secondary
+   #dedcff, accent #433bff, Inter). Enabled ONLY by ?palette=indigo
+   (sets data-palette="indigo" on <html>); teal stays the base and the
+   default, and this block overrides the dark theme only. Screenshot
+   teal vs indigo side-by-side and let Khalid decide with his eyes —
+   never switch silently. */
+:root[data-theme="dark"][data-palette="indigo"] {
+  --bg: #050315;
+  --surface: #12102e;
+  --surface-2: #1a1738;
+  --primary: #2f27ce;
+  --on-primary: #ffffff;
+  --text: #fbfbfe;
+  --muted: #b9b6e8;
+  --border: #2a2770;
+  --hover: #1a1738;
+  --active: #232052;
+  --ring: #433bff;
+  --font-sans: "Inter", "Noto Sans Bengali", ui-sans-serif, system-ui, sans-serif;
+}
+
 :root {
   --heat-1: color-mix(in oklch, var(--primary) 32%, var(--surface));
   --heat-2: color-mix(in oklch, var(--primary) 45%, var(--surface));

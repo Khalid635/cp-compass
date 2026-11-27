@@ -66,7 +66,7 @@ export function LanguageToggle() {
     }`;
   return (
     <div
-      className="flex items-center rounded-md border border-border bg-surface-2 p-0.5"
+      className="flex items-center gap-2 rounded-md border border-border bg-surface-2 p-0.5 sm:gap-0"
       role="group"
       aria-label={t.switchLanguage}
     >

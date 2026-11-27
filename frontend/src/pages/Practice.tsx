@@ -298,6 +298,7 @@ export default function Practice({ demo = false }: { demo?: boolean }) {
               problem={p}
               why={p.why}
               score={p.score}
+              factors={p.factors}
               solvability={solvByKey.get(`${p.contest_id}${p.index}`)}
               demo={demo}
               actionState={states[`${p.contest_id}${p.index}`] ?? null}

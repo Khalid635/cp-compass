@@ -66,7 +66,7 @@ export const en: Dict = {
     `Built with ${a}, ${b} and ${c}. Data comes from the public Codeforces API.`,
   ctaTitle: 'Stop picking problems at random.',
   footerNote: 'CP Compass is a personal project. It is not affiliated with Codeforces.',
-  previewCaption: 'Illustration from the demo account — try the live demo above.',
+  previewCaption: 'Real dashboard — the demo account, captured live. Try the demo above.',
   previewRating: 'Rating',
   previewSolved: 'Solved',
   previewStreak: 'Streak',
@@ -89,11 +89,22 @@ export const en: Dict = {
   faqQ3: 'What data is saved about me?',
   faqA3:
     'Your email address, and your password only as an Argon2 hash — never in plain text. Your submissions and problems come from the public Codeforces API. Your notes and settings are written by you, not taken from the API. You can export everything or delete your account in Settings.',
+  faqQ4: 'How is this different from my Codeforces profile?',
+  faqA4:
+    'Your profile shows what you did. CP Compass turns it into a plan: weak topics from your acceptance rate, one scored pick at a time with the reason shown, and revision on a schedule. The score formula is on this page — nothing hidden.',
+  faqQ5: 'Why is the first load slow?',
+  faqA5:
+    'The backend runs on Render’s free tier, which sleeps after about 15 minutes idle. The first visit wakes it up — that takes up to a minute. After that it stays fast until it idles again. Nothing is wrong with your connection.',
+  faqQ6: 'Why does it suggest problems below my rating?',
+  faqA6:
+    'Because a weak tag matters more than the number. A 1300-rated dp problem when your dp acceptance is 45% teaches more than a 1500-rated problem on a tag you already ace. Picks below a score of 25 are dropped — if only two picks clear the bar, you see two.',
   showcaseTitle: 'See it in action',
   showcaseCaption:
     'Real pages from the demo account — the same views you get after connecting your handle.',
   showcaseDashboardCaption: 'Dashboard — rating, weak topics, today’s plan',
   showcaseAnalyticsCaption: 'Analytics — difficulty, streaks and milestones',
+  showcasePracticeCaption: 'Practice — scored picks with the reason shown',
+  showcaseRevisionCaption: 'Revision — spaced repetition, 1 / 3 / 7 / 14 / 30 days',
   showcaseZoom: 'Click to enlarge',
   roadmapTitle: 'Coming soon',
   roadmapNote: 'In progress, in this order — no dates promised.',
@@ -114,15 +125,33 @@ export const en: Dict = {
   whyCaption:
     'Every pick is scored from four factors — the same formula the app uses, computed here on the demo account’s data. No hidden ranking, no black box.',
   whyFootnote:
-    'Demo pages show a simplified preview score for the same picks (67, 80, 55); the breakdowns above use the production formula, so the totals differ. Two picks sit below the app’s usual rating band — the demo tops up with below-band practice for a weak tag.',
+    'The demo and the landing use the same score now — one formula, no simplified preview. Picks below 25 are dropped, so the demo shows 2 picks today (1360E 43, 1366C 37). 1360E sits below the app’s usual rating band — below-band practice for a weak tag.',
   whyW: 'Weak topic',
   whyD: 'Difficulty fit',
   whyR: 'Recent need',
   whyP: 'Practice priority',
+  whyWExplain:
+    'How much this problem targets your weakest tag — the higher, the more it fixes what you get wrong.',
+  whyDExplain:
+    'How close the problem rating is to your sweet spot (your rating + 100) — 100 right there, 0 when 200 away.',
+  whyRExplain:
+    'How badly this tag went in the last 30 days — low recent acceptance pushes the score up.',
+  whyPExplain:
+    'Tried but never solved scores 100; a fresh problem scores 60 — unfinished business comes first.',
+  explainWeakTop: (tag, pct, pts) =>
+    `Weak topic leads: ${tag} at ${pct}% acceptance adds ${pts.toFixed(1)} of the score — this pick exists to fix it.`,
+  explainDifficultyTop: (rating, user, pts) =>
+    `Difficulty fit leads: rated ${rating}, near your ${user}, adds ${pts.toFixed(1)} of the score.`,
+  explainRecentTop: (pts) =>
+    `Recent need leads: this tag went badly in the last 30 days, adding ${pts.toFixed(1)} of the score.`,
+  explainPracticeTop: (pts) =>
+    `Practice priority leads: you tried this before and never solved it, adding ${pts.toFixed(1)} of the score.`,
+  explainBalanced: (pts) =>
+    `No single factor dominates — the top one adds ${pts.toFixed(1)} of the score; the pick is balanced across all four.`, 
   whyTotal: 'Score',
   whyFormula: 'Score = 0.35W + 0.30D + 0.20R + 0.15P',
   underHood:
-    'Under the hood: 16 database tables, a database-backed job queue, Argon2 password hashing, and a solvability model (held-out test AUC 0.834).',
+    'Under the hood: resumable sync, Argon2 password hashing, and a solvability model (method in README).',
   builtBy: 'Built by Khalid Bin Masud',
   privacyLink: 'Privacy',
   lightboxClose: 'Close',

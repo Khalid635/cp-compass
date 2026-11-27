@@ -1,6 +1,7 @@
 /* UI primitives per the design spec: Button / Card / Badge / Skeleton /
    EmptyState / Input / Tabs. Solid colours, 12/8/6px radii, 2px focus ring. */
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
+import { useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 
 /* ---------- Button ---------- */
@@ -209,7 +210,11 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-/* ---------- Tabs ---------- */
+/* ---------- Tabs ----------
+   WAI-ARIA tablist (pattern from the 21st.dev registry search:
+   MiniDev tabs / Avara VerticalTabs): ArrowLeft/ArrowRight move between
+   tabs, Home/End jump to the first/last, focus follows activation, and
+   only the active tab is in the Tab order (roving tabindex). */
 export function Tabs<T extends string>({
   tabs,
   active,
@@ -219,19 +224,49 @@ export function Tabs<T extends string>({
   active: T;
   onChange: (id: T) => void;
 }) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const activeIndex = Math.max(
+    0,
+    tabs.findIndex((t) => t.id === active),
+  );
+  const focusTab = (index: number) => {
+    const next = (index + tabs.length) % tabs.length;
+    onChange(tabs[next].id);
+    refs.current[next]?.focus();
+  };
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      focusTab(activeIndex + 1);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      focusTab(activeIndex - 1);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      focusTab(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      focusTab(tabs.length - 1);
+    }
+  };
   return (
     <div
-      className="flex gap-1 border-b border-border"
+      className="flex gap-1 overflow-x-auto border-b border-border"
       role="tablist"
       aria-label="Sections"
+      onKeyDown={onKeyDown}
     >
-      {tabs.map((t) => (
+      {tabs.map((t, i) => (
         <button
           key={t.id}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
           role="tab"
           aria-selected={active === t.id}
+          tabIndex={active === t.id ? 0 : -1}
           onClick={() => onChange(t.id)}
-          className={`relative cursor-pointer px-3 pb-2 pt-1 text-sm font-medium transition-colors ${
+          className={`relative shrink-0 cursor-pointer whitespace-nowrap px-3 pb-2 pt-1 text-sm font-medium transition-colors ${
             active === t.id ? 'text-text' : 'text-muted hover:text-text'
           }`}
         >

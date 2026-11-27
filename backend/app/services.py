@@ -13,7 +13,11 @@ weak = attempted >= 10 AND weak_score >= 0.50.
 
 Recommendation scoring (blueprint §6): Score = 0.35W + 0.30D + 0.20R + 0.15P
 (W weak-topic relevance, D difficulty suitability, R recent learning need,
-P practice priority), every factor normalised 0–100.
+P practice priority), every factor normalised 0–100. Every recommendation
+also carries its four factors, so the frontend can render the breakdown and
+generate the "why" sentence from the same numbers (premium-apply batch:
+one score() for demo + landing + real app — no simplified mirror score).
+Picks below MIN_SCORE_THRESHOLD (25) are dropped; showing 2 picks is fine.
 """
 from collections import defaultdict
 from datetime import date, datetime, timedelta
@@ -36,6 +40,12 @@ W_ACCEPTANCE = 0.40
 W_WRONG = 0.25
 W_RECENT = 0.20
 W_DIFFICULTY = 0.15
+
+# Minimum recommendation score (blueprint §6, premium-apply batch):
+# picks below this are dropped, in the real app and in the demo alike.
+# The floor of the formula is 19 (R=50, P=60, W=D=0), so 25 keeps only
+# picks with a real reason behind them.
+MIN_SCORE_THRESHOLD = 25
 
 
 def get_cf_account(db: Session, user_id: int) -> CfAccount | None:
@@ -295,6 +305,8 @@ def recommend(db: Session, user: User, problems: list[dict], limit: int = 12,
         else:
             prio = 60.0
         score = round(0.35 * w + 0.30 * d + 0.20 * r + 0.15 * prio)
+        factors = {"w": round(w, 1), "d": round(d, 1), "r": round(r, 1),
+                   "p": round(prio, 1)}
         # Structured "why" — the frontend renders the sentence in the
         # active locale (EN/BN). Never build a sentence here.
         if weak_hits:
@@ -313,9 +325,12 @@ def recommend(db: Session, user: User, problems: list[dict], limit: int = 12,
         scored.append((score, {
             "contest_id": p["contestId"], "index": p["index"], "name": p["name"],
             "rating": pr, "tags": tags, "why": why, "score": score,
+            "factors": factors,
             "platform": "codeforces",
         }))
     scored.sort(key=lambda x: x[0], reverse=True)
+    # Minimum-score threshold: drop picks with no real reason behind them.
+    scored = [item for item in scored if item[0] >= MIN_SCORE_THRESHOLD]
     return [item for _, item in scored[:limit]]
 
 

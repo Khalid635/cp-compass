@@ -12,6 +12,12 @@ HANDLE = "demo_coder"
 RATING = 1478
 RANK = "Specialist"
 
+# Same minimum-score threshold as services.MIN_SCORE_THRESHOLD (blueprint
+# §6, premium-apply batch): picks below this are dropped, in the real app
+# and in the demo alike. Kept as a literal here because seed.py must stay
+# importable without the DB layer (services imports SQLAlchemy models).
+MIN_SCORE_THRESHOLD = 25
+
 # Famous, real Codeforces problems (contest, index, name, rating, tags).
 FAMOUS = [
     (4, "A", "Watermelon", 800, ["brute force", "math"]),
@@ -401,24 +407,62 @@ RATING_HISTORY = _rating_history()
 
 
 def _tag_strengths():
+    """Per-tag stats with the PRODUCTION weak-score formula
+    (services.tag_stats, blueprint §5) — same weights, same weak rule —
+    so the demo recommendations use the one real score, not a mirror:
+    weak_score = 0.40*(1-acceptance) + 0.25*wrong_ratio
+               + 0.20*(1-recent_acceptance, last 30 days)
+               + 0.15*difficulty_norm (avg attempted rating, 800..2400);
+    weak = attempted >= 10 AND weak_score >= 0.50. On the demo seed this
+    gives the same single weak tag as before (dp, weak_score 0.566)."""
+    recent_cutoff = datetime.utcnow() - timedelta(days=30)
     per = {}
     for s in SUBMISSIONS:
+        dt = datetime.fromisoformat(s["submitted_at"])
         for t in s["tags"]:
-            st = per.setdefault(t, {"attempted": set(), "solved": set(), "wrong": 0})
+            st = per.setdefault(t, {"attempted": set(), "solved": set(),
+                                    "wrong": 0, "total": 0,
+                                    "recent_solved": 0, "recent_total": 0,
+                                    "rating_sum": 0, "rated": 0})
+            st["total"] += 1
             st["attempted"].add((s["contest_id"], s["index"]))
             if s["verdict"] == "OK":
                 st["solved"].add((s["contest_id"], s["index"]))
             else:
                 st["wrong"] += 1
+            if dt >= recent_cutoff:
+                st["recent_total"] += 1
+                if s["verdict"] == "OK":
+                    st["recent_solved"] += 1
+            if s.get("rating") is not None:
+                st["rating_sum"] += s["rating"]
+                st["rated"] += 1
     out = []
     for t, st in per.items():
         attempted, solved = len(st["attempted"]), len(st["solved"])
         acc = solved / attempted if attempted else 0
+        wrong_ratio = st["wrong"] / st["total"] if st["total"] else 0
+        recent_acc = (st["recent_solved"] / st["recent_total"]
+                      if st["recent_total"] else acc)
+        avg_rating = (st["rating_sum"] / st["rated"]
+                      if st["rated"] else None)
+        difficulty_norm = (max(0.0, min(1.0, (avg_rating - 800) / 1600))
+                           if avg_rating is not None else 0.0)
+        weak_score = round(
+            0.40 * (1 - acc) + 0.25 * wrong_ratio
+            + 0.20 * (1 - recent_acc) + 0.15 * difficulty_norm, 3)
         out.append({
             "tag": t, "attempted": attempted, "solved": solved,
             "acceptance": round(acc, 2),
             "avg_wrong_attempts": round(st["wrong"] / attempted, 1) if attempted else 0,
-            "weak": attempted >= 5 and (acc < 0.5 or st["wrong"] / attempted >= 2),
+            "weak": attempted >= 10 and weak_score >= 0.50,
+            "weak_score": weak_score,
+            "factors": {
+                "acceptance": round(acc, 2),
+                "wrong_ratio": round(wrong_ratio, 2),
+                "recent_acceptance": round(recent_acc, 2),
+                "avg_attempted_rating": round(avg_rating) if avg_rating else None,
+            },
         })
     out.sort(key=lambda x: x["acceptance"])
     return out
@@ -491,11 +535,18 @@ def _streak():
 
 
 def _recommendations():
-    """In-band first (rating .. rating+200, weak tags first); top up with the
-    closest-rated unsolved famous problems so the demo always has a full list.
-    The top-up 'why' says so plainly — below-band practice for a weak tag."""
+    """The demo recommendations use the ONE production formula
+    (services.recommend, blueprint §6): Score = 0.35W + 0.30D + 0.20R +
+    0.15P, with the same W/D/R/P definitions. No simplified mirror score.
+    Picks below MIN_SCORE_THRESHOLD (25) are dropped — on the demo seed
+    only 2 survive (1360E 43, 1366C 37); the rest sit at the 19 floor
+    (R=50, P=60, W=D=0) and carry no real reason. The top-up 'why' still
+    says plainly when a pick sits below the app's usual rating band."""
     weak = [t for t in TAG_STRENGTHS if t["weak"]]
     weak_names = {w["tag"] for w in weak}
+    weak_by_tag = {w["tag"]: w for w in weak}
+    attempted_keys = {(s["contest_id"], s["index"]) for s in SUBMISSIONS}
+    target = RATING + 100
 
     def why_for(tags, rating):
         # Structured "why" — the frontend renders the sentence in the active
@@ -513,34 +564,41 @@ def _recommendations():
         return {"kind": "near_rating", "user_rating": RATING,
                 "problem_rating": rating}
 
-    def score_for(tags, rating):
-        # Demo mirror of the real 0-100 formula: weak-tag bonus + closeness
-        # to the rating+100 sweet spot, on a 55 base.
-        s = 55
-        if any(t in weak_names for t in tags):
-            s += 25
-        s += max(0, 20 - abs(rating - (RATING + 100)) * 0.1)
-        return min(99, int(s))
+    def factors_for(cid, idx, tags, rating):
+        # Same factor definitions as services.recommend().
+        weak_hits = [weak_by_tag[t] for t in tags if t in weak_by_tag]
+        w = max((h["weak_score"] for h in weak_hits), default=0.0) * 100
+        d = max(0.0, 100 - abs(rating - target) * 0.5)
+        if weak_hits:
+            weakest = max(weak_hits, key=lambda h: h["weak_score"])
+            r = (1 - weakest["factors"]["recent_acceptance"]) * 100
+        else:
+            r = 50.0
+        p = 100.0 if (cid, idx) in attempted_keys else 60.0
+        factors = {"w": round(w, 1), "d": round(d, 1),
+                   "r": round(r, 1), "p": round(p, 1)}
+        score = round(0.35 * w + 0.30 * d + 0.20 * r + 0.15 * p)
+        return factors, score
 
     def entry(cid, idx, name, rating, tags):
+        factors, score = factors_for(cid, idx, tags, rating)
         return {"contest_id": cid, "index": idx, "name": name,
                 "rating": rating, "tags": tags, "why": why_for(tags, rating),
-                "score": score_for(tags, rating),
+                "score": score, "factors": factors,
                 "platform": "codeforces"}
 
-    in_band, rest = [], []
+    scored = []
     for cid, idx, name, rating, tags in FAMOUS:
         if (cid, idx) in SOLVED_KEYS:
             continue
-        (in_band if RATING <= rating <= RATING + 200 else rest).append(
-            entry(cid, idx, name, rating, tags))
-    in_band.sort(key=lambda r: (any(t in weak_names for t in r["tags"]),
-                                -abs(r["rating"] - RATING)), reverse=True)
-    rest.sort(key=lambda r: (any(t in weak_names for t in r["tags"]),
-                             -abs(r["rating"] - RATING)), reverse=True)
-    for r in rest[:max(0, 12 - len(in_band))]:
-        r["why"] = {**r["why"], "demo_out_of_band": True}
-    return (in_band + rest)[:12]
+        e = entry(cid, idx, name, rating, tags)
+        if not (RATING <= rating <= RATING + 200):
+            e["why"] = {**e["why"], "demo_out_of_band": True}
+        scored.append(e)
+    scored.sort(key=lambda r: r["score"], reverse=True)
+    # Minimum-score threshold: drop picks with no real reason behind them.
+    scored = [r for r in scored if r["score"] >= MIN_SCORE_THRESHOLD]
+    return scored[:12]
 
 
 RECOMMENDATIONS = _recommendations()

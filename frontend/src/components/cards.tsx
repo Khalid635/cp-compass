@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 import { ArrowUpRight, Check, Clock, ExternalLink, RotateCcw, X } from 'lucide-react';
 import gsap from 'gsap';
 import type { ProblemRef, RevisionItem, SubmissionRow, WhyInfo } from '../api/types';
+import { SCORE_WEIGHTS } from '../lib/score';
+import type { ScoreFactors } from '../lib/score';
 import { cfUrl, rankOf } from '../api/types';
 import { formatDateTime, formatWhy, useLanguage } from '../i18n';
 import type { Dict } from '../i18n/dict';
@@ -65,6 +67,7 @@ export function ProblemCard({
   problem,
   why,
   score,
+  factors,
   solvability,
   demo = false,
   onAction,
@@ -73,6 +76,9 @@ export function ProblemCard({
   problem: ProblemRef;
   why: WhyInfo;
   score?: number;
+  /** The four score factors (W/D/R/P) — rendered as a breakdown with a
+      one-line explanation per factor (title tooltip). */
+  factors?: ScoreFactors;
   /** ML solvability 0–1 (Phase 3). null/undefined = no prediction. */
   solvability?: number | null;
   demo?: boolean;
@@ -83,6 +89,14 @@ export function ProblemCard({
   const rank = rankOf(problem.rating);
   const hidden = actionState === 'hidden';
   if (hidden) return null;
+  const factorRows = factors
+    ? ([
+        { key: 'w', label: t.whyW, explain: t.whyWExplain, value: factors.w },
+        { key: 'd', label: t.whyD, explain: t.whyDExplain, value: factors.d },
+        { key: 'r', label: t.whyR, explain: t.whyRExplain, value: factors.r },
+        { key: 'p', label: t.whyP, explain: t.whyPExplain, value: factors.p },
+      ] as const)
+    : null;
   return (
     <article className="group flex min-w-0 flex-col rounded-lg border border-border bg-surface p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40">
       <div className="flex items-start justify-between gap-2">
@@ -115,6 +129,34 @@ export function ProblemCard({
       <p className="mt-3 text-sm text-muted">{formatWhy(why, t)}</p>
       {score !== undefined && (
         <p className="mt-1 font-mono text-xs text-muted">{t.recScore(score)}</p>
+      )}
+      {factorRows && (
+        <div className="mt-3 flex flex-col gap-1.5 border-t border-border/60 pt-3">
+          {factorRows.map((f) => (
+            <div
+              key={f.key}
+              title={f.explain}
+              className="grid grid-cols-[9.5rem_1fr_auto] items-center gap-2"
+            >
+              <span className="whitespace-nowrap text-[13px] text-muted">
+                {f.label}{' '}
+                <span className="font-mono text-xs">×{SCORE_WEIGHTS[f.key].toFixed(2)}</span>
+              </span>
+              <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${f.value}%` }}
+                />
+              </div>
+              <span className="font-mono text-[13px] tabular-nums">
+                {f.value.toFixed(0)}{' '}
+                <span className="text-muted">
+                  → +{(SCORE_WEIGHTS[f.key] * f.value).toFixed(1)}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
       )}
       {solvability !== undefined && solvability !== null && (
         <p className="mt-1 font-mono text-xs text-muted">

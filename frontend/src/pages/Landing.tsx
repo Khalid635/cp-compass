@@ -5,59 +5,51 @@
    (/api/demo/dashboard, 2026-11-27): 1478 rating, 138 solved, 2-day
    streak, 3 due. They drift as the demo seed ages (the streak is
    date-relative) — update them when they visibly disagree with /demo.
-   Showcase + og images are real captures from the dev server (/demo).
-   The "Why this problem?" totals use the production formula on demo
-   data (see WHY_PICKS) — demo pages show a simplified mirror score. */
+   The hero preview is a REAL capture of the demo dashboard
+   (public/showcase-dashboard.png); the showcase images are real captures
+   from the dev server (/demo). The "Why this problem?" totals use the
+   one shared score (lib/score — same formula as the demo and the real
+   app, totals computed, never hand-written). Picks below 25 are dropped,
+   so the demo shows 2 picks today. */
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
-import { Compass, GitBranch, ListChecks, Target, X } from 'lucide-react';
+import { ChevronDown, Compass, GitBranch, ListChecks, Target, X } from 'lucide-react';
 import { Button, Card, Tabs } from '../components/ui';
+import { GlassPanel } from '../components/glass';
+import { CountUp } from '../components/CountUp';
+import { TextEffect } from '../components/TextEffect';
+import {
+  MIN_SCORE_THRESHOLD,
+  SCORE_WEIGHTS,
+  explainFactors,
+  scoreFromFactors,
+} from '../lib/score';
+import type { ScoreFactors } from '../lib/score';
 import { LandingHeader } from '../components/layout';
 import Hero3D from '../components/Hero3D';
 import { formatWhy, useLanguage } from '../i18n';
 import type { WhyInfo } from '../i18n/dict';
 import type { Theme } from '../hooks/useTheme';
 
-/* Static rating sparkline for the preview — the demo account's climb from
-   1120 to 1478, drawn from the seeded history (illustration, not a chart). */
-const SPARK_POINTS =
-  '0,45 20,48 40,43 60,36 80,29 100,24 120,19 140,15 160,16 180,13 200,10 220,11 240,8 260,8';
-
-/* "Why this problem?" — real-formula breakdowns for the demo account's top
-   3 picks. Computed 2026-11-27 from the deterministic demo seed
-   (backend/app/seed.py) with the production formula in
-   backend/app/services.py recommend(): Score = 0.35W + 0.30D + 0.20R +
-   0.15P, totals rounded. W/D/R/P are 0–100; the points column is
-   weight × value. The demo account that day: rating 1478, dp the only
-   weak tag (weak_score 0.566, acceptance 45%, recent acceptance 27%),
-   difficulty target 1578. NOTE: demo pages show a simplified mirror
-   score (55 base + 25 weak-tag bonus + closeness: 67/80/55), so these
-   production totals differ — same order, different scale. 1360E/1367C
-   sit below the real recommender's band (1300 < 1478); the demo tops up
-   with below-band practice for a weak tag. */
+/* "Why this problem?" — the demo account's picks, scored with the ONE
+   shared formula (lib/score, same as backend/app/services.py recommend()
+   and backend/app/seed.py): Score = 0.35W + 0.30D + 0.20R + 0.15P.
+   The factors below are the demo seed's real values (2026-11-27): rating
+   1478, dp the only weak tag (weak_score 0.566, acceptance 45%, recent
+   acceptance 27%), difficulty target 1578. Totals are COMPUTED from the
+   factors (scoreFromFactors), never hand-written. Picks below
+   MIN_SCORE_THRESHOLD (25) are dropped — 1367C Social Distance scored
+   19 (the 19 floor: R=50, P=60, W=D=0), so the demo shows 2 picks today.
+   1360E sits below the app's usual rating band (1300 < 1478) — below-band
+   practice for a weak tag, said plainly. */
 const WHY_PICKS: {
   id: string;
   name: string;
   rating: number;
   why: WhyInfo;
-  w: number;
-  d: number;
-  r: number;
-  p: number;
-  total: number;
+  factors: ScoreFactors;
 }[] = [
-  {
-    id: '1366C',
-    name: 'Palindromic Paths',
-    rating: 1500,
-    why: { kind: 'near_rating', user_rating: 1478, problem_rating: 1500 },
-    w: 0,
-    d: 61,
-    r: 50,
-    p: 60,
-    total: 37,
-  },
   {
     id: '1360E',
     name: 'Polygon',
@@ -70,29 +62,68 @@ const WHY_PICKS: {
       user_rating: 1478,
       demo_out_of_band: true,
     },
-    w: 56.6,
-    d: 0,
-    r: 73,
-    p: 60,
-    total: 43,
+    factors: { w: 56.6, d: 0, r: 73, p: 60 },
   },
   {
-    id: '1367C',
-    name: 'Social Distance',
-    rating: 1300,
-    why: {
-      kind: 'near_rating',
-      user_rating: 1478,
-      problem_rating: 1300,
-      demo_out_of_band: true,
-    },
-    w: 0,
-    d: 0,
-    r: 50,
-    p: 60,
-    total: 19,
+    id: '1366C',
+    name: 'Palindromic Paths',
+    rating: 1500,
+    why: { kind: 'near_rating', user_rating: 1478, problem_rating: 1500 },
+    factors: { w: 0, d: 61, r: 50, p: 60 },
   },
 ];
+const WHY_TOTALS = WHY_PICKS.map((p) => ({
+  ...p,
+  total: scoreFromFactors(p.factors),
+})).filter((p) => p.total >= MIN_SCORE_THRESHOLD);
+
+/* FAQ accordion — hand-written in CP Compass's own stack, following the
+   21st.dev registry patterns found in the search (Faq1 FAQ accordion
+   section; Base UI Accordion): a heading beside an accessible accordion
+   list, single-open, one item open by default, button + region with
+   aria-expanded / aria-controls, chevron that rotates. No new dep. */
+function FaqAccordion({ items }: { items: { q: string; a: string }[] }) {
+  const [open, setOpen] = useState(0);
+  return (
+    <div className="mt-6 flex flex-col gap-3">
+      {items.map((f, i) => {
+        const isOpen = open === i;
+        return (
+          <div
+            key={f.q}
+            className="rounded-lg border border-border bg-surface px-4 pb-3"
+          >
+            <button
+              type="button"
+              onClick={() => setOpen(isOpen ? -1 : i)}
+              aria-expanded={isOpen}
+              aria-controls={`faq-panel-${i}`}
+              id={`faq-button-${i}`}
+              className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 py-3 text-left text-base font-semibold"
+            >
+              {f.q}
+              <ChevronDown
+                size={18}
+                aria-hidden
+                className={`shrink-0 text-muted transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {isOpen && (
+              <p
+                id={`faq-panel-${i}`}
+                role="region"
+                aria-labelledby={`faq-button-${i}`}
+                className="mt-2 text-sm text-muted"
+              >
+                {f.a}
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTheme: () => void }) {
   const { t } = useLanguage();
@@ -110,6 +141,56 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
           transition: { duration: 0.3, delay, ease: 'easeOut' as const },
         };
 
+  /* Small visuals for the feature cards — real demo numbers, not
+     decoration: dp acceptance 45% vs graphs 60% vs math 94%; the two
+     scored picks; a 1/3/7/14/30-day revision ladder. */
+  const FEATURE_VISUALS = [
+    <div key="v1" aria-hidden className="mt-4 flex flex-col gap-1.5">
+      {[
+        ['dp', 45, 'var(--danger)'],
+        ['graphs', 60, 'var(--warning)'],
+        ['math', 94, 'var(--success)'],
+      ].map(([tag, pct, color]) => (
+        <div key={tag as string} className="flex items-center gap-2">
+          <span className="w-14 font-mono text-[11px] text-muted">{tag}</span>
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${pct}%`, background: color as string }}
+            />
+          </div>
+          <span className="w-8 text-right font-mono text-[11px] text-muted">
+            {pct}%
+          </span>
+        </div>
+      ))}
+    </div>,
+    <div key="v2" aria-hidden className="mt-4 flex flex-col gap-1.5 font-mono text-[11px]">
+      {[
+        ['1360E', '43'],
+        ['1366C', '37'],
+      ].map(([id, score]) => (
+        <div
+          key={id}
+          className="flex items-center justify-between rounded border border-border bg-bg px-2 py-1.5"
+        >
+          <span>{id}</span>
+          <span className="text-primary">score {score}</span>
+        </div>
+      ))}
+    </div>,
+    <div key="v3" aria-hidden className="mt-4 flex items-end gap-1.5">
+      {[1, 3, 7, 14, 30].map((d, i) => (
+        <div key={d} className="flex flex-col items-center gap-1">
+          <div
+            className="w-6 rounded-sm bg-primary"
+            style={{ height: `${8 + i * 7}px`, opacity: 0.35 + i * 0.13 }}
+          />
+          <span className="font-mono text-[11px] text-muted">{d}d</span>
+        </div>
+      ))}
+    </div>,
+  ];
   const FEATURES = [
     { icon: Target, title: t.feature1Title, text: t.feature1Text },
     { icon: ListChecks, title: t.feature2Title, text: t.feature2Text },
@@ -134,7 +215,6 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
      GSAP loads lazily (dynamic import) so it never blocks first paint.
      Skipped entirely under prefers-reduced-motion. */
   const previewRef = useRef<HTMLDivElement>(null);
-  const sparkRef = useRef<SVGPolylineElement>(null);
   useEffect(() => {
     if (reduceMotion || !previewRef.current) return;
     let ctx: { revert: () => void } | undefined;
@@ -153,20 +233,6 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
           ease: 'power3.out',
           scrollTrigger: { trigger: previewRef.current, start: 'top 88%', once: true },
         });
-        const line = sparkRef.current;
-        if (line) {
-          const len = line.getTotalLength();
-          gsapMod.fromTo(
-            line,
-            { strokeDasharray: len, strokeDashoffset: len },
-            {
-              strokeDashoffset: 0,
-              duration: 1.2,
-              ease: 'power2.inOut',
-              scrollTrigger: { trigger: previewRef.current, start: 'top 85%', once: true },
-            },
-          );
-        }
       });
     })();
     return () => {
@@ -181,36 +247,18 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
     { n: '3', title: t.step3Title, text: t.step3Text },
   ];
 
-  /* Today's plan preview — the demo account's actual top 2, with structured
-     "why" rendered in the active locale (same data as /demo). The 1360E
-     "why" matches the live demo recommendations (dp, 45%) — the v1 copy
-     said graphs/49%, which was wrong. */
-  const PREVIEW_PLAN: { id: string; name: string; rating: number; why: WhyInfo }[] = [
-    {
-      id: '1366C',
-      name: 'Palindromic Paths',
-      rating: 1500,
-      why: { kind: 'near_rating', user_rating: 1478, problem_rating: 1500 },
-    },
-    {
-      id: '1360E',
-      name: 'Polygon',
-      rating: 1300,
-      why: {
-        kind: 'weak_acceptance',
-        tag: 'dp',
-        acceptance: 45,
-        problem_rating: 1300,
-        user_rating: 1478,
-        demo_out_of_band: true,
-      },
-    },
+  /* Showcase tabs + lightbox (landing v2, + Practice/Revision in v3).
+     One big screenshot at a time; click to zoom. Esc or backdrop click
+     closes. All four are real captures from the dev server (/demo). */
+  type ShowTab = 'dashboard' | 'analytics' | 'practice' | 'revision';
+  const SHOW_TABS: { id: ShowTab; src: string; caption: string }[] = [
+    { id: 'dashboard', src: '/showcase-dashboard.png', caption: '' },
+    { id: 'analytics', src: '/showcase-analytics.png', caption: '' },
+    { id: 'practice', src: '/showcase-practice.png', caption: '' },
+    { id: 'revision', src: '/showcase-revision.png', caption: '' },
   ];
-
-  /* Showcase tabs + lightbox (landing v2). One big screenshot at a time;
-     click to zoom. Esc or backdrop click closes. */
-  const [showTab, setShowTab] = useState<'dashboard' | 'analytics'>('dashboard');
-  const [zoom, setZoom] = useState<null | 'dashboard' | 'analytics'>(null);
+  const [showTab, setShowTab] = useState<ShowTab>('dashboard');
+  const [zoom, setZoom] = useState<null | ShowTab>(null);
   useEffect(() => {
     if (!zoom) return;
     const onKey = (e: KeyboardEvent) => {
@@ -219,20 +267,26 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [zoom]);
-  const showSrc = showTab === 'dashboard' ? '/showcase-dashboard.png' : '/showcase-analytics.png';
-  const showCaption =
-    showTab === 'dashboard' ? t.showcaseDashboardCaption : t.showcaseAnalyticsCaption;
-  const zoomSrc = zoom === 'dashboard' ? '/showcase-dashboard.png' : '/showcase-analytics.png';
-  const zoomCaption =
-    zoom === 'dashboard' ? t.showcaseDashboardCaption : t.showcaseAnalyticsCaption;
+  const showCaptionFor = (id: ShowTab) =>
+    id === 'dashboard'
+      ? t.showcaseDashboardCaption
+      : id === 'analytics'
+        ? t.showcaseAnalyticsCaption
+        : id === 'practice'
+          ? t.showcasePracticeCaption
+          : t.showcaseRevisionCaption;
+  const showSrc = SHOW_TABS.find((s) => s.id === showTab)!.src;
+  const showCaption = showCaptionFor(showTab);
+  const zoomSrc = zoom ? SHOW_TABS.find((s) => s.id === zoom)!.src : '';
+  const zoomCaption = zoom ? showCaptionFor(zoom) : '';
 
-  const whyFactors = (p: (typeof WHY_PICKS)[number]) =>
-    [
-      { label: t.whyW, weight: 0.35, value: p.w },
-      { label: t.whyD, weight: 0.3, value: p.d },
-      { label: t.whyR, weight: 0.2, value: p.r },
-      { label: t.whyP, weight: 0.15, value: p.p },
-    ] as const;
+  const whyFactors = (p: (typeof WHY_TOTALS)[number]) =>
+    ([
+      { key: 'w', label: t.whyW, explain: t.whyWExplain, value: p.factors.w },
+      { key: 'd', label: t.whyD, explain: t.whyDExplain, value: p.factors.d },
+      { key: 'r', label: t.whyR, explain: t.whyRExplain, value: p.factors.r },
+      { key: 'p', label: t.whyP, explain: t.whyPExplain, value: p.factors.p },
+    ] as const).map((f) => ({ ...f, weight: SCORE_WEIGHTS[f.key] }));
 
   return (
     <div className="min-h-screen">
@@ -247,10 +301,9 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
               <Compass size={14} className="text-primary" aria-hidden />
               {t.landingBadge}
             </p>
-            {/* Beta badge: bg-surface, NOT bg-primary/10 — primary text on
-                the 10% tint fails contrast in light mode (4.47:1, checked
-                2026-11-27); on surface it passes in both themes. */}
-            <p className="rounded-full border border-primary/50 bg-surface px-3 py-1 text-xs font-semibold text-primary">
+            {/* Beta chip: --muted outline, NOT teal (v3) — a status chip,
+                not an accent. */}
+            <p className="rounded-full border border-muted/50 bg-surface px-3 py-1 text-xs font-semibold text-muted">
               {t.betaBadge}
             </p>
           </motion.div>
@@ -261,20 +314,29 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
             {t.landingTitlePre}
             <span className="text-outline">{t.landingTitleOutline}</span>
             {t.landingTitleMid}
-            <span className="text-gold">{t.landingTitleGold}</span>
+            <span className="text-gradient-gold">{t.landingTitleGold}</span>
             {t.landingTitlePost}
           </motion.h1>
-          <motion.p {...rise(0.16)} className="mx-auto mt-4 max-w-xl text-base text-muted md:text-lg">
-            {t.landingSub}
-          </motion.p>
+          {reduceMotion ? (
+            <p className="mx-auto mt-4 max-w-xl text-base text-muted md:text-lg">
+              {t.landingSub}
+            </p>
+          ) : (
+            <TextEffect
+              per="word"
+              preset="fade-in-blur"
+              delay={0.16}
+              className="mx-auto mt-4 max-w-xl text-base text-muted md:text-lg"
+            >
+              {t.landingSub}
+            </TextEffect>
+          )}
           <motion.div {...rise(0.24)} className="mt-7 flex flex-wrap items-center justify-center gap-3">
-            <Link to="/demo">
-              <Button className="h-11 px-6 text-base">{t.tryDemoNoLogin}</Button>
+            <Link to="/demo" className="glass-btn glass-btn--lg">
+              <span className="glass-btn__label">{t.tryDemoNoLogin}</span>
             </Link>
-            <Link to="/register">
-              <Button variant="secondary" className="h-11 px-6 text-base">
-                {t.createAccount}
-              </Button>
+            <Link to="/register" className="glass-btn glass-btn--ghost glass-btn--lg">
+              <span className="glass-btn__label">{t.createAccount}</span>
             </Link>
           </motion.div>
 
@@ -282,7 +344,11 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
             {t.freeLine}
           </motion.p>
 
-          {/* Browser-frame dashboard preview (static mock, labelled as illustration) */}
+          {/* Browser-frame dashboard preview — a REAL screenshot of the demo
+              dashboard (public/showcase-dashboard.png, cropped to its top),
+              with a count-up stat strip above it. The numbers are the demo
+              account's snapshot (1478 rating, 138 solved, 2-day streak,
+              3 due); they drift as the seed ages. */}
           <div
             ref={previewRef}
             className="mx-auto mt-10 max-w-4xl overflow-hidden rounded-lg border border-border bg-surface text-left shadow-2xl"
@@ -292,66 +358,38 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
               <span className="h-2.5 w-2.5 rounded-full bg-warning/60" />
               <span className="h-2.5 w-2.5 rounded-full bg-success/60" />
               <span className="ml-3 font-mono text-xs text-muted">demo</span>
+              <span className="ml-auto rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] text-muted">
+                {t.demoDataChip}
+              </span>
             </div>
             <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
               {[
-                [t.previewRating, '1478'],
-                [t.previewSolved, '138'],
-                [t.previewStreak, t.previewStreakValue],
-                [t.previewDue, '3'],
+                [t.previewRating, 1478],
+                [t.previewSolved, 138],
+                [t.previewStreak, 2],
+                [t.previewDue, 3],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-md border border-border bg-bg p-3">
+                <div key={label as string} className="rounded-md border border-border bg-bg p-3">
                   <p className="text-[11px] uppercase tracking-wide text-muted">{label}</p>
-                  <p className="mt-1 font-mono text-xl font-semibold">{value}</p>
+                  <p className="mt-1 font-mono text-xl font-semibold">
+                    <CountUp value={value as number} />
+                    {label === t.previewStreak ? ` ${t.previewStreakValue.replace(/^\d+\s*/, '')}` : ''}
+                  </p>
                 </div>
               ))}
             </div>
-            <div className="grid gap-3 px-4 pb-4 sm:grid-cols-5">
-              <div className="rounded-md border border-border bg-bg p-4 sm:col-span-3">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium">{t.previewTodayPlan}</p>
-                  <span className="rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
-                    {t.demoDataChip}
-                  </span>
-                </div>
-                {PREVIEW_PLAN.map((p) => (
-                  <p key={p.id} className="mt-2 text-sm text-muted">
-                    <span className="font-mono font-medium text-text">
-                      {p.id} {p.name} · {p.rating}
-                    </span>
-                    {' — '}
-                    {formatWhy(p.why, t)}
-                  </p>
-                ))}
-              </div>
-              <div className="rounded-md border border-border bg-bg p-4 sm:col-span-2">
-                <p className="text-sm font-medium">{t.previewRatingTrend}</p>
-                <svg
-                  viewBox="0 0 260 56"
-                  className="mt-2 h-14 w-full"
-                  preserveAspectRatio="none"
-                  aria-hidden
-                >
-                  <defs>
-                    <linearGradient id="previewFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.2} />
-                      <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <polygon points={`${SPARK_POINTS} 260,56 0,56`} fill="url(#previewFill)" />
-                  <polyline
-                    ref={sparkRef}
-                    points={SPARK_POINTS}
-                    fill="none"
-                    stroke="var(--primary)"
-                    strokeWidth={2}
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <p className="mt-1 font-mono text-xs text-muted">1120 → 1478</p>
-              </div>
-            </div>
+            <Link
+              to="/demo"
+              className="block border-t border-border"
+              aria-label={t.showcaseDashboardCaption}
+            >
+              <img
+                src="/showcase-dashboard.png"
+                alt={t.showcaseDashboardCaption}
+                loading="lazy"
+                className="h-[240px] w-full object-cover object-top sm:h-[340px]"
+              />
+            </Link>
             <p className="border-t border-border px-4 py-2 text-center text-xs text-muted">
               {t.previewCaption}
             </p>
@@ -362,13 +400,15 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
       {/* Features — banded, to break the 3-card-grid monotony */}
       <section id="features" className="border-y border-border bg-surface">
         <div className="mx-auto max-w-[1280px] px-4 py-16 md:px-6">
+          <h2 className="sr-only">{t.navFeatures}</h2>
           <motion.div {...fadeUp} className="grid gap-4 md:grid-cols-3">
-            {FEATURES.map((f) => (
-              <Card key={f.title}>
+            {FEATURES.map((f, i) => (
+              <GlassPanel key={f.title} className="p-5">
                 <f.icon size={20} className="text-primary" aria-hidden />
                 <h3 className="mt-3 text-base font-semibold">{f.title}</h3>
                 <p className="mt-1 text-sm text-muted">{f.text}</p>
-              </Card>
+                {FEATURE_VISUALS[i]}
+              </GlassPanel>
             ))}
           </motion.div>
         </div>
@@ -387,6 +427,8 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
             tabs={[
               { id: 'dashboard', label: t.navDashboard },
               { id: 'analytics', label: t.navAnalytics },
+              { id: 'practice', label: t.navPractice },
+              { id: 'revision', label: t.navRevision },
             ]}
             active={showTab}
             onChange={setShowTab}
@@ -394,7 +436,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
           <motion.figure
             key={showTab}
             {...fadeUp}
-            className="mt-4 overflow-hidden rounded-lg border border-border bg-surface"
+            className="glass-panel mt-4 overflow-hidden"
           >
             <button
               onClick={() => setZoom(showTab)}
@@ -469,32 +511,43 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
             {t.whyFormula}
           </motion.p>
           <div className="mt-6 grid gap-4 lg:grid-cols-3">
-            {WHY_PICKS.map((p) => (
-              <motion.div
+            {WHY_TOTALS.map((p) => (
+              <GlassPanel
                 key={p.id}
-                {...fadeUp}
-                className="rounded-lg border border-border bg-bg p-4 sm:p-5"
+                className="p-4 sm:p-5"
               >
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h3 className="font-mono text-base font-semibold">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h3 className="min-w-0 font-mono text-base font-semibold">
                     {p.id} {p.name} · {p.rating}
                   </h3>
-                  <p className="font-mono text-sm">
+                  {/* Score is always right-aligned, never wrapped under. */}
+                  <p className="ml-auto shrink-0 whitespace-nowrap font-mono text-sm">
                     <span className="text-muted">{t.whyTotal} </span>
                     <span className="text-xl font-semibold text-primary">{p.total}</span>
                     <span className="text-muted"> / 100</span>
                   </p>
                 </div>
                 <p className="mt-1 text-sm text-muted">{formatWhy(p.why, t)}</p>
+                {/* Generated from the factor values (lib/score), not
+                    hand-written: the top factor names the reason. */}
+                <p className="mt-1 text-[13px] text-muted">
+                  {explainFactors(p.factors, {
+                    weakTag: p.why.tag,
+                    acceptance: p.why.acceptance,
+                    userRating: p.why.user_rating,
+                    problemRating: p.why.problem_rating,
+                  }, t)}
+                </p>
                 <div className="mt-4 flex flex-col gap-2.5">
                   {whyFactors(p).map((f) => (
                     <div
                       key={f.label}
-                      className="grid grid-cols-[6.5rem_1fr_auto] items-center gap-3 sm:grid-cols-[9rem_1fr_auto]"
+                      title={f.explain}
+                      className="grid grid-cols-[9.5rem_1fr_auto] items-center gap-2"
                     >
-                      <span className="text-xs text-muted sm:text-sm">
+                      <span className="whitespace-nowrap text-[13px] text-muted">
                         {f.label}{' '}
-                        <span className="font-mono text-[11px]">×{f.weight.toFixed(2)}</span>
+                        <span className="font-mono text-xs">×{f.weight.toFixed(2)}</span>
                       </span>
                       <div className="h-2 overflow-hidden rounded-full bg-surface-2">
                         <div
@@ -502,17 +555,17 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
                           style={{ width: `${f.value}%` }}
                         />
                       </div>
-                      <span className="font-mono text-xs tabular-nums sm:text-sm">
+                      <span className="font-mono text-[13px] tabular-nums">
                         {f.value.toFixed(1)}{' '}
                         <span className="text-muted">→ +{(f.weight * f.value).toFixed(1)}</span>
                       </span>
                     </div>
                   ))}
                 </div>
-              </motion.div>
+              </GlassPanel>
             ))}
           </div>
-          <motion.p {...fadeUp} className="mt-6 flex flex-wrap items-center gap-2 text-xs text-muted">
+          <motion.p {...fadeUp} className="mt-6 flex flex-wrap items-center gap-2 text-sm text-muted">
             <span className="rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[11px]">
               {t.demoDataChip}
             </span>
@@ -526,22 +579,16 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
         <motion.h2 {...fadeUp} className="text-2xl font-semibold tracking-tight">
           {t.faqTitle}
         </motion.h2>
-        <div className="mt-6 flex flex-col gap-3">
-          {[
+        <FaqAccordion
+          items={[
             { q: t.faqQ1, a: t.faqA1 },
             { q: t.faqQ2, a: t.faqA2 },
             { q: t.faqQ3, a: t.faqA3 },
-          ].map((f) => (
-            <motion.details
-              key={f.q}
-              {...fadeUp}
-              className="rounded-lg border border-border bg-surface px-4 py-3"
-            >
-              <summary className="cursor-pointer text-base font-semibold">{f.q}</summary>
-              <p className="mt-2 text-sm text-muted">{f.a}</p>
-            </motion.details>
-          ))}
-        </div>
+            { q: t.faqQ4, a: t.faqA4 },
+            { q: t.faqQ5, a: t.faqA5 },
+            { q: t.faqQ6, a: t.faqA6 },
+          ]}
+        />
       </section>
 
       {/* Roadmap — approved Batch 2-5 items only, no dates promised */}
@@ -560,7 +607,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
               { title: t.roadmap3Title, text: t.roadmap3Text },
             ].map((r) => (
               <Card key={r.title}>
-                <span className="rounded-full border border-primary/50 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                <span className="rounded-full border border-muted/50 px-2 py-0.5 text-[11px] font-semibold text-muted">
                   {t.comingSoon}
                 </span>
                 <h3 className="mt-3 text-base font-semibold">{r.title}</h3>
@@ -614,18 +661,18 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
                 href="https://github.com/Khalid635/cp-compass"
                 target="_blank"
                 rel="noreferrer"
-                className="font-medium text-primary hover:underline"
+                className="inline-flex min-h-11 items-center font-medium text-primary hover:underline sm:min-h-0"
               >
                 {t.githubLink} ↗
               </a>
-              <Link to="/privacy" className="text-muted hover:text-primary">
+              <Link to="/privacy" className="inline-flex min-h-11 items-center text-muted hover:text-primary sm:min-h-0">
                 {t.privacyLink}
               </Link>
               <a
                 href="https://codeforces.com"
                 target="_blank"
                 rel="noreferrer"
-                className="text-muted hover:text-primary"
+                className="inline-flex min-h-11 items-center text-muted hover:text-primary sm:min-h-0"
               >
                 codeforces.com ↗
               </a>

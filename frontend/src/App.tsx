@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -49,8 +49,26 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/* Palette comparison (premium-apply batch): ?palette=indigo switches the
+   realtimecolors indigo variant (data-palette="indigo"); anything else —
+   including no param — is the teal default. Never persisted, never the
+   default; it exists so teal vs indigo can be screenshotted side-by-side
+   for Khalid to decide with his eyes. */
+function usePaletteParam() {
+  const location = useLocation();
+  useEffect(() => {
+    const palette = new URLSearchParams(location.search).get('palette');
+    if (palette === 'indigo') {
+      document.documentElement.dataset.palette = 'indigo';
+    } else {
+      delete document.documentElement.dataset.palette;
+    }
+  }, [location.search]);
+}
+
 function AppRoutes() {
   const { theme, toggle: toggleTheme } = useTheme();
+  usePaletteParam();
   return (
     <PaletteProvider theme={theme} toggleTheme={toggleTheme}>
       <Toaster

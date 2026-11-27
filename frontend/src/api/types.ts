@@ -1,5 +1,6 @@
 /* Shared types — shapes match the FastAPI responses in backend/app/main.py. */
 import type { Dict, WhyInfo } from '../i18n/dict';
+import type { ScoreFactors } from '../lib/score';
 
 export type { WhyInfo };
 
@@ -17,6 +18,10 @@ export interface Recommendation extends ProblemRef {
   why: WhyInfo;
   /** Rule-based score 0–100 (blueprint §6). Absent on old demo payloads. */
   score?: number;
+  /** The four score factors (W/D/R/P, 0–100 each) — same formula as the
+      landing "Why this problem?" breakdown (lib/score). Absent when the
+      backend predates the premium-apply batch. */
+  factors?: ScoreFactors;
 }
 
 /* ---------- Phase 3 — ML solvability prediction ---------- */

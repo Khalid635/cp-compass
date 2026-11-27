@@ -12,6 +12,13 @@ import '@fontsource/noto-sans-bengali/400.css';
 import '@fontsource/noto-sans-bengali/500.css';
 import '@fontsource/noto-sans-bengali/600.css';
 import '@fontsource/noto-sans-bengali/700.css';
+/* Inter — only used by the indigo palette comparison variant
+   (?palette=indigo); the @fontsource faces carry unicode-range subsets,
+   so the files download only when Inter is actually applied. */
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
