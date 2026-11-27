@@ -8,6 +8,7 @@ import { useTheme } from './hooks/useTheme';
 import { AppShell } from './components/layout';
 import { PaletteProvider } from './components/CommandPalette';
 import Landing from './pages/Landing';
+import Privacy from './pages/Privacy';
 import { LoginPage, RegisterPage } from './pages/Auth';
 import DemoLayout from './pages/Demo';
 import NotFound from './pages/NotFound';
@@ -70,6 +71,7 @@ function AppRoutes() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
         <Route path="/" element={<Landing theme={theme} toggleTheme={toggleTheme} />} />
+        <Route path="/privacy" element={<Privacy theme={theme} toggleTheme={toggleTheme} />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 

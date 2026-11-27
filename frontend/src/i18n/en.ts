@@ -66,12 +66,12 @@ export const en: Dict = {
   previewRating: 'Rating',
   previewSolved: 'Solved',
   previewStreak: 'Streak',
-  previewStreakValue: '3 days',
+  previewStreakValue: '2 days',
   previewDue: 'Due today',
   previewTodayPlan: 'Today’s plan',
   previewRatingTrend: 'Rating trend',
   betaBadge: 'Beta',
-  freeLine: 'Free forever — no card, no trial, no catch.',
+  freeLine: 'Free to use — no card, no trial.',
   demoDataChip: 'Demo data',
   githubLink: 'GitHub',
   comingSoon: 'Coming soon',
@@ -84,12 +84,13 @@ export const en: Dict = {
     'No. You only register with an email and a password for this site. Your Codeforces handle is public data — we never ask for your Codeforces password.',
   faqQ3: 'What data is saved about me?',
   faqA3:
-    'Only your submissions, problems, notes and settings — all from the public Codeforces API. You can export everything or delete your account in Settings.',
+    'Your email address, and your password only as an Argon2 hash — never in plain text. Your submissions and problems come from the public Codeforces API. Your notes and settings are written by you, not taken from the API. You can export everything or delete your account in Settings.',
   showcaseTitle: 'See it in action',
   showcaseCaption:
     'Real pages from the demo account — the same views you get after connecting your handle.',
   showcaseDashboardCaption: 'Dashboard — rating, weak topics, today’s plan',
   showcaseAnalyticsCaption: 'Analytics — difficulty, streaks and milestones',
+  showcaseZoom: 'Click to enlarge',
   roadmapTitle: 'Coming soon',
   roadmapNote: 'In progress, in this order — no dates promised.',
   roadmap1Title: 'Failure-pattern analysis',
@@ -100,6 +101,43 @@ export const en: Dict = {
   roadmap3Title: 'Recommender backtest',
   roadmap3Text:
     'Measured proof of how good the recommendations are — published in the README.',
+
+  // landing v2 (2026-11-27)
+  navFeatures: 'Features',
+  navDemo: 'Demo',
+  navFaq: 'FAQ',
+  whyTitle: 'Why this problem?',
+  whyCaption:
+    'Every pick is scored from four factors — the same formula the app uses, computed here on the demo account’s data. No hidden ranking, no black box.',
+  whyFootnote:
+    'Demo pages show a simplified preview score for the same picks (67, 80, 55); the breakdowns above use the production formula, so the totals differ. Two picks sit below the app’s usual rating band — the demo tops up with below-band practice for a weak tag.',
+  whyW: 'Weak topic',
+  whyD: 'Difficulty fit',
+  whyR: 'Recent need',
+  whyP: 'Practice priority',
+  whyTotal: 'Score',
+  whyFormula: 'Score = 0.35W + 0.30D + 0.20R + 0.15P',
+  underHood:
+    'Under the hood: 16 database tables, a database-backed job queue, Argon2 password hashing, and a solvability model (held-out test AUC 0.834).',
+  builtBy: 'Built by Khalid Bin Masud',
+  privacyLink: 'Privacy',
+  lightboxClose: 'Close',
+  privacyTitle: 'Privacy',
+  privacyUpdated: 'Last updated: 27 November 2026.',
+  privacyIntro:
+    'CP Compass is a personal project. This page says plainly what is stored about you, what is not, and what you can do about it.',
+  privacyWhatTitle: 'What is stored',
+  privacyWhatText:
+    'Your email address, and your password only as an Argon2 hash — never in plain text. Your Codeforces handle, and the submissions and problems we fetch for it from the public Codeforces API. Anything you write yourself: problem notes, settings, and your Save for Later / Not Interested choices. Your email is used only to sign you in and to send account verification codes (via Resend, our email provider).',
+  privacyNotTitle: 'What is never asked for',
+  privacyNotText:
+    'Your Codeforces password. Your handle is public data — connecting it only proves you own it, with a one-time token you put in your Codeforces profile. We never see or store your Codeforces login.',
+  privacyCookiesTitle: 'Cookies and local storage',
+  privacyCookiesText:
+    'Your login tokens live in your browser’s local storage, so you stay signed in. There is no analytics, no advertising, and no third-party tracking in the app. The hosting providers (Vercel, Render, Neon) keep standard server logs, as any host does.',
+  privacyRightsTitle: 'Your data, your call',
+  privacyRightsText:
+    'Export everything or delete your account in Settings — deletion removes your account and all of its data. Questions: open an issue on the GitHub repository.',
 
   dashboard: 'Dashboard',
   noSyncYet: 'No submissions synced yet — press Sync now above.',

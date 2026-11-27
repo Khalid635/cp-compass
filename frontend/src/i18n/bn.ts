@@ -64,12 +64,12 @@ export const bn: Dict = {
   previewRating: 'রেটিং',
   previewSolved: 'সমাধান',
   previewStreak: 'স্ট্রিক',
-  previewStreakValue: '3 দিন',
+  previewStreakValue: '2 দিন',
   previewDue: 'আজ ডিউ',
   previewTodayPlan: 'আজকের প্ল্যান',
   previewRatingTrend: 'Rating-এর ধারা',
   betaBadge: 'বিটা',
-  freeLine: 'চিরদিন ফ্রি — কার্ড লাগে না, ট্রায়াল শেষ হয় না।',
+  freeLine: 'ফ্রি — কার্ড লাগে না, ট্রায়াল নেই।',
   demoDataChip: 'ডেমো ডাটা',
   githubLink: 'GitHub',
   comingSoon: 'আসছে',
@@ -82,11 +82,12 @@ export const bn: Dict = {
     'না। এখানে শুধু ইমেইল আর পাসওয়ার্ড দিয়ে রেজিস্টার করবে। তোমার Codeforces handle পাবলিক ডাটা — Codeforces পাসওয়ার্ড আমরা কখনো চাই না।',
   faqQ3: 'আমার কী ডাটা সেভ হয়?',
   faqA3:
-    'শুধু তোমার সাবমিশন, প্রবলেম, নোট আর সেটিংস — সবই Codeforces-এর পাবলিক API থেকে। Settings থেকে সব এক্সপোর্ট করতে পারবে, বা অ্যাকাউন্ট মুছে ফেলতে পারবে।',
+    'তোমার ইমেইল ঠিকানা, আর পাসওয়ার্ড শুধু Argon2 hash হিসেবে — কখনো সরাসরি লেখা হিসেবে নয়। তোমার সাবমিশন আর প্রবলেম আসে Codeforces-এর পাবলিক API থেকে। তোমার নোট আর সেটিংস তুমি নিজে লেখো, API থেকে নেওয়া নয়। Settings থেকে সব এক্সপোর্ট করতে পারবে, বা অ্যাকাউন্ট মুছে ফেলতে পারবে।',
   showcaseTitle: 'চোখে দেখে নাও',
   showcaseCaption: 'ডেমো অ্যাকাউন্টের আসল পেজ — handle যুক্ত করলে তুমিও এগুলোই দেখবে।',
   showcaseDashboardCaption: 'ড্যাশবোর্ড — rating, দুর্বল টপিক, আজকের প্ল্যান',
   showcaseAnalyticsCaption: 'Analytics — difficulty, streak আর milestone',
+  showcaseZoom: 'বড় করে দেখতে ক্লিক করো',
   roadmapTitle: 'আসছে',
   roadmapNote: 'এই ক্রমেই কাজ চলছে — কোনো তারিখের প্রতিশ্রুতি নেই।',
   roadmap1Title: 'Failure-pattern বিশ্লেষণ',
@@ -95,6 +96,43 @@ export const bn: Dict = {
   roadmap2Text: 'প্রতি contest-এর পর পূর্ণ রিপোর্ট: কী ভালো হলো, এরপর কী ঠিক করবে।',
   roadmap3Title: 'Recommender backtest',
   roadmap3Text: 'সাজেশন কতটা ভালো, তার মাপা প্রমাণ — README-তে প্রকাশ করা হবে।',
+
+  // landing v2 (2026-11-27)
+  navFeatures: 'ফিচার',
+  navDemo: 'ডেমো',
+  navFaq: 'প্রশ্নোত্তর',
+  whyTitle: 'এই প্রবলেমটা কেন?',
+  whyCaption:
+    'প্রতিটি সাজেশন চারটি বিষয় থেকে স্কোর পায় — অ্যাপ যে ফর্মুলা ব্যবহার করে, সেটাই; এখানে ডেমো অ্যাকাউন্টের ডাটা দিয়ে হিসাব করা। কোনো লুকানো র‍্যাংকিং নেই, কোনো ব্ল্যাক বক্স নেই।',
+  whyFootnote:
+    'ডেমো পেজে একই প্রবলেমগুলোর সরলীকৃত প্রিভিউ স্কোর দেখায় (৬৭, ৮০, ৫৫); উপরের হিসাব production ফর্মুলা দিয়ে, তাই মোট স্কোর আলাদা। দুটি প্রবলেম অ্যাপের সাধারণ rating সীমার নিচে — ডেমোতে দুর্বল টপিকের জন্য সীমার নিচের প্র্যাকটিসও রাখা হয়।',
+  whyW: 'দুর্বল টপিক',
+  whyD: 'কঠিনতার মান',
+  whyR: 'সাম্প্রতিক ঘাটতি',
+  whyP: 'প্র্যাকটিস অগ্রাধিকার',
+  whyTotal: 'স্কোর',
+  whyFormula: 'Score = 0.35W + 0.30D + 0.20R + 0.15P',
+  underHood:
+    'ভেতরে যা আছে: ১৬টি ডাটাবেজ টেবিল, ডাটাবেজ-চালিত জব কিউ, Argon2 পাসওয়ার্ড হ্যাশিং, আর একটি solvability মডেল (টেস্ট AUC 0.834)।',
+  builtBy: 'বানিয়েছেন খালিদ বিন মাসুদ',
+  privacyLink: 'প্রাইভেসি',
+  lightboxClose: 'বন্ধ করো',
+  privacyTitle: 'প্রাইভেসি',
+  privacyUpdated: 'সর্বশেষ হালনাগাদ: ২৭ নভেম্বর ২০২৬।',
+  privacyIntro:
+    'CP Compass একটি ব্যক্তিগত প্রজেক্ট। এই পেজে পরিষ্কার করে বলা আছে তোমার কী ডাটা সেভ হয়, কী হয় না, আর তুমি এ ব্যাপারে কী করতে পারবে।',
+  privacyWhatTitle: 'কী সেভ হয়',
+  privacyWhatText:
+    'তোমার ইমেইল ঠিকানা, আর পাসওয়ার্ড শুধু Argon2 hash হিসেবে — কখনো সরাসরি লেখা হিসেবে নয়। তোমার Codeforces handle, আর সেটার জন্য Codeforces-এর পাবলিক API থেকে আনা সাবমিশন ও প্রবলেম। আর তুমি নিজে যা লেখো: প্রবলেম নোট, সেটিংস, আর Save for Later / Not Interested পছন্দ। ইমেইল শুধু লগইন আর অ্যাকাউন্ট ভেরিফিকেশন কোড পাঠাতে ব্যবহার হয় (Resend-এর মাধ্যমে)।',
+  privacyNotTitle: 'যা কখনো চাওয়া হয় না',
+  privacyNotText:
+    'তোমার Codeforces পাসওয়ার্ড। তোমার handle পাবলিক ডাটা — সেটা যুক্ত করা মানে শুধু প্রমাণ করা যে এটা তোমার, Codeforces প্রোফাইলে একবারের token বসিয়ে। তোমার Codeforces লগইন আমরা কখনো দেখি না বা সেভ করি না।',
+  privacyCookiesTitle: 'কুকি আর লোকাল স্টোরেজ',
+  privacyCookiesText:
+    'তোমার লগইন token ব্রাউজারের লোকাল স্টোরেজে থাকে, যাতে লগইন করা থাকে। অ্যাপে কোনো analytics, বিজ্ঞাপন বা third-party tracking নেই। হোস্টিং প্রোভাইডাররা (Vercel, Render, Neon) সাধারণ সার্ভার লগ রাখে, যেকোনো হোস্ট যেমন রাখে।',
+  privacyRightsTitle: 'তোমার ডাটা, তোমার সিদ্ধান্ত',
+  privacyRightsText:
+    'Settings থেকে সব এক্সপোর্ট করতে পারবে বা অ্যাকাউন্ট মুছে ফেলতে পারবে — মুছে ফেললে অ্যাকাউন্ট আর তার সব ডাটা চলে যায়। প্রশ্ন থাকলে GitHub repository-তে issue খোলো।',
 
   dashboard: 'ড্যাশবোর্ড',
   noSyncYet: 'এখনো কোনো সাবমিশন সিঙ্ক হয়নি — উপরে Sync now চাপো।',

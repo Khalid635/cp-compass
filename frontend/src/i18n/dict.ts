@@ -95,6 +95,7 @@ export interface Dict {
   showcaseCaption: string;
   showcaseDashboardCaption: string;
   showcaseAnalyticsCaption: string;
+  showcaseZoom: string;
   roadmapTitle: string;
   roadmapNote: string;
   roadmap1Title: string;
@@ -103,6 +104,35 @@ export interface Dict {
   roadmap2Text: string;
   roadmap3Title: string;
   roadmap3Text: string;
+  // landing v2 (2026-11-27)
+  navFeatures: string;
+  navDemo: string;
+  navFaq: string;
+  whyTitle: string;
+  whyCaption: string;
+  whyFootnote: string;
+  whyW: string;
+  whyD: string;
+  whyR: string;
+  whyP: string;
+  whyTotal: string;
+  whyFormula: string;
+  underHood: string;
+  builtBy: string;
+  privacyLink: string;
+  lightboxClose: string;
+  // privacy page
+  privacyTitle: string;
+  privacyUpdated: string;
+  privacyIntro: string;
+  privacyWhatTitle: string;
+  privacyWhatText: string;
+  privacyNotTitle: string;
+  privacyNotText: string;
+  privacyCookiesTitle: string;
+  privacyCookiesText: string;
+  privacyRightsTitle: string;
+  privacyRightsText: string;
   // dashboard
   dashboard: string;
   noSyncYet: string;

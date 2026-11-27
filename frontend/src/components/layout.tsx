@@ -303,8 +303,37 @@ export function LandingHeader({ theme, toggleTheme }: { theme: Theme; toggleThem
       <Link to="/" className="hover:no-underline">
         <Logo />
       </Link>
+      {/* In-page anchors (landing v2). The "/" palette trigger was removed
+          here — search belongs to the app, not the landing page. */}
+      <nav className="hidden items-center gap-1 md:flex" aria-label="Landing">
+        <a
+          href="#features"
+          className="rounded-md px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-hover hover:text-text hover:no-underline"
+        >
+          {t.navFeatures}
+        </a>
+        <a
+          href="#showcase"
+          className="rounded-md px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-hover hover:text-text hover:no-underline"
+        >
+          {t.navDemo}
+        </a>
+        <a
+          href="#faq"
+          className="rounded-md px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-hover hover:text-text hover:no-underline"
+        >
+          {t.navFaq}
+        </a>
+      </nav>
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <PaletteTrigger />
+        <a
+          href="https://github.com/Khalid635/cp-compass"
+          target="_blank"
+          rel="noreferrer"
+          className="flex h-9 items-center rounded-md border border-border bg-surface-2 px-3 text-sm font-medium text-muted transition-colors hover:bg-hover hover:text-text hover:no-underline"
+        >
+          {t.githubLink} ↗
+        </a>
         <LanguageToggle />
         <button
           onClick={toggleTheme}
