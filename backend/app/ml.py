@@ -479,6 +479,15 @@ def _load_artifact():
         artifact = joblib.load(MODEL_PATH)
     except Exception:
         return None
+    # Hardening H10: never trust a deserialized artifact blindly — it must
+    # have the exact shape train_model() writes, or it is ignored. The
+    # path is a fixed server-side constant, never user-influenced.
+    if (not isinstance(artifact, dict)
+            or not isinstance(artifact.get("metadata"), dict)
+            or "model" not in artifact
+            or "feature_names" not in artifact
+            or "top_tags" not in artifact):
+        return None
     _model_cache["mtime"] = mtime
     _model_cache["artifact"] = artifact
     return artifact

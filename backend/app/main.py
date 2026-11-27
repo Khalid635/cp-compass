@@ -131,6 +131,12 @@ async def _security_headers(request: Request, call_next):
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
     response.headers["Permissions-Policy"] = (
         "camera=(), microphone=(), geolocation=()")
+    # Hardening H5: HSTS (Render serves HTTPS only; browsers ignore this
+    # on plain-HTTP dev) and CSP frame-ancestors (the API returns JSON, so
+    # no broader CSP is needed — this just forbids framing).
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=63072000; includeSubDomains")
+    response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
     return response
 
 
@@ -714,13 +720,30 @@ async def recommendations(
 
 
 @app.post(f"{V1}/recommendations/action")
-def recommendation_action(body: FeedbackIn, user: User = Depends(get_current_user),
+async def recommendation_action(body: FeedbackIn, user: User = Depends(get_current_user),
                           db: Session = Depends(get_db)):
     action = body.action
     if action == "not_interested":  # legacy frontend name
         action = "dismissed"
     if action not in ("later", "dismissed", "interested"):
         raise HTTPException(400, "Unknown action")
+    # Hardening H7: don't let arbitrary (contest_id, index) pollute the
+    # shared problem catalog. If the problem is already known locally no
+    # check is needed; otherwise validate it against the Codeforces
+    # problemset (cached 1h). If Codeforces is unreachable, fall back to
+    # the old behaviour so a click never breaks on a CF outage.
+    known = db.query(Problem).filter_by(
+        contest_id=body.contest_id, index=body.index,
+        platform="codeforces").first()
+    if known is None:
+        try:
+            problems = await cf.problemset()
+        except CFError:
+            problems = None
+        if problems is not None:
+            ids = {(p.get("contestId"), p.get("index")) for p in problems}
+            if (body.contest_id, body.index) not in ids:
+                raise HTTPException(404, "Unknown problem")
     services.set_preference(db, user.id, body.contest_id, body.index, action)
     return {"ok": True}
 

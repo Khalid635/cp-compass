@@ -8,12 +8,19 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-COPY requirements.txt .
+# Hardening H4: never run as root. The app writes ml_model.joblib and
+# dev_outbox.log into /app, so /app and everything copied in belong to
+# the app user.
+RUN useradd -m appuser && chown appuser:appuser /app
+
+COPY --chown=appuser:appuser requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY alembic.ini .
-COPY alembic ./alembic
-COPY app ./app
+COPY --chown=appuser:appuser alembic.ini .
+COPY --chown=appuser:appuser alembic ./alembic
+COPY --chown=appuser:appuser app ./app
+
+USER appuser
 
 # Render sets $PORT; uvicorn serves the FastAPI app.
 # Single worker: the free instance has 512 MB RAM and the ML model trains

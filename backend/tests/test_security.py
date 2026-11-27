@@ -405,3 +405,89 @@ def test_delete_account_requires_password(client, db):
                          json={"password": "secret123"}, headers=headers)
     assert res.status_code == 200
     assert db.query(models.User).filter_by(id=user.id).one_or_none() is None
+
+
+# ---------------------------------------------------------------------------
+# Hardening batch (audit 2026-11-27, notes H5/H7/H10)
+# ---------------------------------------------------------------------------
+def test_h5_hsts_and_csp_frame_ancestors(client):
+    """H5: HSTS + CSP frame-ancestors ride on every API response."""
+    res = client.get("/api/v1/health")
+    assert res.status_code == 200
+    assert res.headers["Strict-Transport-Security"].startswith(
+        "max-age=63072000")
+    assert res.headers["Content-Security-Policy"] == "frame-ancestors 'none'"
+    # F8 headers still present alongside the new ones.
+    assert res.headers["X-Frame-Options"] == "DENY"
+
+
+def test_h7_unknown_problem_rejected(client, db, monkeypatch):
+    """H7: an action on a (contest_id, index) that is not in the CF
+    problemset must not create a bare catalog row."""
+    async def problemset():
+        return [{"contestId": 1, "index": "A", "name": "Watermelon"}]
+
+    monkeypatch.setattr("app.main.cf.problemset", problemset)
+    user = _user(db)
+    headers, _ = _auth_headers(user.id)
+    res = client.post("/api/v1/recommendations/action",
+                      json={"contest_id": 999999, "index": "Z", "action": "later"},
+                      headers=headers)
+    assert res.status_code == 404
+    assert db.query(models.Problem).filter_by(contest_id=999999).first() is None
+
+
+def test_h7_known_problem_allowed(client, db, monkeypatch):
+    """H7: a real CF problem (not yet synced locally) still gets its
+    preference recorded."""
+    async def problemset():
+        return [{"contestId": 1, "index": "A", "name": "Watermelon"}]
+
+    monkeypatch.setattr("app.main.cf.problemset", problemset)
+    user = _user(db)
+    headers, _ = _auth_headers(user.id)
+    res = client.post("/api/v1/recommendations/action",
+                      json={"contest_id": 1, "index": "A", "action": "later"},
+                      headers=headers)
+    assert res.status_code == 200
+    assert db.query(models.Problem).filter_by(
+        contest_id=1, index="A").first() is not None
+
+
+def test_h7_cf_down_falls_back_to_old_behaviour(client, db, monkeypatch):
+    """H7: when Codeforces is unreachable the click must still work
+    (old behaviour) instead of failing the user."""
+    from app.cf import CFError
+
+    async def problemset():
+        raise CFError("boom")
+
+    monkeypatch.setattr("app.main.cf.problemset", problemset)
+    user = _user(db)
+    headers, _ = _auth_headers(user.id)
+    res = client.post("/api/v1/recommendations/action",
+                      json={"contest_id": 2, "index": "B", "action": "later"},
+                      headers=headers)
+    assert res.status_code == 200
+
+
+def test_h10_artifact_shape_validation(monkeypatch, tmp_path):
+    """H10: a deserialized artifact with the wrong shape is ignored."""
+    import joblib
+
+    import app.ml as mlmod
+
+    bad = tmp_path / "bad.joblib"
+    joblib.dump({"model": "not-a-real-artifact"}, bad)
+    monkeypatch.setattr(mlmod, "MODEL_PATH", str(bad))
+    mlmod._model_cache["artifact"] = None
+    mlmod._model_cache["mtime"] = None
+    assert mlmod._load_artifact() is None
+
+    good = tmp_path / "good.joblib"
+    joblib.dump({"metadata": {"shipped": True}, "model": object(),
+                 "feature_names": ["a"], "top_tags": ["dp"]}, good)
+    monkeypatch.setattr(mlmod, "MODEL_PATH", str(good))
+    mlmod._model_cache["artifact"] = None
+    mlmod._model_cache["mtime"] = None
+    assert mlmod._load_artifact() is not None

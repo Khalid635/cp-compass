@@ -1,13 +1,16 @@
-fastapi>=0.115
-uvicorn[standard]>=0.30
-sqlalchemy>=2.0
-alembic>=1.13
-pydantic>=2.0
-email-validator>=2.0
-python-jose[cryptography]>=3.3
-argon2-cffi>=23.1
-pyotp>=2.9  # TOTP 2FA (authenticator app), Batch 1
-httpx>=0.27
-python-dotenv>=1.0
-scikit-learn>=1.5
-psycopg[binary]>=3.2
+# Pinned 2026-11-27 (hardening H3): exact versions verified working on
+# Python 3.14 (laptop venv + Render Docker image). Bump deliberately and
+# re-run pytest + a live smoke check after any change.
+fastapi==0.165.0
+uvicorn[standard]==0.54.0
+sqlalchemy==2.1.9
+alembic==1.20.1
+pydantic==2.14.4
+email-validator==2.4.0
+python-jose[cryptography]==3.5.0
+argon2-cffi==25.1.0
+pyotp==2.12.2  # TOTP 2FA (authenticator app), Batch 1
+httpx==0.28.1
+python-dotenv==1.2.4
+scikit-learn==1.9.1
+psycopg[binary]==3.3.9
