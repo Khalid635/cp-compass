@@ -445,6 +445,14 @@ export const en: Dict = {
   failNoWrong: 'No wrong submissions yet',
   failNoWrongHint:
     'Nothing to learn from yet — wrong submissions will show where your solutions fail.',
+  failNoSubs: 'No submissions synced yet',
+  failNoSubsHint:
+    'Sync your Codeforces account first \u2014 then this card will show where your solutions fail.',
+  failRecentTitle: 'Last 30 days',
+  failRecentLine: (n) =>
+    `${n} wrong submission${n === 1 ? '' : 's'} in the last 30 days`,
+  failRecentNone: 'No wrong submissions in the last 30 days.',
+  failRecentTopic: (tag, n) => `${tag} \u2014 ${n} wrong`,
   failLowData:
     'Only a few wrong submissions so far — the patterns below are thin, but the counts are real.',
   failNoTestData:

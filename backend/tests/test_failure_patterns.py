@@ -297,3 +297,41 @@ def test_failures_endpoint(client, db):
     resp2 = client.get("/api/v1/analytics/failures",
                        headers=_auth_headers(user2.id))
     assert resp2.status_code == 400
+
+
+def test_recent_window_last_30_days(client, db):
+    """The `recent` block counts only wrong attempts from the last 30 days."""
+    user = _user(db)
+    db.add(models.CfAccount(user_id=user.id, handle="tourist",
+                            handle_norm="tourist"))
+    db.commit()
+    dp = _prob(db, 1730, "A", ["dp"])
+    gr = _prob(db, 1731, "B", ["graphs"])
+    _sub(db, user, dp, 1, "WRONG_ANSWER", 1, day_offset=5)
+    _sub(db, user, dp, 2, "TIME_LIMIT_EXCEEDED", 0, day_offset=40)
+    _sub(db, user, gr, 3, "WRONG_ANSWER", 2, day_offset=1)
+    _sub(db, user, gr, 4, "OK", 10, day_offset=2)
+    resp = client.get("/api/v1/analytics/failures",
+                      headers=_auth_headers(user.id))
+    assert resp.status_code == 200
+    recent = resp.json()["recent"]
+    assert recent["window_days"] == 30
+    assert recent["total_wrong"] == 2
+    assert recent["verdict_breakdown"] == [
+        {"verdict": "WRONG_ANSWER", "count": 2}]
+    assert recent["top_topics"] == [
+        {"tag": "dp", "wrong": 1}, {"tag": "graphs", "wrong": 1}]
+
+
+def test_zero_rows_payload():
+    """No submissions at all: totals are 0, nothing is claimed."""
+    from app.services import _compute_failure_patterns
+    out = _compute_failure_patterns([])
+    assert out["total_submissions"] == 0
+    assert out["total_wrong"] == 0
+    assert out["enough_data"] is False
+    assert out["recent"] == {
+        "window_days": 30, "total_wrong": 0,
+        "verdict_breakdown": [], "top_topics": []}
+    assert out["per_topic"] == []
+    assert out["per_problem"] == []

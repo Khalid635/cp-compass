@@ -241,6 +241,12 @@ export default function Analytics({ demo = false }: { demo?: boolean }) {
               <RefreshCw size={14} aria-hidden /> {t.retry}
             </Button>
           </div>
+        ) : failQuery.data.total_submissions === 0 ? (
+          <EmptyState
+            icon={<RefreshCw size={40} aria-hidden />}
+            title={t.failNoSubs}
+            text={t.failNoSubsHint}
+          />
         ) : failQuery.data.total_wrong === 0 ? (
           <EmptyState
             icon={<CheckCircle2 size={40} aria-hidden />}
@@ -273,6 +279,38 @@ export default function Analytics({ demo = false }: { demo?: boolean }) {
                   </span>
                 ))}
               </div>
+            </div>
+
+            {/* Last 30 days */}
+            <div>
+              <h3 className="text-sm font-medium">{t.failRecentTitle}</h3>
+              {failQuery.data.recent.total_wrong === 0 ? (
+                <p className="mt-1.5 text-sm text-muted">{t.failRecentNone}</p>
+              ) : (
+                <div className="mt-2 flex flex-col gap-2">
+                  <p className="text-sm text-muted">
+                    {t.failRecentLine(failQuery.data.recent.total_wrong)}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {failQuery.data.recent.verdict_breakdown.map((b) => (
+                      <span
+                        key={b.verdict}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg px-2.5 py-1 font-mono text-xs"
+                      >
+                        {b.verdict}
+                        <span className="font-semibold text-text">{b.count}</span>
+                      </span>
+                    ))}
+                  </div>
+                  {failQuery.data.recent.top_topics.length > 0 && (
+                    <p className="text-sm text-muted">
+                      {failQuery.data.recent.top_topics
+                        .map((tp) => t.failRecentTopic(tp.tag, tp.wrong))
+                        .join(' \u00b7 ')}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Where solutions fail */}

@@ -330,6 +330,12 @@ export interface FailurePatternsData {
     median: number | null;
     solved_problems: number;
   };
+  recent: {
+    window_days: number;
+    total_wrong: number;
+    verdict_breakdown: { verdict: string; count: number }[];
+    top_topics: { tag: string; wrong: number }[];
+  };
 }
 
 export interface SettingsData {

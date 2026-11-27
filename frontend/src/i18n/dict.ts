@@ -417,6 +417,12 @@ export interface Dict {
   failBasedOn: (wrong: number, total: number) => string;
   failNoWrong: string;
   failNoWrongHint: string;
+  failNoSubs: string;
+  failNoSubsHint: string;
+  failRecentTitle: string;
+  failRecentLine: (n: number) => string;
+  failRecentNone: string;
+  failRecentTopic: (tag: string, n: number) => string;
   failLowData: string;
   failNoTestData: string;
   failVerdicts: string;

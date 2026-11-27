@@ -482,7 +482,7 @@ def _median_or_none(values: list[int]) -> float | None:
     return round(float(_median(values)), 1)
 
 
-def _compute_failure_patterns(rows: list[dict]) -> dict:
+def _compute_failure_patterns(rows: list[dict], now: datetime | None = None) -> dict:
     """Pure computation over submission rows. Each row: verdict (str),
     passed_test_count (int|None), problem (dict with contest_id/index/
     name/rating/tags), submitted_at (datetime). Shared by the real
@@ -611,12 +611,39 @@ def _compute_failure_patterns(rows: list[dict]) -> dict:
         else:
             buckets["three_plus"] += 1
 
+    # Recent window: wrong attempts in the last RECENT_DAYS days (same
+    # 30-day convention as the weak-score recent acceptance). `now` is a
+    # parameter so tests can pin the window; production passes None.
+    if now is None:
+        now = datetime.utcnow()
+    cutoff = now - timedelta(days=RECENT_DAYS)
+    recent_wrong = [r for r in wrong if r["submitted_at"] >= cutoff]
+    recent_counts: dict[str, int] = defaultdict(int)
+    recent_topics: dict[str, int] = defaultdict(int)
+    for r in recent_wrong:
+        recent_counts[r["verdict"]] += 1
+        for tag in (r["problem"].get("tags") or []):
+            recent_topics[tag] += 1
+    recent = {
+        "window_days": RECENT_DAYS,
+        "total_wrong": len(recent_wrong),
+        "verdict_breakdown": [
+            {"verdict": v, "count": c}
+            for v, c in sorted(recent_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+        ],
+        "top_topics": [
+            {"tag": tag, "wrong": n}
+            for tag, n in sorted(recent_topics.items(), key=lambda kv: (-kv[1], kv[0]))[:3]
+        ],
+    }
+
     return {
         "total_submissions": total,
         "total_wrong": total_wrong,
         "with_test_data": with_test,
         "without_test_data": total - with_test,
         "enough_data": total_wrong >= MIN_WRONG_FOR_SIGNAL,
+        "recent": recent,
         "verdict_breakdown": verdict_breakdown,
         "test_stages": stages,
         "per_topic": topics,
