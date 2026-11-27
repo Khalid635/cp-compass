@@ -204,3 +204,8 @@ select {
   font-size: 14px;
   color: var(--muted);
 }
+
+/* Bengali glyphs stack vertically — give them room, or lines collide. */
+:lang(bn) {
+  line-height: 1.75;
+}

@@ -51,7 +51,7 @@ export const bn: Dict = {
     'কষ্ট করে শেখা প্রবলেমগুলো 1 / 3 / 7 / 14 / 30 দিনের সূচিতে ফিরে আসে — শেখাটা টিকে থাকে।',
   howItWorks: 'কীভাবে কাজ করে',
   step1Title: 'Handle যুক্ত করো',
-  step1Text: 'রেজিস্টার করে তোমার Codeforces handle যোগ করো। আমরা Codeforces API দিয়ে যাচাই করি।',
+  step1Text: 'রেজিস্টার করে তোমার Codeforces handle যোগ করো। একবারের টোকেন তোমার Codeforces প্রোফাইলে বসিয়ে আমরা যাচাই করি সেটা তোমারই।',
   step2Title: 'সিঙ্ক',
   step2Text:
     'তোমার সাবমিশন ব্যাকগ্রাউন্ডে সিঙ্ক হয় — ধাপে ধাপে, থেমে গেলে আবার শুরু করা যায়, ডুপ্লিকেট হয় না।',
@@ -68,6 +68,33 @@ export const bn: Dict = {
   previewDue: 'আজ ডিউ',
   previewTodayPlan: 'আজকের প্ল্যান',
   previewRatingTrend: 'Rating-এর ধারা',
+  betaBadge: 'বিটা',
+  freeLine: 'চিরদিন ফ্রি — কার্ড লাগে না, ট্রায়াল শেষ হয় না।',
+  demoDataChip: 'ডেমো ডাটা',
+  githubLink: 'GitHub',
+  comingSoon: 'আসছে',
+  faqTitle: 'প্রশ্নের উত্তর',
+  faqQ1: 'এটা কি আসলেই ফ্রি?',
+  faqA1:
+    'হ্যাঁ। CP Compass চলে ফ্রি হোস্টিং আর Codeforces-এর পাবলিক API দিয়ে — কোনো পেইড প্ল্যান নেই, কার্ড লাগে না, ট্রায়াল শেষ হয় না।',
+  faqQ2: 'পাসওয়ার্ড বা Codeforces লগইন লাগে?',
+  faqA2:
+    'না। এখানে শুধু ইমেইল আর পাসওয়ার্ড দিয়ে রেজিস্টার করবে। তোমার Codeforces handle পাবলিক ডাটা — Codeforces পাসওয়ার্ড আমরা কখনো চাই না।',
+  faqQ3: 'আমার কী ডাটা সেভ হয়?',
+  faqA3:
+    'শুধু তোমার সাবমিশন, প্রবলেম, নোট আর সেটিংস — সবই Codeforces-এর পাবলিক API থেকে। Settings থেকে সব এক্সপোর্ট করতে পারবে, বা অ্যাকাউন্ট মুছে ফেলতে পারবে।',
+  showcaseTitle: 'চোখে দেখে নাও',
+  showcaseCaption: 'ডেমো অ্যাকাউন্টের আসল পেজ — handle যুক্ত করলে তুমিও এগুলোই দেখবে।',
+  showcaseDashboardCaption: 'ড্যাশবোর্ড — rating, দুর্বল টপিক, আজকের প্ল্যান',
+  showcaseAnalyticsCaption: 'Analytics — difficulty, streak আর milestone',
+  roadmapTitle: 'আসছে',
+  roadmapNote: 'এই ক্রমেই কাজ চলছে — কোনো তারিখের প্রতিশ্রুতি নেই।',
+  roadmap1Title: 'Failure-pattern বিশ্লেষণ',
+  roadmap1Text: 'তোমার সল্যুশন সাধারণত কোন টেস্টে ফেল করে, আর সেটা তোমার দুর্বলতা নিয়ে কী বলে।',
+  roadmap2Title: 'Contest post-mortem',
+  roadmap2Text: 'প্রতি contest-এর পর পূর্ণ রিপোর্ট: কী ভালো হলো, এরপর কী ঠিক করবে।',
+  roadmap3Title: 'Recommender backtest',
+  roadmap3Text: 'সাজেশন কতটা ভালো, তার মাপা প্রমাণ — README-তে প্রকাশ করা হবে।',
 
   dashboard: 'ড্যাশবোর্ড',
   noSyncYet: 'এখনো কোনো সাবমিশন সিঙ্ক হয়নি — উপরে Sync now চাপো।',
@@ -230,12 +257,11 @@ export const bn: Dict = {
   goHome: 'হোমে যাও',
 
   whyWeakAcceptance: (tag, pct, rating) =>
-    `${tag}-তে তোমার acceptance ${pct}% — এই প্রবলেমটি ${rating} rating-এর।`,
+    `${tag}-তে তোমার acceptance rate ${pct}% — ${rating} rating-এর এই প্রবলেমটা তোমার সবচেয়ে দুর্বল ট্যাগের জন্য।`,
   whyWeakWrong: (tag, avg, rating) =>
-    `${tag}-তে প্রতি প্রবলেমে গড়ে ${avg}টি ভুল attempt — এই প্রবলেমটি ${rating} rating-এর।`,
+    `${tag}-তে গড়ে ${avg}টি ভুল attempt — ${rating} rating-এর এই প্রবলেমটা এর ভালো প্র্যাকটিস।`,
   whyNearRating: (userRating, rating) =>
-    `তোমার rating ${userRating}-এর কাছাকাছি — এই প্রবলেমটি ${rating} rating-এর।`,
-  whyDemoOutOfBand: ' (ডেমো: rating-ব্যান্ডের বাইরের প্র্যাকটিস)',
+    `তোমার rating ${userRating}-এর কাছাকাছি — ${rating} rating, তোমার ব্যান্ডের ভেতরেই।`,
   recScore: (s: number) => `স্কোর ${s}/100`,
   predSolvable: (pct: number) => `এটা সলভ করার সম্ভাবনা ~${pct}%`,
   predTitle: 'প্রেডিকশন কীভাবে কাজ করে',

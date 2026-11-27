@@ -1,7 +1,9 @@
-/* Landing — one promise, one blurred hero glow, 3 feature cards, 3 steps.
+/* Landing — hero + preview, 3 feature cards, showcase, 3 steps, FAQ, roadmap.
    No fake testimonials, no fake user counts, no fake badges.
    The preview numbers match the live demo account (verified against
-   /api/demo/dashboard): 1478 rating, 144 solved, 3-day streak, 3 due. */
+   /api/demo/dashboard): 1478 rating, 144 solved, 3-day streak, 3 due.
+   Showcase + og images are real captures from the dev server (/demo). */
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import { Compass, GitBranch, ListChecks, Target } from 'lucide-react';
@@ -49,6 +51,54 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
         transition: { duration: 0.45, ease: 'easeOut' as const },
       };
 
+  /* Scroll-assembled hero preview (landing batch 2026-11-27): the browser
+     mock settles in and the rating sparkline draws itself once, when it
+     scrolls into view. GSAP/CSS only — no frame video (too heavy for
+     low-end phones). Transform/opacity only, so it stays cheap on mobile.
+     GSAP loads lazily (dynamic import) so it never blocks first paint.
+     Skipped entirely under prefers-reduced-motion. */
+  const previewRef = useRef<HTMLDivElement>(null);
+  const sparkRef = useRef<SVGPolylineElement>(null);
+  useEffect(() => {
+    if (reduceMotion || !previewRef.current) return;
+    let ctx: { revert: () => void } | undefined;
+    let cancelled = false;
+    (async () => {
+      const gsapMod = (await import('gsap')).default;
+      const { ScrollTrigger } = await import('gsap/ScrollTrigger');
+      if (cancelled) return;
+      gsapMod.registerPlugin(ScrollTrigger);
+      ctx = gsapMod.context(() => {
+        gsapMod.from(previewRef.current, {
+          y: 48,
+          opacity: 0,
+          scale: 0.985,
+          duration: 0.7,
+          ease: 'power3.out',
+          scrollTrigger: { trigger: previewRef.current, start: 'top 88%', once: true },
+        });
+        const line = sparkRef.current;
+        if (line) {
+          const len = line.getTotalLength();
+          gsapMod.fromTo(
+            line,
+            { strokeDasharray: len, strokeDashoffset: len },
+            {
+              strokeDashoffset: 0,
+              duration: 1.2,
+              ease: 'power2.inOut',
+              scrollTrigger: { trigger: previewRef.current, start: 'top 85%', once: true },
+            },
+          );
+        }
+      });
+    })();
+    return () => {
+      cancelled = true;
+      ctx?.revert();
+    };
+  }, [reduceMotion]);
+
   const STEPS = [
     { n: '1', title: t.step1Title, text: t.step1Text },
     { n: '2', title: t.step2Title, text: t.step2Text },
@@ -87,13 +137,15 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
       <section className="relative mx-auto max-w-[1280px] overflow-x-clip px-4 pb-14 pt-10 text-center md:px-6 md:pt-14">
         <Hero3D theme={theme} />
         <div className="relative">
-          <motion.p
-            {...rise(0)}
-            className="mx-auto flex w-fit items-center gap-2 rounded-full border border-border bg-surface-2 px-3 py-1 text-xs text-muted"
-          >
-            <Compass size={14} className="text-primary" aria-hidden />
-            {t.landingBadge}
-          </motion.p>
+          <motion.div {...rise(0)} className="mx-auto flex w-fit items-center gap-2">
+            <p className="flex items-center gap-2 rounded-full border border-border bg-surface-2 px-3 py-1 text-xs text-muted">
+              <Compass size={14} className="text-primary" aria-hidden />
+              {t.landingBadge}
+            </p>
+            <p className="rounded-full border border-primary/50 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+              {t.betaBadge}
+            </p>
+          </motion.div>
           <motion.h1
             {...rise(0.08)}
             className="hero-shimmer relative z-[1] mx-auto mt-5 max-w-[26ch] text-[clamp(2.25rem,5vw,3.5rem)] font-semibold leading-[1.1] tracking-tight"
@@ -114,8 +166,15 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
             </Link>
           </motion.div>
 
+          <motion.p {...rise(0.3)} className="mt-4 text-sm text-muted">
+            {t.freeLine}
+          </motion.p>
+
           {/* Browser-frame dashboard preview (static mock, labelled as illustration) */}
-          <div className="mx-auto mt-10 max-w-4xl overflow-hidden rounded-lg border border-border bg-surface text-left shadow-2xl">
+          <div
+            ref={previewRef}
+            className="mx-auto mt-10 max-w-4xl overflow-hidden rounded-lg border border-border bg-surface text-left shadow-2xl"
+          >
             <div className="flex items-center gap-1.5 border-b border-border bg-surface-2 px-4 py-2.5">
               <span className="h-2.5 w-2.5 rounded-full bg-danger/60" />
               <span className="h-2.5 w-2.5 rounded-full bg-warning/60" />
@@ -137,7 +196,12 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
             </div>
             <div className="grid gap-3 px-4 pb-4 sm:grid-cols-5">
               <div className="rounded-md border border-border bg-bg p-4 sm:col-span-3">
-                <p className="text-sm font-medium">{t.previewTodayPlan}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">{t.previewTodayPlan}</p>
+                  <span className="rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
+                    {t.demoDataChip}
+                  </span>
+                </div>
                 {PREVIEW_PLAN.map((p) => (
                   <p key={p.id} className="mt-2 text-sm text-muted">
                     <span className="font-mono font-medium text-text">
@@ -164,6 +228,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
                   </defs>
                   <polygon points={`${SPARK_POINTS} 260,56 0,56`} fill="url(#previewFill)" />
                   <polyline
+                    ref={sparkRef}
                     points={SPARK_POINTS}
                     fill="none"
                     stroke="var(--primary)"
@@ -195,6 +260,46 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
         </motion.div>
       </section>
 
+      {/* Showcase — real captures from the demo account */}
+      <section className="mx-auto max-w-[1280px] px-4 pb-16 md:px-6">
+        <motion.h2 {...fadeUp} className="text-2xl font-semibold tracking-tight">
+          {t.showcaseTitle}
+        </motion.h2>
+        <motion.p {...fadeUp} className="mt-2 max-w-2xl text-sm text-muted">
+          {t.showcaseCaption}
+        </motion.p>
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <motion.figure
+            {...fadeUp}
+            className="overflow-hidden rounded-lg border border-border bg-surface"
+          >
+            <img
+              src="/showcase-dashboard.png"
+              alt={t.showcaseDashboardCaption}
+              loading="lazy"
+              className="w-full"
+            />
+            <figcaption className="border-t border-border px-4 py-3 text-sm text-muted">
+              {t.showcaseDashboardCaption}
+            </figcaption>
+          </motion.figure>
+          <motion.figure
+            {...fadeUp}
+            className="overflow-hidden rounded-lg border border-border bg-surface"
+          >
+            <img
+              src="/showcase-analytics.png"
+              alt={t.showcaseAnalyticsCaption}
+              loading="lazy"
+              className="w-full"
+            />
+            <figcaption className="border-t border-border px-4 py-3 text-sm text-muted">
+              {t.showcaseAnalyticsCaption}
+            </figcaption>
+          </motion.figure>
+        </div>
+      </section>
+
       {/* How it works */}
       <section className="mx-auto max-w-[1280px] px-4 pb-16 md:px-6">
         <motion.h2 {...fadeUp} className="text-2xl font-semibold tracking-tight">
@@ -208,6 +313,50 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
               </span>
               <h3 className="mt-3 text-base font-semibold">{s.title}</h3>
               <p className="mt-1 text-sm text-muted">{s.text}</p>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* FAQ — true answers only */}
+      <section className="mx-auto max-w-[1280px] px-4 pb-16 md:px-6">
+        <motion.h2 {...fadeUp} className="text-2xl font-semibold tracking-tight">
+          {t.faqTitle}
+        </motion.h2>
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          {[
+            { q: t.faqQ1, a: t.faqA1 },
+            { q: t.faqQ2, a: t.faqA2 },
+            { q: t.faqQ3, a: t.faqA3 },
+          ].map((f) => (
+            <Card key={f.q}>
+              <h3 className="text-base font-semibold">{f.q}</h3>
+              <p className="mt-1 text-sm text-muted">{f.a}</p>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* Roadmap — approved Batch 2-5 items only, no dates promised */}
+      <section className="mx-auto max-w-[1280px] px-4 pb-16 md:px-6">
+        <motion.h2 {...fadeUp} className="text-2xl font-semibold tracking-tight">
+          {t.roadmapTitle}
+        </motion.h2>
+        <motion.p {...fadeUp} className="mt-2 text-sm text-muted">
+          {t.roadmapNote}
+        </motion.p>
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          {[
+            { title: t.roadmap1Title, text: t.roadmap1Text },
+            { title: t.roadmap2Title, text: t.roadmap2Text },
+            { title: t.roadmap3Title, text: t.roadmap3Text },
+          ].map((r) => (
+            <Card key={r.title}>
+              <span className="rounded-full border border-primary/50 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                {t.comingSoon}
+              </span>
+              <h3 className="mt-3 text-base font-semibold">{r.title}</h3>
+              <p className="mt-1 text-sm text-muted">{r.text}</p>
             </Card>
           ))}
         </div>
@@ -245,6 +394,16 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
             </Link>
           </div>
           <p className="mt-8 text-xs text-muted">{t.footerNote}</p>
+          <p className="mt-3 text-xs">
+            <a
+              href="https://github.com/Khalid635/cp-compass"
+              target="_blank"
+              rel="noreferrer"
+              className="text-muted hover:text-primary"
+            >
+              {t.githubLink} ↗
+            </a>
+          </p>
         </div>
       </footer>
     </div>

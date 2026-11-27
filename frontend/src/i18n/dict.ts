@@ -78,6 +78,31 @@ export interface Dict {
   previewDue: string;
   previewTodayPlan: string;
   previewRatingTrend: string;
+  // landing additions (2026-11-27)
+  betaBadge: string;
+  freeLine: string;
+  demoDataChip: string;
+  githubLink: string;
+  comingSoon: string;
+  faqTitle: string;
+  faqQ1: string;
+  faqA1: string;
+  faqQ2: string;
+  faqA2: string;
+  faqQ3: string;
+  faqA3: string;
+  showcaseTitle: string;
+  showcaseCaption: string;
+  showcaseDashboardCaption: string;
+  showcaseAnalyticsCaption: string;
+  roadmapTitle: string;
+  roadmapNote: string;
+  roadmap1Title: string;
+  roadmap1Text: string;
+  roadmap2Title: string;
+  roadmap2Text: string;
+  roadmap3Title: string;
+  roadmap3Text: string;
   // dashboard
   dashboard: string;
   noSyncYet: string;
@@ -238,7 +263,6 @@ export interface Dict {
   whyWeakAcceptance: (tag: string, pct: number, rating: number) => string;
   whyWeakWrong: (tag: string, avg: number, rating: number) => string;
   whyNearRating: (userRating: number, rating: number) => string;
-  whyDemoOutOfBand: string;
   recScore: (s: number) => string;
   // Phase 3 — ML solvability prediction
   predSolvable: (pct: number) => string;

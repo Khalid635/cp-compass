@@ -93,7 +93,6 @@ export function formatWhy(why: WhyInfo, t: Dict): string {
     default:
       s = t.whyNearRating(why.user_rating, why.problem_rating);
   }
-  if (why.demo_out_of_band) s += t.whyDemoOutOfBand;
   return s;
 }
 

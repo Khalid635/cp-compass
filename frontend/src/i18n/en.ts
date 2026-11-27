@@ -48,11 +48,11 @@ export const en: Dict = {
     'Every day, problems near your rating, on your weak tags, that you have not solved — each with one line saying why.',
   feature3Title: 'Revision that sticks',
   feature3Text:
-    'Hard-won problems come back on a 1 / 3 / 7 / 14 / 30-day schedule, so what you learned stays learned.',
+    'Hard-won problems come back on a 1 / 3 / 7 / 14 / 30‑day schedule, so what you learned stays learned.',
   howItWorks: 'How it works',
   step1Title: 'Connect handle',
   step1Text:
-    'Register and add your Codeforces handle. We verify it against the Codeforces API.',
+    'Register and add your Codeforces handle. We verify you own it with a one-time token you put in your Codeforces profile.',
   step2Title: 'Sync',
   step2Text:
     'Your submissions sync in the background — incremental, resumable, never duplicated.',
@@ -70,6 +70,36 @@ export const en: Dict = {
   previewDue: 'Due today',
   previewTodayPlan: 'Today’s plan',
   previewRatingTrend: 'Rating trend',
+  betaBadge: 'Beta',
+  freeLine: 'Free forever — no card, no trial, no catch.',
+  demoDataChip: 'Demo data',
+  githubLink: 'GitHub',
+  comingSoon: 'Coming soon',
+  faqTitle: 'Questions, answered',
+  faqQ1: 'Is it really free?',
+  faqA1:
+    'Yes. CP Compass runs on free hosting tiers and the Codeforces public API — there is no paid plan, no card, and no trial that runs out.',
+  faqQ2: 'Do I need a password or my Codeforces login?',
+  faqA2:
+    'No. You only register with an email and a password for this site. Your Codeforces handle is public data — we never ask for your Codeforces password.',
+  faqQ3: 'What data is saved about me?',
+  faqA3:
+    'Only your submissions, problems, notes and settings — all from the public Codeforces API. You can export everything or delete your account in Settings.',
+  showcaseTitle: 'See it in action',
+  showcaseCaption:
+    'Real pages from the demo account — the same views you get after connecting your handle.',
+  showcaseDashboardCaption: 'Dashboard — rating, weak topics, today’s plan',
+  showcaseAnalyticsCaption: 'Analytics — difficulty, streaks and milestones',
+  roadmapTitle: 'Coming soon',
+  roadmapNote: 'In progress, in this order — no dates promised.',
+  roadmap1Title: 'Failure-pattern analysis',
+  roadmap1Text:
+    'Which test your solutions usually fail on, and what that says about your weak spots.',
+  roadmap2Title: 'Contest post-mortem',
+  roadmap2Text: 'A full report after every contest: what went right, what to fix next.',
+  roadmap3Title: 'Recommender backtest',
+  roadmap3Text:
+    'Measured proof of how good the recommendations are — published in the README.',
 
   dashboard: 'Dashboard',
   noSyncYet: 'No submissions synced yet — press Sync now above.',
@@ -236,12 +266,11 @@ export const en: Dict = {
   goHome: 'Go home',
 
   whyWeakAcceptance: (tag, pct, rating) =>
-    `Your ${tag} acceptance is ${pct}% — this problem is rated ${rating}.`,
+    `Your acceptance rate on ${tag} is ${pct}% — this ${rating}-rated problem targets your weakest tag.`,
   whyWeakWrong: (tag, avg, rating) =>
-    `You average ${avg} wrong attempts per ${tag} problem — this one is rated ${rating}.`,
+    `You average ${avg} wrong attempts on ${tag} — this ${rating}-rated problem is good practice for it.`,
   whyNearRating: (userRating, rating) =>
-    `Near your rating of ${userRating} — this problem is rated ${rating}.`,
-  whyDemoOutOfBand: ' (Demo: practice outside the rating band)',
+    `Near your rating of ${userRating} — rated ${rating}, right in your band.`,
   recScore: (s: number) => `Score ${s}/100`,
   predSolvable: (pct: number) => `~${pct}% chance you solve this`,
   predTitle: 'How predictions work',
