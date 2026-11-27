@@ -65,11 +65,29 @@
   0). A scroll-through full-page capture renders everything.
   Lighthouse: NOT installed on the laptop (`where lighthouse` finds
   nothing) — skipped, per "if available".
-- [ ] T12 Commit (one commit, landing v2) + push + live verification:
+- [x] T12 Commit (one commit, landing v2) + push + live verification:
   health + DB-backed probes (register throwaway account, login, delete
   it) — health-only checks miss total auth outages (lesson 2026-11-27).
   Verify the live landing + /privacy render.
-  Probe plan (live): register khalidmasud22+cpcompassprobe@gmail.com
-  (Gmail +alias lands in Khalid's inbox — read the Resend code via the
-  Gmail connector), verify-email, login, GET /auth/me, DELETE
-  /auth/account, then login again must 401.
+  DONE 2026-11-27 ~20:20: commit 3e090b2, pushed fdcaa17..3e090b2.
+  Live frontend: new bundle index-aOvYunCj.js, all 7 new strings present
+  ("Why this problem?", "Built by Khalid Bin Masud", "Free to use",
+  "Under the hood", "16 database tables", "Privacy", "Score = 0.35W");
+  /privacy 200; Render health 200; verify-email/resend-code {} -> 422.
+  Probe (khalidmasud22+cpcompassprobe@gmail.com): register 201, but the
+  verification email NEVER arrived — first attempt 503 "Could not send
+  the verification email", retry + resend-code silent-fail (those paths
+  don't surface mail failure). Login correct password -> 403 "Email not
+  verified" (row exists, Argon2 passes, gate enforced); wrong password
+  -> 401. Full verify -> login -> delete could NOT run: no code was
+  delivered, and Gmail redacts verification codes (cannot be recovered
+  for an API call). Root cause (evidence, not guess): sender is
+  onboarding@resend.dev — Resend's TEST domain, which only delivers to
+  the Resend account's own address (khalidmasud22@gmail.com; codes DID
+  arrive there at 19:42/19:44/19:55). So today NO new user with any
+  other address can verify — signup is broken for everyone except
+  Khalid. Fix: verify a custom domain in Resend + set MAIL_FROM to it.
+  Secondary gap: register-retry and resend-code hide mail failure
+  ("check your inbox" with no email sent). Probe account cleaned up
+  via direct Neon delete (user id 6 + 1 code row); login after delete
+  -> 401. Lighthouse: not installed — skipped.
