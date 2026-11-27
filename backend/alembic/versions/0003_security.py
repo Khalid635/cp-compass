@@ -28,7 +28,7 @@ def upgrade() -> None:
     op.add_column("users", sa.Column("last_retrain_at", sa.DateTime(),
                                      nullable=True))
     # Accounts created before email verification existed are grandfathered.
-    op.execute("UPDATE users SET email_verified = 1")
+    op.execute("UPDATE users SET email_verified = TRUE")
 
     op.create_table(
         "email_verifications",
