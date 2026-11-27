@@ -276,3 +276,58 @@ def test_8_cf_down_keeps_old_data(client, db, monkeypatch):
     assert job.status == "failed"
     assert db.query(models.Submission).count() == 1  # old data kept
     assert db.query(models.Problem).count() == 1
+
+
+def _seed_history(db, user):
+    """3 distinct problems solved on 3 far-apart days + 1 wrong attempt.
+    Mirrors the real account shape: old solves must NOT be hidden by a
+    26-week window."""
+    probs = []
+    for cid in (1730, 1731, 1732):
+        p = models.Problem(contest_id=cid, index="A", name=f"P{cid}",
+                           rating=800, tags=["implementation"])
+        db.add(p)
+        probs.append(p)
+    db.flush()
+    today = datetime.utcnow().date()
+    subs = [
+        (probs[0], "OK", datetime(2024, 1, 5, 10, 0)),
+        (probs[0], "WRONG_ANSWER", datetime(2024, 1, 5, 9, 0)),
+        (probs[1], "OK", datetime(2024, 6, 1, 10, 0)),
+        (probs[2], "OK", datetime.combine(today - timedelta(days=1), datetime.min.time())),
+    ]
+    for i, (p, verdict, when) in enumerate(subs):
+        db.add(models.Submission(cf_submission_id=3000 + i, user_id=user.id,
+                                 problem_id=p.id, verdict=verdict,
+                                 submitted_at=when))
+    db.commit()
+    return probs
+
+
+def test_10_heatmap_full_history(db):
+    """Full-history heatmap totals the same as total solved; the 26-week
+    window still hides old solves (the bug this fix removes)."""
+    user = _user(db)
+    _seed_history(db, user)
+    full = services.heatmap(db, user.id, weeks=None)
+    assert sum(d["count"] for d in full) == 3
+    assert full[0]["date"] == "2024-01-05"
+    assert full[-1]["date"] == datetime.utcnow().date().isoformat()
+    recent = services.heatmap(db, user.id, weeks=26)
+    assert sum(d["count"] for d in recent) == 1  # only yesterday's solve
+
+
+def test_11_cumulative_solved(db):
+    """Cumulative curve: starts at 0 the day before the first solve,
+    ends at distinct solved, never decreases, flat between active days."""
+    user = _user(db)
+    _seed_history(db, user)
+    pts = services.cumulative_solved(db, user.id)
+    assert pts[0] == {"date": "2024-01-04", "solved": 0}
+    assert pts[-1]["solved"] == 3
+    assert pts[-1]["date"] == datetime.utcnow().date().isoformat()
+    assert [p["solved"] for p in pts] == sorted(p["solved"] for p in pts)
+    assert [p["date"] for p in pts] == sorted(p["date"] for p in pts)
+    totals = {p["date"]: p["solved"] for p in pts}
+    assert totals["2024-01-05"] == 1
+    assert totals["2024-06-01"] == 2

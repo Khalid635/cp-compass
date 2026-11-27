@@ -288,7 +288,8 @@ async def dashboard(user: User = Depends(get_current_user), db: Session = Depend
     if not handle:
         return {"has_handle": False, "synced": False, "user": {"handle": None},
                 "stats": None, "rating_history": [], "today_plan": {"problems": [], "revisions": []},
-                "tag_strengths": [], "heatmap": [], "recent": []}
+                "tag_strengths": [], "heatmap": [], "recent": [],
+                "cumulative": [], "recent_total": 0}
     solved = len(services.solved_problem_ids(db, user.id))
     due = services.revision_list(db, user.id, "due")
     recs = []
@@ -307,8 +308,10 @@ async def dashboard(user: User = Depends(get_current_user), db: Session = Depend
         "rating_history": await _rating_history(handle),
         "today_plan": {"problems": recs, "revisions": due[:2]},
         "tag_strengths": services.tag_stats(db, user.id),
-        "heatmap": services.heatmap(db, user.id),
+        "heatmap": services.heatmap(db, user.id, weeks=None),
         "recent": services.recent_submissions(db, user.id),
+        "cumulative": services.cumulative_solved(db, user.id),
+        "recent_total": db.query(Submission).filter_by(user_id=user.id).count(),
     }
 
 

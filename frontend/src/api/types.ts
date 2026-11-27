@@ -115,6 +115,11 @@ export interface HeatDay {
   count: number;
 }
 
+export interface CumulativePoint {
+  date: string;
+  solved: number;
+}
+
 export interface RevisionItem {
   id: number;
   problem: ProblemRef;
@@ -133,6 +138,8 @@ export interface DashboardData {
   tag_strengths: TagStrength[];
   heatmap: HeatDay[];
   recent: SubmissionRow[];
+  cumulative: CumulativePoint[];
+  recent_total: number;
   has_handle: boolean;
   synced: boolean;
   demo?: boolean;

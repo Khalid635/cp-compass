@@ -2,6 +2,7 @@
 import { useMemo } from 'react';
 import {
   Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -18,7 +19,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { HeatDay, RatingPoint, TagStrength } from '../api/types';
+import type { CumulativePoint, HeatDay, RatingPoint, TagStrength } from '../api/types';
 import { useLanguage } from '../i18n';
 
 /* Rank bands for the rating chart background (6% opacity). */
@@ -235,7 +236,7 @@ function heatLevel(count: number): number {
   return 4;
 }
 
-export function Heatmap({ days, mode = 'day' }: { days: HeatDay[]; mode?: 'day' | 'week' }) {
+export function Heatmap({ days, mode = 'day', caption }: { days: HeatDay[]; mode?: 'day' | 'week'; caption?: string }) {
   const { t, lang } = useLanguage();
   /* Weekly mode: one summed cell per ISO week (Monday start) instead of
      one cell per day — the same colour scale, a single row. */
@@ -263,11 +264,12 @@ export function Heatmap({ days, mode = 'day' }: { days: HeatDay[]; mode?: 'day' 
     for (let i = 0; i < cells.length; i += 7) cols.push(cells.slice(i, i + 7));
     const labels: { x: number; label: string }[] = [];
     let prevMonth = -1;
+    let lastX = -100; // min 30px between month labels so short months never collide
     cols.forEach((col, ci) => {
       const firstReal = col.find((c) => c !== null);
       if (!firstReal) return;
       const m = new Date(`${firstReal.date}T00:00:00`).getMonth();
-      if (m !== prevMonth) {
+      if (m !== prevMonth && ci * 15 - lastX >= 30) {
         labels.push({
           x: ci * 15,
           label: new Date(`${firstReal.date}T00:00:00`).toLocaleString(
@@ -276,6 +278,7 @@ export function Heatmap({ days, mode = 'day' }: { days: HeatDay[]; mode?: 'day' 
           ),
         });
         prevMonth = m;
+        lastX = ci * 15;
       }
     });
     return { columns: cols, monthLabels: labels };
@@ -300,12 +303,15 @@ export function Heatmap({ days, mode = 'day' }: { days: HeatDay[]; mode?: 'day' 
     </div>
   );
 
+  const ariaLabel = caption ?? `Activity heatmap, ${total} accepted submissions`;
+
   if (mode === 'week' && weeks) {
     const weekMonthLabels: { x: number; label: string }[] = [];
     let prevMonth = -1;
+    let lastWX = -100;
     weeks.forEach((w, i) => {
       const m = new Date(`${w.monday}T00:00:00`).getMonth();
-      if (m !== prevMonth) {
+      if (m !== prevMonth && i * 15 - lastWX >= 30) {
         weekMonthLabels.push({
           x: i * 15,
           label: new Date(`${w.monday}T00:00:00`).toLocaleString(
@@ -314,10 +320,12 @@ export function Heatmap({ days, mode = 'day' }: { days: HeatDay[]; mode?: 'day' 
           ),
         });
         prevMonth = m;
+        lastWX = i * 15;
       }
     });
     return (
-      <div className="min-w-0 overflow-x-auto" role="img" aria-label={`Activity heatmap, ${total} accepted submissions`}>
+      <div className="min-w-0 overflow-x-auto" role="img" aria-label={ariaLabel}>
+        {caption && <p className="mb-2 text-xs text-muted">{caption}</p>}
         <svg width={weeks.length * 15} height={52} className="block">
           {weekMonthLabels.map((l) => (
             <text key={l.label + l.x} x={l.x} y={10} fontSize={11} fill="var(--muted)">
@@ -345,7 +353,8 @@ export function Heatmap({ days, mode = 'day' }: { days: HeatDay[]; mode?: 'day' 
 
   const width = columns.length * 15;
   return (
-    <div className="min-w-0 overflow-x-auto" role="img" aria-label={`Activity heatmap, ${total} accepted submissions`}>
+    <div className="min-w-0 overflow-x-auto" role="img" aria-label={ariaLabel}>
+      {caption && <p className="mb-2 text-xs text-muted">{caption}</p>}
       <svg width={width} height={132} className="block">
         {monthLabels.map((l) => (
           <text key={l.label + l.x} x={l.x} y={10} fontSize={11} fill="var(--muted)">
@@ -375,6 +384,61 @@ export function Heatmap({ days, mode = 'day' }: { days: HeatDay[]; mode?: 'day' 
         )}
       </svg>
       {legend}
+    </div>
+  );
+}
+
+/* ---------- Cumulative solved curve (step function) ----------
+   Total DISTINCT problems solved over time: flat between active days,
+   steps up on days a new problem was first solved. Honest for sparse
+   histories — nothing is interpolated. */
+export function CumulativeSolved({ points }: { points: CumulativePoint[] }) {
+  const { t, lang } = useLanguage();
+  const fmt = (iso: string) =>
+    new Date(`${iso}T00:00:00`).toLocaleDateString(lang === 'bn' ? 'bn-u-nu-latn' : 'en', {
+      day: 'numeric',
+      month: 'short',
+    });
+  if (points.length === 0) {
+    return <p className="py-8 text-center text-sm text-muted">{t.noActivityYet}</p>;
+  }
+  return (
+    <div className="h-56 w-full min-w-0" role="img" aria-label={t.cumulativeTitle}>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={points} margin={{ top: 8, right: 12, bottom: 0, left: -8 }}>
+          <defs>
+            <linearGradient id="cumulativeFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.2} />
+              <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+          <XAxis
+            dataKey="date"
+            tickFormatter={fmt}
+            tick={{ fill: 'var(--muted)', fontSize: 12 }}
+            tickLine={false}
+            axisLine={{ stroke: 'var(--border)' }}
+            minTickGap={48}
+          />
+          <YAxis
+            allowDecimals={false}
+            domain={[0, 'dataMax']}
+            tick={{ fill: 'var(--muted)', fontSize: 12 }}
+            tickLine={false}
+            axisLine={false}
+            width={32}
+          />
+          <Tooltip content={<ChartTooltip unit={` ${t.cumulativeUnit}`} />} />
+          <Area
+            type="stepAfter"
+            dataKey="solved"
+            stroke="var(--primary)"
+            strokeWidth={2}
+            fill="url(#cumulativeFill)"
+          />
+        </AreaChart>
+      </ResponsiveContainer>
     </div>
   );
 }

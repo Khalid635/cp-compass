@@ -413,8 +413,11 @@ def _tag_strengths():
 TAG_STRENGTHS = _tag_strengths()
 
 
-def _heatmap(weeks=26):
-    start = date.today() - timedelta(days=weeks * 7 - 1)
+def _heatmap():
+    """Full history: from the earliest accepted demo submission to today,
+    so the demo heatmap total equals demo total solved (same rule as prod)."""
+    ok_days = [s["submitted_at"][:10] for s in SUBMISSIONS if s["verdict"] == "OK"]
+    start = date.fromisoformat(min(ok_days)) if ok_days else date.today()
     counts = {}
     for s in SUBMISSIONS:
         if s["verdict"] == "OK":
@@ -428,6 +431,38 @@ def _heatmap(weeks=26):
 
 
 HEATMAP = _heatmap()
+
+
+def _cumulative():
+    """Cumulative DISTINCT solved problems over time (step function) —
+    mirrors services.cumulative_solved for the demo account."""
+    first_solve = {}
+    for s in SUBMISSIONS:
+        if s["verdict"] != "OK":
+            continue
+        key = (s["contest_id"], s["index"])
+        day = s["submitted_at"][:10]
+        if key not in first_solve or day < first_solve[key]:
+            first_solve[key] = day
+    per_day = {}
+    for day in first_solve.values():
+        per_day[day] = per_day.get(day, 0) + 1
+    days = sorted(per_day)
+    if not days:
+        return []
+    points = [{"date": (date.fromisoformat(days[0]) - timedelta(days=1)).isoformat(),
+               "solved": 0}]
+    total = 0
+    for d in days:
+        total += per_day[d]
+        points.append({"date": d, "solved": total})
+    today = date.today()
+    if days[-1] != today.isoformat():
+        points.append({"date": today.isoformat(), "solved": total})
+    return points
+
+
+CUMULATIVE = _cumulative()
 
 
 def _streak():
@@ -549,6 +584,8 @@ def dashboard_payload():
         "tag_strengths": TAG_STRENGTHS,
         "heatmap": HEATMAP,
         "recent": [_recent_row(s) for s in SUBMISSIONS[:10]],
+        "cumulative": CUMULATIVE,
+        "recent_total": len(SUBMISSIONS),
         "has_handle": True,
         "synced": True,
         "demo": True,

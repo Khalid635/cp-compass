@@ -20,7 +20,7 @@ import {
 import { api } from '../api/client';
 import { rankOf } from '../api/types';
 import { formatWhy, useLanguage } from '../i18n';
-import { Heatmap, RatingChart, TopicRadar } from '../components/charts';
+import { CumulativeSolved, Heatmap, RatingChart, TopicRadar } from '../components/charts';
 import type { ChartRange } from '../components/charts';
 import { RecentSubmissions, StatCard } from '../components/cards';
 import { GoalRings } from '../components/GoalRings';
@@ -410,9 +410,18 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
             />
           }
         >
-          <Heatmap days={d.heatmap} mode={heatMode} />
+          <Heatmap
+            days={d.heatmap}
+            mode={heatMode}
+            caption={t.heatAllTime(d.heatmap.reduce((a, day) => a + day.count, 0))}
+          />
         </Card>
       </div>
+
+      {/* Cumulative solved curve — full history, step function */}
+      <Card title={t.cumulativeTitle} className="min-w-0">
+        <CumulativeSolved points={d.cumulative ?? []} />
+      </Card>
 
       {/* Topic goal rings — real acceptance % per top tag, goal 80% */}
       {d.tag_strengths.length > 0 && (
@@ -423,7 +432,7 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
 
       {/* Row 4 — recent submissions */}
       <Card title={t.recentSubmissions} className="min-w-0">
-        <RecentSubmissions rows={d.recent} />
+        <RecentSubmissions rows={d.recent} total={d.recent_total ?? d.recent.length} />
       </Card>
 
       {demo && (

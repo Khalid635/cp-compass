@@ -35,3 +35,12 @@ backend/ml_model.joblib
 
 # production secrets (Render env vars live here locally, never commit)
 .env.production
+
+# Fix-3 cleanup: verification screenshots, probe/smoke/cleanup scratch (never commit)
+shots-*/
+smoke_*.py
+cleanup_users*.py
+commit-msg.txt
+premium.patch
+frontend/tsconfig.tsbuildinfo
+start-backend.bat

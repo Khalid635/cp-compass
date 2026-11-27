@@ -277,13 +277,17 @@ const VERDICT_STYLE: Record<string, { color: string; icon: ReactNode }> = {
   OK: { color: 'var(--success)', icon: <Check size={14} aria-hidden /> },
 };
 
-export function RecentSubmissions({ rows }: { rows: SubmissionRow[] }) {
+export function RecentSubmissions({ rows, total }: { rows: SubmissionRow[]; total?: number }) {
   const { t, lang } = useLanguage();
   if (rows.length === 0) {
     return <p className="py-6 text-center text-sm text-muted">{t.noSubmissionsYet}</p>;
   }
   return (
-    <div className="overflow-x-auto">
+    <div>
+      {total !== undefined && (
+        <p className="mb-2 text-xs text-muted">{t.recentShowing(rows.length, total)}</p>
+      )}
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
@@ -338,6 +342,7 @@ export function RecentSubmissions({ rows }: { rows: SubmissionRow[] }) {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

@@ -111,6 +111,10 @@ export interface Dict {
   noTagData: string;
   noActivityYet: string;
   heatTooltip: (date: string, count: number) => string;
+  heatAllTime: (total: number) => string;
+  cumulativeTitle: string;
+  cumulativeUnit: string;
+  recentShowing: (shown: number, total: number) => string;
   noSubmissionsYet: string;
   verdictAccepted: string;
   thProblem: string;

@@ -18,6 +18,7 @@ P practice priority), every factor normalised 0–100.
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .models import (
@@ -160,9 +161,20 @@ def current_streak(db: Session, user_id: int) -> int:
     return streak
 
 
-def heatmap(db: Session, user_id: int, weeks: int = 26) -> list[dict]:
-    """Daily accepted-submission counts for the last N weeks (SVG heatmap)."""
-    start = date.today() - timedelta(days=weeks * 7 - 1)
+def heatmap(db: Session, user_id: int, weeks: int | None = 26) -> list[dict]:
+    """Daily accepted-submission counts (SVG heatmap).
+    weeks=N limits to the last N weeks; weeks=None covers the full history,
+    from the first accepted submission to today — so the heatmap total
+    always equals total solved."""
+    if weeks is None:
+        first = (
+            db.query(func.min(Submission.submitted_at))
+            .filter(Submission.user_id == user_id, Submission.verdict == "OK")
+            .scalar()
+        )
+        start = first.date() if first is not None else date.today()
+    else:
+        start = date.today() - timedelta(days=weeks * 7 - 1)
     counts: dict[str, int] = defaultdict(int)
     for (ts,) in db.query(Submission.submitted_at).filter(
         Submission.user_id == user_id,
@@ -176,6 +188,36 @@ def heatmap(db: Session, user_id: int, weeks: int = 26) -> list[dict]:
         days.append({"date": d.isoformat(), "count": counts.get(d.isoformat(), 0)})
         d += timedelta(days=1)
     return days
+
+
+def cumulative_solved(db: Session, user_id: int) -> list[dict]:
+    """Cumulative DISTINCT solved problems over time (step function).
+    One point per day a new problem was first solved, plus a 0 point the
+    day before the first solve and a final point at today. Flat between
+    active days — no invented values, so sparse histories stay honest."""
+    rows = (
+        db.query(Submission.problem_id, func.min(Submission.submitted_at))
+        .filter(Submission.user_id == user_id, Submission.verdict == "OK")
+        .group_by(Submission.problem_id)
+        .order_by(func.min(Submission.submitted_at))
+        .all()
+    )
+    per_day: dict[date, int] = {}
+    for _pid, ts in rows:
+        day = ts.date()
+        per_day[day] = per_day.get(day, 0) + 1
+    days = sorted(per_day)
+    if not days:
+        return []
+    points = [{"date": (days[0] - timedelta(days=1)).isoformat(), "solved": 0}]
+    total = 0
+    for d in days:
+        total += per_day[d]
+        points.append({"date": d.isoformat(), "solved": total})
+    today = date.today()
+    if days[-1] != today:
+        points.append({"date": today.isoformat(), "solved": total})
+    return points
 
 
 def recent_submissions(db: Session, user_id: int, limit: int = 10) -> list[dict]:
