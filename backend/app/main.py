@@ -45,6 +45,7 @@ from .auth import (
 from .cf import CFError, cf
 from .config import (
     CORS_ORIGINS,
+    DATABASE_URL,
     EMAIL_CODE_EXPIRE_MINUTES,
     EMAIL_CODE_MAX_ATTEMPTS,
     ENV,
@@ -115,9 +116,13 @@ async def lifespan(app: FastAPI):
 
 
 # Reel check #12 (2026-11-27): interactive API docs are public by
-# default. Disable them in production so the full API surface is not
-# advertised; local dev keeps docs for debugging.
-_docs_kwargs = {} if ENV != "production" else {
+# default. Disable them outside local dev so the full API surface is
+# not advertised; local dev keeps docs for debugging. Production is
+# detected the same way as config.py's SECRET_KEY fail-fast: ENV ==
+# "production" OR a non-SQLite DATABASE_URL. (Render does not set ENV,
+# so an ENV-only check would have left docs on live.)
+_is_prod = ENV == "production" or not DATABASE_URL.startswith("sqlite")
+_docs_kwargs = {} if not _is_prod else {
     "docs_url": None, "redoc_url": None, "openapi_url": None}
 app = FastAPI(title="CP Compass API", version="1.0.0", lifespan=lifespan,
               **_docs_kwargs)

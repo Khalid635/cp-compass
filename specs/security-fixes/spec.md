@@ -63,3 +63,23 @@ not in this batch.
   still created, see main.py register), login correct password -> 403
   "Email not verified", login wrong password -> 401. Delete the probe
   account + code row from live Neon afterwards; login afterwards -> 401.
+
+## Follow-up 2026-11-27 20:35 - first deploy FAILED, ENV detection fixed
+- Commit ad0873b pushed 20:29; Render deploy dep-dc4p7p5bedkc73dtj59g
+  status `update_failed` (started 14:29:56Z, finished 14:31:05Z, ~69 s).
+  The Render API exposes no build/start logs, so the cause is unproven.
+- Ruled OUT as the cause: the db.py sslmode change. Dead-host connect
+  test (SQLAlchemy 2.1.9 + psycopg3, laptop venv): a URL carrying
+  ?sslmode=require plus connect_args sslmode=require merges cleanly -
+  both cases raise OperationalError (connection timeout), no
+  duplicate-kwarg TypeError. The merge works.
+- REAL BUG found in fix #2 while investigating: Render never sets ENV
+  (render.yaml has no ENV key; the dashboard env vars are DATABASE_URL,
+  SECRET_KEY, CORS_ORIGINS, CF_API_BASE, PYTHONUNBUFFERED). The shipped
+  condition `ENV == "production"` would therefore have left docs ON live
+  even on a successful deploy. Fixed to the same production heuristic as
+  config.py's fail-fast: ENV == "production" OR non-SQLite DATABASE_URL.
+  render.yaml now also declares ENV=production for future applies.
+- This push re-triggers a fresh deploy, which also tests whether the
+  first failure was transient. If it fails again the same way, the
+  Render dashboard build/start logs are needed (browser task).

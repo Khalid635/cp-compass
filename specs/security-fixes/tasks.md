@@ -14,3 +14,7 @@
 - [ ] Live verify: /docs,/openapi.json 404; probe register/login
       (403/401); probe account + code row deleted; login after -> 401
 - [ ] Report: commit hash, per-fix live evidence, anything unverified
+- [x] Fix 2b: production detection uses ENV OR non-SQLite DATABASE_URL
+- [x] render.yaml declares ENV=production
+- [x] Re-verify: pytest green; wiring check (3 env combos)
+- [ ] Commit + push (fresh deploy) + live verify
