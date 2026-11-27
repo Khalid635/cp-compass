@@ -99,6 +99,19 @@ export default function ProblemDetail({ demo = false }: { demo?: boolean }) {
   const p = d.problem;
   const rank = rankOf(p.rating);
   const pref = d.preference;
+  /* Batch 2: median tests passed across wrong submissions — the one-line
+     failure summary in the attempts card (only when there is enough
+     wrong data to say anything). */
+  const wrongPassed = d.submissions
+    .filter((s) => s.verdict !== 'OK' && s.passed_test_count !== null)
+    .map((s) => s.passed_test_count as number)
+    .sort((a, b) => a - b);
+  const medianPassed =
+    wrongPassed.length === 0
+      ? null
+      : wrongPassed.length % 2 === 1
+        ? wrongPassed[Math.floor(wrongPassed.length / 2)]
+        : (wrongPassed[wrongPassed.length / 2 - 1] + wrongPassed[wrongPassed.length / 2]) / 2;
 
   return (
     <div className="page-enter flex flex-col gap-4">
@@ -145,6 +158,15 @@ export default function ProblemDetail({ demo = false }: { demo?: boolean }) {
             {d.last_attempt && (
               <p className="text-muted">
                 {t.problemLastAttempt}: {formatTimeAgo(d.last_attempt, t)}
+              </p>
+            )}
+            {d.wrong_attempts >= 2 && medianPassed !== null && (
+              <p className="text-muted">
+                {medianPassed <= 2
+                  ? t.failSummaryEarly(medianPassed)
+                  : medianPassed >= 10
+                    ? t.failSummaryLate(medianPassed)
+                    : t.failSummaryMid(medianPassed)}
               </p>
             )}
           </div>
@@ -220,6 +242,7 @@ export default function ProblemDetail({ demo = false }: { demo?: boolean }) {
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted">
                   <th className="pb-2 pr-3 font-medium">{t.thVerdict}</th>
+                  <th className="pb-2 pr-3 font-medium">{t.thTests}</th>
                   <th className="hidden pb-2 pr-3 font-medium sm:table-cell">{t.thLanguage}</th>
                   <th className="pb-2 font-medium">{t.thTime}</th>
                 </tr>
@@ -229,6 +252,11 @@ export default function ProblemDetail({ demo = false }: { demo?: boolean }) {
                   <tr key={i} className="border-b border-border/50 last:border-0">
                     <td className={`py-2.5 pr-3 font-medium ${s.verdict === 'OK' ? 'text-success' : 'text-danger'}`}>
                       {s.verdict === 'OK' ? `✓ ${t.verdictAccepted}` : s.verdict}
+                    </td>
+                    <td className="py-2.5 pr-3 font-mono text-xs text-muted">
+                      {s.passed_test_count !== null && s.passed_test_count !== undefined
+                        ? t.failTestsPassed(s.passed_test_count)
+                        : '—'}
                     </td>
                     <td className="hidden py-2.5 pr-3 font-mono text-xs text-muted sm:table-cell">
                       {s.language ?? '—'}

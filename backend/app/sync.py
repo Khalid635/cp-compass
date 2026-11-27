@@ -192,6 +192,43 @@ def _rebuild_daily_weekly(db: Session, user_id: int) -> None:
     db.commit()
 
 
+async def backfill_passed_test_counts(db: Session, user: User,
+                                      max_pages: int = 5) -> int:
+    """Fills passed_test_count on rows synced before Batch 2 added the
+    column. Fetches user.status pages (newest first) and updates rows
+    whose count is still NULL. Bounded: at most max_pages per call, so
+    a huge history backfills over several syncs; once every row is
+    filled this is never called again (the caller checks first)."""
+    account = db.query(CfAccount).filter_by(user_id=user.id).first()
+    if not account:
+        return 0
+    by_id = {r[0]: r[1] for r in db.query(
+        Submission.cf_submission_id, Submission.id).filter(
+        Submission.user_id == user.id,
+        Submission.passed_test_count.is_(None)).all()}
+    if not by_id:
+        return 0
+    filled = 0
+    page_from = 1
+    for _ in range(max_pages):
+        subs = await cf.user_status(account.handle, start_from=page_from,
+                                    count=1000)
+        if not subs:
+            break
+        for s in subs:
+            row_id = by_id.pop(s["id"], None)
+            if row_id is not None:
+                row = db.query(Submission).get(row_id)
+                if row is not None:
+                    row.passed_test_count = s.get("passedTestCount")
+                    filled += 1
+        db.commit()
+        if not by_id or len(subs) < 1000:
+            break
+        page_from += 1000
+    return filled
+
+
 async def run_sync(db: Session, user: User, job: SyncJob) -> None:
     """Runs one sync job (called from the worker thread)."""
     account = db.query(CfAccount).filter_by(user_id=user.id).first()
@@ -230,6 +267,8 @@ async def run_sync(db: Session, user: User, job: SyncJob) -> None:
                     submitted_at=datetime.utcfromtimestamp(s["creationTimeSeconds"]),
                     time_consumed=s.get("timeConsumedMillis"),
                     memory_consumed=s.get("memoryConsumedBytes"),
+                    # Batch 2: tests passed before the verdict.
+                    passed_test_count=s.get("passedTestCount"),
                 ))
                 new_count += 1
                 job.last_synced_submission_id = max(
@@ -254,6 +293,16 @@ async def run_sync(db: Session, user: User, job: SyncJob) -> None:
             pass
         services.build_revision_queue(db, user.id)
         _rebuild_daily_weekly(db, user.id)
+        # Batch 2: fill passed_test_count on rows synced before the
+        # column existed. Only runs while NULL rows remain.
+        missing = db.query(Submission).filter(
+            Submission.user_id == user.id,
+            Submission.passed_test_count.is_(None)).count()
+        if missing:
+            try:
+                await backfill_passed_test_counts(db, user)
+            except CFError:
+                pass  # backfill is best-effort; the sync itself succeeded
         job.status = "done"
         job.error = None
         job.lease_owner = None

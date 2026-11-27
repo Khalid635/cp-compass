@@ -101,6 +101,9 @@ class Submission(Base):
     submitted_at = Column(DateTime, nullable=False)
     time_consumed = Column(Integer, nullable=True)  # ms
     memory_consumed = Column(Integer, nullable=True)  # bytes
+    # Batch 2: tests passed before the verdict (Codeforces user.status
+    # returns it). NULL until backfilled — old rows predate the column.
+    passed_test_count = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=_now, nullable=False)
 
     __table_args__ = (

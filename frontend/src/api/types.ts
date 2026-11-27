@@ -246,6 +246,8 @@ export interface ProblemDetailData {
     submitted_at: string;
     time_consumed: number | null;
     memory_consumed: number | null;
+    /** Batch 2: tests passed before the verdict (null if unknown). */
+    passed_test_count: number | null;
   }[];
   revision: {
     id: number;
@@ -255,6 +257,51 @@ export interface ProblemDetailData {
   } | null;
   note: ProblemNote;
   preference: string | null;
+}
+
+/* ---------- Batch 2 — failure-pattern analysis ---------- */
+
+export interface FailureTopicPattern {
+  tag: string;
+  wrong: number;
+  verdicts: Record<string, number>;
+  median_passed: number | null;
+  early_share: number | null;
+  late_share: number | null;
+  /** early/late: one stage dominates (>= 60% of known test counts).
+      mixed: spread across stages. thin: too little data to claim a
+      pattern — the counts are shown, the pattern is not. */
+  signal: 'early' | 'late' | 'mixed' | 'thin';
+}
+
+export interface FailureProblemPattern {
+  problem: ProblemRef;
+  wrong_attempts: number;
+  solved: boolean;
+  verdicts: string[];
+  passed_tests: number[];
+  median_passed: number | null;
+  first_attempt: string;
+  last_attempt: string;
+}
+
+export interface FailurePatternsData {
+  total_submissions: number;
+  total_wrong: number;
+  with_test_data: number;
+  without_test_data: number;
+  enough_data: boolean;
+  verdict_breakdown: { verdict: string; count: number }[];
+  test_stages: { early: number; middle: number; late: number; unknown: number };
+  per_topic: FailureTopicPattern[];
+  per_problem: FailureProblemPattern[];
+  wrong_before_first_ac: {
+    zero: number;
+    one_two: number;
+    three_plus: number;
+    median: number | null;
+    solved_problems: number;
+  };
 }
 
 export interface SettingsData {

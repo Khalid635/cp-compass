@@ -364,6 +364,48 @@ export const en: Dict = {
   noContests: 'No rated contests yet',
   noContestsHint:
     'Your contest analysis appears after your first rated contest. Practice problems still count everywhere else.',
+  // Batch 2 — failure patterns
+  failTitle: 'Failure patterns',
+  failBasedOn: (wrong, total) => `Based on ${wrong} wrong submissions out of ${total}`,
+  failNoWrong: 'No wrong submissions yet',
+  failNoWrongHint:
+    'Nothing to learn from yet — wrong submissions will show where your solutions fail.',
+  failLowData:
+    'Only a few wrong submissions so far — the patterns below are thin, but the counts are real.',
+  failNoTestData:
+    'Test counts aren’t available for these submissions yet — sync again and they’ll be filled in.',
+  failVerdicts: 'Verdicts',
+  failStages: 'Where solutions fail',
+  failStageEarly: 'Early tests (0–2 passed)',
+  failStageMiddle: 'Middle tests (3–9 passed)',
+  failStageLate: 'Late tests (10+ passed)',
+  failStageUnknown: 'Test count unknown',
+  failEarlyHint:
+    'Most failures happened on early tests — which often means an edge case or a misread statement.',
+  failLateHint:
+    'Most failures happened on late tests — which often means the logic breaks on bigger inputs.',
+  failTopics: 'Per-topic patterns',
+  failTopicThin: (n) => `Too little data for a pattern — ${n} wrong submission${n === 1 ? '' : 's'}.`,
+  failTopicEarly: (pct) =>
+    `Most failures on early tests (${pct}%) — often an edge case or a misread statement.`,
+  failTopicLate: (pct) =>
+    `Most failures on late tests (${pct}%) — often the logic breaks on bigger inputs.`,
+  failTopicMixed: 'Failures spread across early and late tests — no single stage dominates.',
+  failTopicMedian: (n) => `median ${n} tests passed`,
+  failProblems: 'Problems with the most wrong attempts',
+  failWrongAttempts: (n) => `${n} wrong attempt${n === 1 ? '' : 's'}`,
+  failUnsolved: 'Not solved yet',
+  failAcTitle: 'Wrong attempts before first AC',
+  failAcBuckets: (zero, oneTwo, threePlus) =>
+    `${zero} solved first try · ${oneTwo} took 1–2 wrong attempts · ${threePlus} took 3+`,
+  failAcMedian: (n) => `Median: ${n} wrong attempts before the first accepted solution.`,
+  failTestsPassed: (n) => `passed ${n}`,
+  failSummaryEarly: (n) =>
+    `Wrong attempts failed after a median of ${n} tests passed — early failures often mean an edge case or a misread statement.`,
+  failSummaryLate: (n) =>
+    `Wrong attempts failed after a median of ${n} tests passed — late failures often mean the logic breaks on bigger inputs.`,
+  failSummaryMid: (n) => `Wrong attempts failed after a median of ${n} tests passed.`,
+  thTests: 'Tests',
   calendarTitle: 'Practice calendar',
   calendarToday: 'Today',
   calendarSelectDay: 'Pick a day to see that day’s submissions.',

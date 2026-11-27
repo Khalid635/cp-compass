@@ -5,6 +5,7 @@ import type {
   AnalyticsData,
   CalendarMonth,
   DashboardData,
+  FailurePatternsData,
   MlPredictionsResponse,
   MlStatus,
   ProblemDetailData,
@@ -255,6 +256,8 @@ export const api = {
 
   /* Phase 2 — Analytics / Calendar / Weekly report / Problem detail / Settings */
   analytics: () => request<AnalyticsData>(`${V1}/analytics`),
+  /* Batch 2 — failure-pattern analysis */
+  failurePatterns: () => request<FailurePatternsData>(`${V1}/analytics/failures`),
   calendar: (year: number, month: number) =>
     request<CalendarMonth>(`${V1}/calendar?year=${year}&month=${month}`),
   calendarDay: (day: string) =>
@@ -294,6 +297,8 @@ export const api = {
       `${V1}/demo/revisions`,
     ),
   demoAnalytics: () => request<AnalyticsData>(`${V1}/demo/analytics`),
+  demoFailurePatterns: () =>
+    request<FailurePatternsData>(`${V1}/demo/analytics/failures`),
   demoCalendar: (year: number, month: number) =>
     request<CalendarMonth>(`${V1}/demo/calendar?year=${year}&month=${month}`),
   demoCalendarDay: (day: string) =>

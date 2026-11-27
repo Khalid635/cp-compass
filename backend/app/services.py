@@ -428,6 +428,211 @@ def revision_list(db: Session, user_id: int, tab: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Batch 2 — failure-pattern analysis.
+#
+# Codeforces returns `passedTestCount` per submission: how many tests
+# passed before the verdict. Buckets (documented thresholds, not a
+# claim about any one problem's test count):
+#   early  = passed <= 2 tests   (failed on test 1-3)
+#   middle = passed 3-9 tests
+#   late   = passed >= 10 tests
+# A per-topic "signal" is only claimed with enough wrong submissions
+# (MIN_WRONG_FOR_SIGNAL); anything thinner is reported as `thin` and
+# the UI shows the counts without a pattern claim. Everything here
+# reports what was OBSERVED — the frontend hedges the interpretation
+# ("which often means..."), never a diagnosis.
+# ---------------------------------------------------------------------------
+
+from statistics import median as _median
+
+EARLY_MAX_PASSED = 2
+MID_MAX_PASSED = 9
+MIN_WRONG_FOR_SIGNAL = 3
+DOMINANT_STAGE_SHARE = 0.6
+
+
+def _test_stage(passed: int | None) -> str | None:
+    if passed is None:
+        return None
+    if passed <= EARLY_MAX_PASSED:
+        return "early"
+    if passed <= MID_MAX_PASSED:
+        return "middle"
+    return "late"
+
+
+def _median_or_none(values: list[int]) -> float | None:
+    if not values:
+        return None
+    return round(float(_median(values)), 1)
+
+
+def _compute_failure_patterns(rows: list[dict]) -> dict:
+    """Pure computation over submission rows. Each row: verdict (str),
+    passed_test_count (int|None), problem (dict with contest_id/index/
+    name/rating/tags), submitted_at (datetime). Shared by the real
+    endpoint (DB rows) and the demo seed (generated dicts) so the two
+    can never drift apart."""
+    total = len(rows)
+    wrong = [r for r in rows if r["verdict"] != "OK"]
+    total_wrong = len(wrong)
+    with_test = sum(1 for r in rows if r.get("passed_test_count") is not None)
+
+    verdict_counts: dict[str, int] = defaultdict(int)
+    for r in rows:
+        verdict_counts[r["verdict"]] += 1
+    verdict_breakdown = [
+        {"verdict": v, "count": c}
+        for v, c in sorted(verdict_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
+
+    stages = {"early": 0, "middle": 0, "late": 0, "unknown": 0}
+    for r in wrong:
+        stage = _test_stage(r.get("passed_test_count"))
+        stages[stage if stage else "unknown"] += 1
+
+    per_topic: dict[str, dict] = defaultdict(
+        lambda: {"wrong": 0, "verdicts": defaultdict(int), "passed": [],
+                 "early": 0, "known": 0})
+    for r in wrong:
+        for tag in (r["problem"].get("tags") or []):
+            cell = per_topic[tag]
+            cell["wrong"] += 1
+            cell["verdicts"][r["verdict"]] += 1
+            passed = r.get("passed_test_count")
+            if passed is not None:
+                cell["passed"].append(passed)
+                cell["known"] += 1
+                if _test_stage(passed) == "early":
+                    cell["early"] += 1
+    topics = []
+    for tag, cell in per_topic.items():
+        early_share = (round(cell["early"] / cell["known"], 2)
+                       if cell["known"] else None)
+        late_count = sum(1 for p in cell["passed"]
+                         if _test_stage(p) == "late")
+        late_share = (round(late_count / cell["known"], 2)
+                      if cell["known"] else None)
+        if cell["wrong"] < MIN_WRONG_FOR_SIGNAL or cell["known"] < MIN_WRONG_FOR_SIGNAL:
+            # Too few wrong submissions, or too few of them carry test
+            # counts, to claim any pattern — counts are shown, the
+            # pattern is not.
+            signal = "thin"
+        elif early_share is not None and early_share >= DOMINANT_STAGE_SHARE:
+            signal = "early"
+        elif late_share is not None and late_share >= DOMINANT_STAGE_SHARE:
+            signal = "late"
+        else:
+            signal = "mixed"
+        topics.append({
+            "tag": tag,
+            "wrong": cell["wrong"],
+            "verdicts": dict(sorted(cell["verdicts"].items())),
+            "median_passed": _median_or_none(cell["passed"]),
+            "early_share": early_share,
+            "late_share": late_share,
+            "signal": signal,
+        })
+    topics.sort(key=lambda t: (-t["wrong"], t["tag"]))
+
+    per_problem: dict[tuple, dict] = {}
+    for r in rows:
+        p = r["problem"]
+        key = (p["contest_id"], p["index"])
+        cell = per_problem.setdefault(key, {
+            "problem": p, "wrong": 0, "verdicts": [],
+            "passed": [], "solved": False,
+            "first_attempt": None, "last_attempt": None})
+        ts = r["submitted_at"]
+        if cell["first_attempt"] is None or ts < cell["first_attempt"]:
+            cell["first_attempt"] = ts
+        if cell["last_attempt"] is None or ts > cell["last_attempt"]:
+            cell["last_attempt"] = ts
+        if r["verdict"] == "OK":
+            cell["solved"] = True
+        else:
+            cell["wrong"] += 1
+            cell["verdicts"].append(r["verdict"])
+            if r.get("passed_test_count") is not None:
+                cell["passed"].append(r["passed_test_count"])
+    problems = []
+    for cell in per_problem.values():
+        if cell["wrong"] == 0:
+            continue
+        problems.append({
+            "problem": cell["problem"],
+            "wrong_attempts": cell["wrong"],
+            "solved": cell["solved"],
+            "verdicts": sorted(set(cell["verdicts"])),
+            "passed_tests": sorted(cell["passed"]),
+            "median_passed": _median_or_none(cell["passed"]),
+            "first_attempt": cell["first_attempt"].isoformat(),
+            "last_attempt": cell["last_attempt"].isoformat(),
+        })
+    problems.sort(key=lambda p: (-p["wrong_attempts"], p["last_attempt"]))
+    problems = problems[:8]
+
+    # Wrong attempts before the first AC, per solved problem.
+    first_ok: dict[tuple, datetime] = {}
+    wrong_before: dict[tuple, int] = defaultdict(int)
+    solved_keys: set[tuple] = set()
+    for r in sorted(rows, key=lambda r: r["submitted_at"]):
+        key = (r["problem"]["contest_id"], r["problem"]["index"])
+        if r["verdict"] == "OK":
+            if key not in first_ok:
+                first_ok[key] = r["submitted_at"]
+                solved_keys.add(key)
+        elif key not in first_ok:
+            wrong_before[key] += 1
+    buckets = {"zero": 0, "one_two": 0, "three_plus": 0}
+    counts = []
+    for key in solved_keys:
+        n = wrong_before.get(key, 0)
+        counts.append(n)
+        if n == 0:
+            buckets["zero"] += 1
+        elif n <= 2:
+            buckets["one_two"] += 1
+        else:
+            buckets["three_plus"] += 1
+
+    return {
+        "total_submissions": total,
+        "total_wrong": total_wrong,
+        "with_test_data": with_test,
+        "without_test_data": total - with_test,
+        "enough_data": total_wrong >= MIN_WRONG_FOR_SIGNAL,
+        "verdict_breakdown": verdict_breakdown,
+        "test_stages": stages,
+        "per_topic": topics,
+        "per_problem": problems,
+        "wrong_before_first_ac": {
+            **buckets,
+            "median": _median_or_none(counts) if counts else None,
+            "solved_problems": len(solved_keys),
+        },
+    }
+
+
+def failure_patterns(db: Session, user_id: int) -> dict:
+    """Failure patterns from the user's own synced submissions."""
+    rows = (
+        db.query(Submission, Problem)
+        .join(Problem, Submission.problem_id == Problem.id)
+        .filter(Submission.user_id == user_id)
+        .all()
+    )
+    dicts = [{
+        "verdict": s.verdict,
+        "passed_test_count": s.passed_test_count,
+        "problem": {"contest_id": p.contest_id, "index": p.index,
+                    "name": p.name, "rating": p.rating, "tags": p.tags or []},
+        "submitted_at": s.submitted_at,
+    } for s, p in rows]
+    return _compute_failure_patterns(dicts)
+
+
+# ---------------------------------------------------------------------------
 # Phase 2 — Analytics, Calendar, Weekly Report, Problem Detail, Settings
 # ---------------------------------------------------------------------------
 
@@ -751,6 +956,8 @@ def problem_detail(db: Session, user_id: int, contest_id: int, index: str) -> di
             "verdict": s.verdict, "language": s.language,
             "submitted_at": s.submitted_at.isoformat(),
             "time_consumed": s.time_consumed, "memory_consumed": s.memory_consumed,
+            # Batch 2: tests passed before the verdict (None if unknown).
+            "passed_test_count": s.passed_test_count,
         } for s in subs],
         "revision": ({
             "id": rev.id, "interval_days": rev.interval_days,

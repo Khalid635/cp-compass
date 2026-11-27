@@ -849,6 +849,17 @@ def analytics(user: User = Depends(get_current_user), db: Session = Depends(get_
     return services.analytics(db, user.id)
 
 
+@app.get(f"{V1}/analytics/failures")
+def analytics_failures(user: User = Depends(get_current_user),
+                       db: Session = Depends(get_db)):
+    """Batch 2: where the user's solutions fail — verdict breakdown,
+    test-stage distribution, per-topic and per-problem patterns, from
+    their own synced submissions."""
+    if _cf_handle(db, user) is None:
+        raise HTTPException(400, "Connect your Codeforces handle first")
+    return services.failure_patterns(db, user.id)
+
+
 @app.get(f"{V1}/calendar")
 def calendar(year: int = Query(...), month: int = Query(...),
              user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -1058,6 +1069,11 @@ def demo_revisions():
 @app.get(f"{V1}/demo/analytics")
 def demo_analytics():
     return seed.analytics_payload()
+
+
+@app.get(f"{V1}/demo/analytics/failures")
+def demo_analytics_failures():
+    return seed.failure_patterns_payload()
 
 
 @app.get(f"{V1}/demo/calendar")

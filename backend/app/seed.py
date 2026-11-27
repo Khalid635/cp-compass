@@ -341,6 +341,18 @@ def _gen_submissions():
             ok = rng.random() < TAG_ACCEPT.get(tag, 0.7)
             verdict = "OK" if ok else rng.choice(
                 ["WRONG_ANSWER", "WRONG_ANSWER", "TIME_LIMIT_EXCEEDED", "RUNTIME_ERROR"])
+            # Batch 2: deterministic test counts — OK passes everything;
+            # failures mostly die early, some mid, few late.
+            if ok:
+                passed_tests = rng.randint(5, 40)
+            else:
+                r = rng.random()
+                if r < 0.6:
+                    passed_tests = rng.randint(0, 2)
+                elif r < 0.85:
+                    passed_tests = rng.randint(3, 9)
+                else:
+                    passed_tests = rng.randint(10, 25)
             ts = datetime(d.year, d.month, d.day, rng.randint(9, 22), rng.randint(0, 59))
             sid += 1
             subs.append({
@@ -348,6 +360,7 @@ def _gen_submissions():
                 "rating": rating, "tags": tags, "verdict": verdict,
                 "language": rng.choice(["GNU C++17", "GNU C++17", "GNU C++17", "Python 3"]),
                 "submitted_at": ts.isoformat(),
+                "passed_test_count": passed_tests,
             })
     subs.sort(key=lambda s: s["submitted_at"], reverse=True)
     # Guarantee a live streak: an accepted submission today and yesterday.
@@ -361,6 +374,7 @@ def _gen_submissions():
                 "rating": rating, "tags": tags, "verdict": "OK",
                 "language": "GNU C++17",
                 "submitted_at": datetime(d.year, d.month, d.day, 18, 30).isoformat(),
+                "passed_test_count": rng.randint(5, 40),
             })
     subs.sort(key=lambda s: s["submitted_at"], reverse=True)
     return subs
@@ -707,6 +721,21 @@ def analytics_payload():
     }
 
 
+def failure_patterns_payload():
+    """Batch 2: demo failure patterns — the same shared computation as
+    the real endpoint, over the deterministic demo submissions."""
+    from .services import _compute_failure_patterns
+
+    rows = [{
+        "verdict": s["verdict"],
+        "passed_test_count": s.get("passed_test_count"),
+        "problem": {"contest_id": s["contest_id"], "index": s["index"],
+                    "name": s["name"], "rating": s["rating"], "tags": s["tags"]},
+        "submitted_at": datetime.fromisoformat(s["submitted_at"]),
+    } for s in SUBMISSIONS]
+    return _compute_failure_patterns(rows)
+
+
 def calendar_payload(year, month):
     from calendar import monthrange
 
@@ -838,6 +867,7 @@ def problem_detail_payload(contest_id, index):
             "verdict": s["verdict"], "language": s["language"],
             "submitted_at": s["submitted_at"],
             "time_consumed": None, "memory_consumed": None,
+            "passed_test_count": s.get("passed_test_count"),
         } for s in subs],
         "revision": None,
         "note": {"body": note_body, "updated_at": None},

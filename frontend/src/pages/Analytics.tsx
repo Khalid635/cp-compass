@@ -3,6 +3,7 @@
    auto-analysis. All numbers come from the user's own synced data. */
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import {
   Bar,
   BarChart,
@@ -12,7 +13,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ArrowDownRight, ArrowUpRight, Award, Flame, RefreshCw, TrendingUp, Trophy } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Award, CheckCircle2, Flame, RefreshCw, TrendingUp, Trophy } from 'lucide-react';
 import { api } from '../api/client';
 import { rankOf, trainedOnLabel } from '../api/types';
 import { formatDateTime, useLanguage } from '../i18n';
@@ -46,6 +47,12 @@ export default function Analytics({ demo = false }: { demo?: boolean }) {
   const mlQuery = useQuery({
     queryKey: demo ? ['demo-ml-status'] : ['ml-status'],
     queryFn: demo ? api.demoMlStatus : api.mlStatus,
+    staleTime: 60_000,
+  });
+  /* Batch 2 — failure patterns: where the user's solutions fail. */
+  const failQuery = useQuery({
+    queryKey: demo ? ['demo-failures'] : ['failures'],
+    queryFn: demo ? api.demoFailurePatterns : api.failurePatterns,
     staleTime: 60_000,
   });
 
@@ -221,6 +228,167 @@ export default function Analytics({ demo = false }: { demo?: boolean }) {
             </tbody>
           </table>
         </div>
+      </Card>
+
+      {/* Batch 2 — failure patterns */}
+      <Card title={t.failTitle} className="min-w-0">
+        {failQuery.isPending ? (
+          <Skeleton className="h-[180px] w-full" />
+        ) : failQuery.isError ? (
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-sm text-muted">{t.cfRetryAutoShort}</p>
+            <Button variant="secondary" onClick={() => void failQuery.refetch()}>
+              <RefreshCw size={14} aria-hidden /> {t.retry}
+            </Button>
+          </div>
+        ) : failQuery.data.total_wrong === 0 ? (
+          <EmptyState
+            icon={<CheckCircle2 size={40} aria-hidden />}
+            title={t.failNoWrong}
+            text={t.failNoWrongHint}
+          />
+        ) : (
+          <div className="flex flex-col gap-5">
+            <p className="text-xs text-muted">
+              {t.failBasedOn(failQuery.data.total_wrong, failQuery.data.total_submissions)}
+            </p>
+            {!failQuery.data.enough_data && (
+              <p className="text-sm text-muted">{t.failLowData}</p>
+            )}
+            {failQuery.data.without_test_data > 0 && (
+              <p className="text-sm text-muted">{t.failNoTestData}</p>
+            )}
+
+            {/* Verdict breakdown */}
+            <div>
+              <h3 className="text-sm font-medium">{t.failVerdicts}</h3>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {failQuery.data.verdict_breakdown.map((b) => (
+                  <span
+                    key={b.verdict}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg px-2.5 py-1 font-mono text-xs"
+                  >
+                    {b.verdict}
+                    <span className="font-semibold text-text">{b.count}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Where solutions fail */}
+            <div>
+              <h3 className="text-sm font-medium">{t.failStages}</h3>
+              <div className="mt-2 flex flex-col gap-2">
+                {(
+                  [
+                    [t.failStageEarly, failQuery.data.test_stages.early],
+                    [t.failStageMiddle, failQuery.data.test_stages.middle],
+                    [t.failStageLate, failQuery.data.test_stages.late],
+                    [t.failStageUnknown, failQuery.data.test_stages.unknown],
+                  ] as [string, number][]
+                ).map(([label, count]) => (
+                  <div key={label} className="flex items-center gap-3 text-sm">
+                    <span className="w-44 shrink-0 truncate text-muted">{label}</span>
+                    <span
+                      className="inline-block h-2 rounded-full bg-primary"
+                      style={{
+                        width: `${Math.round(
+                          (count / Math.max(failQuery.data!.total_wrong, 1)) * 120,
+                        )}px`,
+                        maxWidth: '120px',
+                        minWidth: count > 0 ? '6px' : '0',
+                      }}
+                    />
+                    <span className="font-mono">{count}</span>
+                  </div>
+                ))}
+              </div>
+              {(() => {
+                const s = failQuery.data.test_stages;
+                const known = s.early + s.middle + s.late;
+                if (known > 0 && s.early / known >= 0.6) return <p className="mt-2 text-sm text-muted">{t.failEarlyHint}</p>;
+                if (known > 0 && s.late / known >= 0.6) return <p className="mt-2 text-sm text-muted">{t.failLateHint}</p>;
+                return null;
+              })()}
+            </div>
+
+            {/* Per-topic patterns */}
+            {failQuery.data.per_topic.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium">{t.failTopics}</h3>
+                <div className="mt-2 flex flex-col gap-3">
+                  {failQuery.data.per_topic.slice(0, 5).map((tp) => (
+                    <div key={tp.tag} className="rounded-lg border border-border bg-bg p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <TagChip tag={tp.tag} />
+                        <span className="font-mono text-xs text-muted">
+                          {t.failWrongAttempts(tp.wrong)}
+                        </span>
+                        {tp.median_passed !== null && (
+                          <span className="font-mono text-xs text-muted">
+                            · {t.failTopicMedian(tp.median_passed)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1.5 text-sm text-muted">
+                        {tp.signal === 'early' && tp.early_share !== null
+                          ? t.failTopicEarly(Math.round(tp.early_share * 100))
+                          : tp.signal === 'late' && tp.late_share !== null
+                            ? t.failTopicLate(Math.round(tp.late_share * 100))
+                            : tp.signal === 'mixed'
+                              ? t.failTopicMixed
+                              : t.failTopicThin(tp.wrong)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Problems with the most wrong attempts */}
+            {failQuery.data.per_problem.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium">{t.failProblems}</h3>
+                <div className="mt-2 flex flex-col gap-2">
+                  {failQuery.data.per_problem.map((pp) => (
+                    <Link
+                      key={`${pp.problem.contest_id}${pp.problem.index}`}
+                      to={`${demo ? '/demo' : '/app'}/problems/${pp.problem.contest_id}/${pp.problem.index}`}
+                      className="flex flex-col gap-0.5 rounded-lg border border-border bg-bg p-3 text-text hover:border-primary/50 hover:no-underline sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <span className="min-w-0 truncate text-sm font-medium">
+                        {pp.problem.contest_id}
+                        {pp.problem.index} — {pp.problem.name}
+                      </span>
+                      <span className="shrink-0 font-mono text-xs text-muted">
+                        {t.failWrongAttempts(pp.wrong_attempts)} ·{' '}
+                        {pp.median_passed !== null ? t.failTopicMedian(pp.median_passed) : '—'}{' '}
+                        · {pp.solved ? t.problemSolved : t.failUnsolved}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Wrong attempts before first AC */}
+            <div>
+              <h3 className="text-sm font-medium">{t.failAcTitle}</h3>
+              <p className="mt-1.5 text-sm text-muted">
+                {t.failAcBuckets(
+                  failQuery.data.wrong_before_first_ac.zero,
+                  failQuery.data.wrong_before_first_ac.one_two,
+                  failQuery.data.wrong_before_first_ac.three_plus,
+                )}
+              </p>
+              {failQuery.data.wrong_before_first_ac.median !== null && (
+                <p className="mt-1 text-sm text-muted">
+                  {t.failAcMedian(failQuery.data.wrong_before_first_ac.median)}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Milestones */}

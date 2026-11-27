@@ -355,6 +355,38 @@ export interface Dict {
   contestFirst: string;
   noContests: string;
   noContestsHint: string;
+  // Batch 2 — failure patterns
+  failTitle: string;
+  failBasedOn: (wrong: number, total: number) => string;
+  failNoWrong: string;
+  failNoWrongHint: string;
+  failLowData: string;
+  failNoTestData: string;
+  failVerdicts: string;
+  failStages: string;
+  failStageEarly: string;
+  failStageMiddle: string;
+  failStageLate: string;
+  failStageUnknown: string;
+  failEarlyHint: string;
+  failLateHint: string;
+  failTopics: string;
+  failTopicThin: (n: number) => string;
+  failTopicEarly: (pct: number) => string;
+  failTopicLate: (pct: number) => string;
+  failTopicMixed: string;
+  failTopicMedian: (n: number) => string;
+  failProblems: string;
+  failWrongAttempts: (n: number) => string;
+  failUnsolved: string;
+  failAcTitle: string;
+  failAcBuckets: (zero: number, oneTwo: number, threePlus: number) => string;
+  failAcMedian: (n: number) => string;
+  failTestsPassed: (n: number) => string;
+  failSummaryEarly: (n: number) => string;
+  failSummaryLate: (n: number) => string;
+  failSummaryMid: (n: number) => string;
+  thTests: string;
   // Phase 2 calendar
   calendarTitle: string;
   calendarToday: string;
