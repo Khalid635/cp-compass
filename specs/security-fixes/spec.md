@@ -83,3 +83,27 @@ not in this batch.
 - This push re-triggers a fresh deploy, which also tests whether the
   first failure was transient. If it fails again the same way, the
   Render dashboard build/start logs are needed (browser task).
+
+## ROOT CAUSE FOUND 2026-11-27 20:50 - missing `cryptography` dependency
+- The 629c40d push also failed twice (dep-dc4pd13rjlhs73857m1g
+  new_commit, dep-dc4pd1lvbd1s73brrob0 blueprint_sync, both
+  update_failed in ~43 s). Three consecutive failures = deterministic,
+  not transient.
+- Fresh-venv test (new venv, pip install -r requirements.txt, import
+  app.main) reproduced it exactly: `ModuleNotFoundError: No module
+  named 'cryptography'` from totp.py:14 (`from cryptography.fernet
+  import Fernet`). `cryptography` came in only as a transitive dep of
+  `python-jose[cryptography]`; removing python-jose dropped it, but
+  totp.py imports it directly. The laptop dev venv still had the
+  orphaned package, so local pytest passed and hid the break - the
+  Docker build installs from requirements.txt only, so the container
+  crashed on boot and the health check failed.
+- Fix: `cryptography==50.0.2` added as a direct pin (0 OSV vulns;
+  latest on PyPI; the version the dev venv already had). No other
+  orphaned transitive dep is directly imported (ecdsa/rsa/pyasn1:
+  no imports in backend/app).
+- Verified after the fix: fresh venv pip install exit 0, import
+  app.main OK, fresh-venv pytest 40 passed. LESSON: after any
+  dependency swap, verify with a FRESH install (pip install -r
+  requirements.txt into a clean venv + import), not just the dev venv
+  - orphaned transitive deps hide breakage.

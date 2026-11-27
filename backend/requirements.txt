@@ -8,6 +8,7 @@ alembic==1.20.1
 pydantic==2.14.4
 email-validator==2.4.0
 PyJWT==2.15.1  # replaces python-jose (GHSA-3qf3-8w2g-rqmx), 2026-11-27; 0 OSV vulns at 2.15.1
+cryptography==50.0.2  # direct dep of totp.py (Fernet); was transitive via python-jose[cryptography], 2026-11-27; 0 OSV vulns
 argon2-cffi==25.1.0
 pyotp==2.12.2  # TOTP 2FA (authenticator app), Batch 1
 httpx==0.28.1

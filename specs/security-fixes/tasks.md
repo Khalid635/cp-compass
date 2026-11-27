@@ -18,3 +18,6 @@
 - [x] render.yaml declares ENV=production
 - [x] Re-verify: pytest green; wiring check (3 env combos)
 - [ ] Commit + push (fresh deploy) + live verify
+- [x] Root cause: cryptography missing (transitive via python-jose);
+      added cryptography==50.0.2 pin
+- [x] Fresh-venv verify: pip install + import + pytest 40 passed
