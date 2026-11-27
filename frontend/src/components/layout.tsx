@@ -125,10 +125,15 @@ export function ColdStartBanner() {
   );
 }
 
+/* Demo banner — in-flow, NOT sticky: the sticky version slid over the
+   "Topic goals" heading and the topic-strength chart while scrolling
+   (translucent frost made the covered text look broken). It scrolls away
+   with the page; the "Demo mode" pill in the topbar keeps demo labelled
+   persistently. (Colour-fix 2026-11-27.) */
 export function DemoBanner() {
   const { t } = useLanguage();
   return (
-    <div className="frost-primary sticky top-14 z-10 border-b border-primary/40 px-4 py-2.5 text-center text-sm">
+    <div className="frost-primary border-b border-primary/40 px-4 py-2.5 text-center text-sm">
       {t.demoBanner}{' '}
       <Link to="/login" className="font-medium underline">
         {t.createAccount}

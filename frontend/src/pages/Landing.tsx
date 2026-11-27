@@ -23,15 +23,16 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
   const { t } = useLanguage();
   const reduceMotion = useReducedMotion();
   /* One subtle Rise & Settle entrance for the hero copy (getlayers pick:
-     a single preset, headings only, 450 ms, staggered). Skipped entirely
-     under prefers-reduced-motion. */
+     a single preset, headings only, 300 ms, staggered). Starts at 60%
+     opacity so the first paint is never washed out (colour-fix 2026-11-27).
+     Skipped entirely under prefers-reduced-motion. */
   const rise = (delay: number) =>
     reduceMotion
       ? {}
       : {
-          initial: { opacity: 0, y: 12 },
+          initial: { opacity: 0.6, y: 6 },
           animate: { opacity: 1, y: 0 },
-          transition: { duration: 0.45, delay, ease: 'easeOut' as const },
+          transition: { duration: 0.3, delay, ease: 'easeOut' as const },
         };
 
   const FEATURES = [

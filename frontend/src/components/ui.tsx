@@ -58,7 +58,7 @@ export function Card({
     >
       {title !== undefined && (
         <header className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold">{title}</h2>
+          <h2 className="scroll-mt-20 text-base font-semibold">{title}</h2>
           {action}
         </header>
       )}
@@ -72,19 +72,34 @@ export function RatingBadge({
   rating,
   rankName,
   rankColor,
+  neutral = false,
 }: {
   rating: number | null;
   rankName: string;
   rankColor: string;
+  /** Neutral outline (off-white text, hairline border) instead of the rank
+      colour — for the user's own current rating in Rating history, where
+      Specialist cyan (#2dd4bf) is indistinguishable from the teal accent
+      (#2bb8c6) and from the green CF band pills at small size. Problem
+      pills keep their CF band colours (neutral is NOT the default). */
+  neutral?: boolean;
 }) {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-xs font-medium"
-      style={{
-        color: rankColor,
-        background: 'transparent',
-        border: `1px solid ${rankColor}`,
-      }}
+      style={
+        neutral
+          ? {
+              color: 'var(--text)',
+              background: 'transparent',
+              border: '1px solid var(--border)',
+            }
+          : {
+              color: rankColor,
+              background: 'transparent',
+              border: `1px solid ${rankColor}`,
+            }
+      }
       title={rankName}
     >
       {rating ?? '—'}

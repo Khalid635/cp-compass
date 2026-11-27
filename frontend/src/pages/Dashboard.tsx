@@ -301,7 +301,7 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
                 onChange={setRange}
               />
               {d.stats?.rating !== null && d.stats?.rating !== undefined ? (
-                <RatingBadge rating={d.stats.rating} rankName={rank.name} rankColor={rank.token} />
+                <RatingBadge rating={d.stats.rating} rankName={rank.name} rankColor={rank.token} neutral />
               ) : undefined}
             </div>
           }
