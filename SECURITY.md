@@ -39,8 +39,11 @@ additionally rejects any artifact that is not a dict with the exact shape
 
 ## Dependencies
 
-`python-jose` is unmaintained (last release 2022). It is pinned (H3) and
-works, but a future batch should evaluate a move to PyJWT.
+`python-jose` was removed 2026-11-27 (security-fixes batch) and replaced
+by `PyJWT==2.15.1` (0 OSV vulns at that version): python-jose 3.5.0 has
+GHSA-3qf3-8w2g-rqmx and is unmaintained (last release 2022) with no fixed
+release. The app verifies HS256 symmetric tokens only, so the
+algorithm-confusion issue was not directly exploitable here.
 
 ## Email verification (ops)
 

@@ -47,6 +47,7 @@ from .config import (
     CORS_ORIGINS,
     EMAIL_CODE_EXPIRE_MINUTES,
     EMAIL_CODE_MAX_ATTEMPTS,
+    ENV,
     MAX_BODY_BYTES,
     MIN_PASSWORD_LENGTH,
     RESEND_API_KEY,
@@ -113,7 +114,13 @@ async def lifespan(app: FastAPI):
     worker_task.cancel()
 
 
-app = FastAPI(title="CP Compass API", version="1.0.0", lifespan=lifespan)
+# Reel check #12 (2026-11-27): interactive API docs are public by
+# default. Disable them in production so the full API surface is not
+# advertised; local dev keeps docs for debugging.
+_docs_kwargs = {} if ENV != "production" else {
+    "docs_url": None, "redoc_url": None, "openapi_url": None}
+app = FastAPI(title="CP Compass API", version="1.0.0", lifespan=lifespan,
+              **_docs_kwargs)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,

@@ -21,7 +21,7 @@ services:
       - key: SECRET_KEY
         sync: false
       - key: CORS_ORIGINS
-        value: https://cp-compass.vercel.app
+        value: https://cp-compass-phi.vercel.app
       - key: CF_API_BASE
         value: https://codeforces.com/api
       - key: PYTHONUNBUFFERED

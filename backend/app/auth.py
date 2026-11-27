@@ -7,6 +7,7 @@ rotating, revocable refresh tokens (blueprint §11).
 - Logout revokes one token; logout-all revokes every token of the user.
 - Password hashes are Argon2id. Old bcrypt hashes are NOT migratable:
   accounts created before this change must re-register (dev DB only).
+JWTs use PyJWT (python-jose removed 2026-11-27: GHSA-3qf3-8w2g-rqmx).
 """
 import hashlib
 import secrets
@@ -16,7 +17,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+import jwt
 from sqlalchemy.orm import Session
 
 from .config import (
@@ -76,7 +77,7 @@ def decode_totp_pending_token(raw: str) -> int | None:
         if payload.get("type") != "totp_pending":
             return None
         return int(payload["sub"])
-    except (JWTError, KeyError, ValueError):
+    except (jwt.InvalidTokenError, KeyError, ValueError):
         return None
 
 
@@ -165,7 +166,7 @@ def get_current_user(
         if payload.get("type") != "access":
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
         user_id = int(payload["sub"])
-    except (JWTError, KeyError, ValueError):
+    except (jwt.InvalidTokenError, KeyError, ValueError):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
     user = db.query(User).get(user_id)
     if user is None:

@@ -491,3 +491,57 @@ def test_h10_artifact_shape_validation(monkeypatch, tmp_path):
     mlmod._model_cache["artifact"] = None
     mlmod._model_cache["mtime"] = None
     assert mlmod._load_artifact() is not None
+
+
+def test_pyjwt_round_trip_and_forgeries(client):
+    """Reel check #13 (PyJWT migration, 2026-11-27): a token the app
+    issues works; a token signed with another key, a tampered token, an
+    expired token, and a refresh token used as an access token are all
+    rejected with 401."""
+    from datetime import datetime, timedelta
+
+    import jwt as pyjwt
+
+    from app.config import JWT_ALGORITHM, SECRET_KEY
+
+    db = dbmod.SessionLocal()
+    try:
+        user = _user(db)
+        uid = user.id
+    finally:
+        db.close()
+
+    # Valid issued token works.
+    headers, tokens = _auth_headers(uid)
+    assert client.get("/api/v1/auth/me", headers=headers).status_code == 200
+
+    def _bearer(token):
+        return {"Authorization": f"Bearer {token}"}
+
+    # Token signed with a different key.
+    bad = pyjwt.encode(
+        {"sub": str(uid), "type": "access",
+         "exp": datetime.utcnow() + timedelta(minutes=15)},
+        "not-the-real-secret", algorithm=JWT_ALGORITHM)
+    assert client.get("/api/v1/auth/me", headers=_bearer(bad)).status_code == 401
+
+    # Tampered payload (first char of the payload segment flipped).
+    good = tokens["access_token"]
+    parts = good.split(".")
+    assert len(parts) == 3
+    first = "A" if parts[1][0] != "A" else "B"
+    tampered = parts[0] + "." + first + parts[1][1:] + "." + parts[2]
+    assert client.get("/api/v1/auth/me",
+                      headers=_bearer(tampered)).status_code == 401
+
+    # Expired token.
+    expired = pyjwt.encode(
+        {"sub": str(uid), "type": "access",
+         "exp": datetime.utcnow() - timedelta(minutes=1)},
+        SECRET_KEY, algorithm=JWT_ALGORITHM)
+    assert client.get("/api/v1/auth/me",
+                      headers=_bearer(expired)).status_code == 401
+
+    # Refresh token presented as an access token (wrong type / not a JWT).
+    assert client.get("/api/v1/auth/me",
+                      headers=_bearer(tokens["refresh_token"])).status_code == 401
