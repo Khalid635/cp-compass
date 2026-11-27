@@ -115,6 +115,12 @@ export interface RegisterResponse {
   message: string;
 }
 
+/* Google sign-in callback: either the normal AuthResponse, or the
+   TOTP second step (same shape as password login's totp branch). */
+export type GoogleCallbackResponse =
+  | AuthResponse
+  | { totp_required: true; pre_token: string; email: string };
+
 export interface LoginResponse {
   access_token?: string;
   refresh_token?: string;
@@ -158,6 +164,16 @@ export const api = {
     request<LoginResponse>(`${V1}/auth/login`, {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    }),
+  /* Google sign-in: the backend builds the authorization URL (the
+     OAuth client lives server-side); the callback page exchanges the
+     code for tokens. */
+  googleAuthUrl: () =>
+    request<{ auth_url: string }>(`${V1}/auth/google`),
+  googleCallback: (code: string, state: string) =>
+    request<GoogleCallbackResponse>(`${V1}/auth/google/callback`, {
+      method: 'POST',
+      body: JSON.stringify({ code, state }),
     }),
   totpVerify: (pre_token: string, code: string) =>
     request<AuthResponse>(`${V1}/auth/2fa/verify`, {

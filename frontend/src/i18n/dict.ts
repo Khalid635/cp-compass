@@ -258,6 +258,10 @@ export interface Dict {
   haveAccount: string;
   accountCreated: string;
   somethingWrong: string;
+  continueWithGoogle: string;
+  orContinueWith: string;
+  googleSigningIn: string;
+  googleSignInError: string;
   connectHandleTitle: string;
   connectHandleText: string;
   handlePlaceholder: string;

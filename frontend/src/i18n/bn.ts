@@ -270,6 +270,10 @@ export const bn: Dict = {
   haveAccount: 'অ্যাকাউন্ট আছে?',
   accountCreated: 'অ্যাকাউন্ট তৈরি হয়েছে — ইনবক্সে ভেরিফিকেশন কোড দেখো।',
   somethingWrong: 'কিছু একটা ভুল হয়েছে। আবার চেষ্টা করো।',
+  continueWithGoogle: 'Google \u09a6\u09bf\u09af\u09bc \u099a\u09be\u09b2\u09bf\u09af\u09bc \u09af\u09be\u09a8',
+  orContinueWith: '\u0985\u09a5\u09ac\u09be \u099a\u09be\u09b2\u09bf\u09af\u09bc \u09af\u09be\u09a8',
+  googleSigningIn: 'Google \u09a6\u09bf\u09af\u09bc \u09b8\u09be\u0987\u09a8-\u0987\u09a8 \u0995\u09b0\u09be \u09b9\u099a\u09cd\u099b\u09c7\u2026',
+  googleSignInError: 'Google \u09a6\u09bf\u09af\u09bc \u09b8\u09be\u0987\u09a8-\u0987\u09a8 \u09b9\u09af\u09bc\u09a8\u09bf\u0964 \u0986\u09ac\u09be\u09b0 \u099a\u09c7\u09b7\u09cd\u099f\u09be \u0995\u09b0\u09cb\u0964',
   connectHandleTitle: 'তোমার Codeforces handle যুক্ত করো',
   connectHandleText:
     'আমরা প্রমাণ করি handle টা তোমারই: তোমার Codeforces প্রোফাইলে একবারের টোকেন বসাবে, আমরা পাবলিক API দিয়ে মিলিয়ে দেখব। কেউ তোমার handle দাবি করতে পারবে না।',

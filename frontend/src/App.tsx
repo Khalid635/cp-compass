@@ -9,7 +9,7 @@ import { AppShell } from './components/layout';
 import { PaletteProvider } from './components/CommandPalette';
 import Landing from './pages/Landing';
 import Privacy from './pages/Privacy';
-import { LoginPage, RegisterPage } from './pages/Auth';
+import { GoogleCallbackPage, LoginPage, RegisterPage } from './pages/Auth';
 import DemoLayout from './pages/Demo';
 import NotFound from './pages/NotFound';
 import { Skeleton } from './components/ui';
@@ -92,6 +92,7 @@ function AppRoutes() {
         <Route path="/privacy" element={<Privacy theme={theme} toggleTheme={toggleTheme} />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/auth/callback" element={<GoogleCallbackPage />} />
 
         {/* Demo — full app on seeded data, no login, read-only */}
         <Route path="/demo" element={<DemoLayout theme={theme} toggleTheme={toggleTheme} />}>

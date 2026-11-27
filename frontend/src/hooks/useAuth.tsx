@@ -10,6 +10,8 @@ import {
   storeTokens,
 } from '../api/client';
 import type {
+  AuthResponse,
+  GoogleCallbackResponse,
   HandleStartResponse,
   LoginResponse,
   RegisterResponse,
@@ -28,6 +30,11 @@ interface AuthState {
   register: (email: string, password: string) => Promise<RegisterResponse>;
   verifyEmail: (email: string, code: string) => Promise<void>;
   verifyTotp: (preToken: string, code: string) => Promise<void>;
+  startGoogleSignIn: () => Promise<void>;
+  completeGoogleSignIn: (
+    code: string,
+    state: string,
+  ) => Promise<GoogleCallbackResponse>;
   logout: () => void;
   refresh: () => Promise<void>;
   startHandleVerification: (handle: string) => Promise<HandleStartResponse>;
@@ -92,6 +99,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(me);
   }, []);
 
+  const startGoogleSignIn = useCallback(async () => {
+    const res = await api.googleAuthUrl();
+    window.location.href = res.auth_url;
+  }, []);
+
+  const completeGoogleSignIn = useCallback(
+    async (code: string, state: string) => {
+      const res: GoogleCallbackResponse = await api.googleCallback(code, state);
+      if ('totp_required' in res) return res; // second step: TOTP code
+      const auth: AuthResponse = res;
+      storeTokens(auth.access_token, auth.refresh_token);
+      const me = await api.me();
+      setUser(me);
+      return res;
+    },
+    [],
+  );
+
   const logout = useCallback(() => {
     void api.logout().catch(() => undefined); // revoke server-side, best effort
     clearTokens();
@@ -112,9 +137,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user, loading, login, register, verifyEmail, verifyTotp, logout,
       refresh, startHandleVerification, confirmHandleVerification,
+      startGoogleSignIn, completeGoogleSignIn,
     }),
     [user, loading, login, register, verifyEmail, verifyTotp, logout,
-     refresh, startHandleVerification, confirmHandleVerification],
+     refresh, startHandleVerification, confirmHandleVerification,
+     startGoogleSignIn, completeGoogleSignIn],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

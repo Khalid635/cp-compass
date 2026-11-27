@@ -279,6 +279,10 @@ export const en: Dict = {
   haveAccount: 'Already have an account?',
   accountCreated: 'Account created — check your inbox for the verification code.',
   somethingWrong: 'Something went wrong. Try again.',
+  continueWithGoogle: 'Continue with Google',
+  orContinueWith: 'or continue with',
+  googleSigningIn: 'Signing you in with Google\u2026',
+  googleSignInError: 'Google sign-in failed. Please try again.',
   connectHandleTitle: 'Connect your Codeforces handle',
   connectHandleText:
     'We prove you own the handle: you put a one-time token in your Codeforces profile, and we check it against the public API. Nobody can claim your handle.',

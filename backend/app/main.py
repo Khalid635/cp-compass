@@ -26,10 +26,11 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import mailer, ml, ratelimit, seed, services, sync as sync_engine, totp
+from . import google_oauth, mailer, ml, ratelimit, seed, services, sync as sync_engine, totp
 from .auth import (
     create_totp_pending_token,
     decode_totp_pending_token,
@@ -176,6 +177,11 @@ class RegisterIn(BaseModel):
 class LoginIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=128)
+
+
+class GoogleCallbackIn(BaseModel):
+    code: str = Field(min_length=1, max_length=2048)
+    state: str = Field(min_length=1, max_length=2048)
 
 
 class HandleIn(BaseModel):
@@ -386,6 +392,70 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
     if not user.email_verified:
         raise HTTPException(
             403, "Email not verified — enter the code sent to your inbox")
+    if user.totp_enabled:
+        return {"totp_required": True,
+                "pre_token": create_totp_pending_token(user.id),
+                "email": user.email}
+    tokens = issue_tokens(db, user.id)
+    return AuthOut(**tokens, email=user.email, cf_handle=_cf_handle(db, user))
+
+
+@app.get(f"{V1}/auth/google")
+def google_auth_url():
+    """Returns the Google authorization URL the frontend redirects to.
+    503 until the OAuth client is configured (client ID/secret in env).
+    """
+    if not google_oauth.is_configured():
+        raise HTTPException(503, "Google sign-in is not configured yet")
+    return {"auth_url": google_oauth.build_auth_url(google_oauth.build_state())}
+
+
+@app.post(f"{V1}/auth/google/callback")
+def google_callback(body: GoogleCallbackIn, db: Session = Depends(get_db)):
+    """Exchanges Google's authorization code for CP Compass tokens.
+
+    Finds the user by google_id, else by email (linking the Google
+    account to an existing email+password account — never a duplicate
+    row). New users are created with email_verified=True: Google
+    already verified the email, so no Resend code is needed. A
+    TOTP-enabled user gets the second-step response, exactly like
+    password login — Google does not skip 2FA.
+    """
+    if not google_oauth.is_configured():
+        raise HTTPException(503, "Google sign-in is not configured yet")
+    if not google_oauth.verify_state(body.state):
+        raise HTTPException(
+            400, "Invalid or expired sign-in session — please try again")
+    try:
+        tokens = google_oauth.exchange_code(body.code)
+        claims = google_oauth.fetch_userinfo(tokens["access_token"])
+    except google_oauth.GoogleOAuthError:
+        raise HTTPException(502, "Google sign-in failed — please try again")
+    email = (claims.get("email") or "").strip().lower()
+    sub = claims.get("sub")
+    if not email or not sub or not claims.get("email_verified"):
+        raise HTTPException(400, "Google did not return a verified email")
+    user = db.query(User).filter_by(google_id=sub).first()
+    if user is None:
+        # Case-insensitive email match: Google treats the whole address
+        # case-insensitively, but password signup stores it as typed.
+        user = db.query(User).filter(func.lower(User.email) == email).first()
+        if user is not None:
+            if user.google_id is not None and user.google_id != sub:
+                raise HTTPException(
+                    400, "This email is already linked to a different Google account")
+            user.google_id = sub
+            user.email_verified = True
+        else:
+            user = User(email=email, password_hash=None, google_id=sub,
+                        email_verified=True)
+            db.add(user)
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                400, "This Google account is already linked to another account")
     if user.totp_enabled:
         return {"totp_required": True,
                 "pre_token": create_totp_pending_token(user.id),

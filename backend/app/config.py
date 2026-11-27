@@ -85,3 +85,15 @@ MAX_BODY_BYTES = int(os.environ.get("MAX_BODY_BYTES", "1048576"))  # 1 MiB
 
 # Minimum password length (F2): raised from 6 to 8.
 MIN_PASSWORD_LENGTH = 8
+
+# --- Google OAuth sign-in -------------------------------------------------
+# Client ID/secret come from the Google Cloud Console OAuth client and
+# live in the environment (Render env in production) — never in code.
+# Until they are set, GET /api/v1/auth/google answers 503 and the
+# frontend button is inert. The redirect URI must match one registered
+# on the OAuth client exactly; the frontend /auth/callback route is the
+# target in both dev and prod.
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI = os.environ.get(
+    "GOOGLE_REDIRECT_URI", "http://localhost:5173/auth/callback")

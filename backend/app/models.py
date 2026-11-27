@@ -44,7 +44,13 @@ class User(Base):
 
     id = Column(Integer, primary_key=True)
     email = Column(String, unique=True, nullable=False, index=True)
-    password_hash = Column(String, nullable=False)
+    # Google OAuth (batch google-oauth): NULL for Google-only accounts,
+    # which have no password. Password login for them is a plain 401.
+    password_hash = Column(String, nullable=True)
+    # Google `sub` claim, set when the account signs in with Google or
+    # links a Google account. Unique so one Google account links to at
+    # most one CP Compass account.
+    google_id = Column(String, nullable=True, unique=True, index=True)
     platform = Column(String, nullable=False, default="codeforces")
     current_rating = Column(Integer, nullable=True)
     # Weekly practice goal: problems to solve per week (Phase 2, Settings).
