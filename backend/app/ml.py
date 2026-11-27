@@ -24,13 +24,17 @@ numbers are stored in the model artifact):
   predicts 0.00/0.99). The shipped model is a CONSTRAINED Random
   Forest (max_depth=4, min_samples_leaf=10) with sane predictions
   (weak tags ~0.35-0.55, strong tags ~0.8).
-- NOTE (2026-11-27): the figures in this docstring are from the ORIGINAL
-  197-row demo training (test AUC 0.821, Brier 0.148; baseline 0.467 /
-  0.358; calibration rejected, CV Brier 0.157 vs 0.143). The LIVE numbers
-  are re-measured on every retrain, stored in the model artifact and
-  served by /ml/status — see README "How predictions work" for the
-  current snapshot (n=208 at last training: test AUC 0.856, Brier 0.129;
-  baseline 0.34 / 0.389; calibration SHIPPED, CV Brier 0.147 vs 0.148).
+- NOTE (Batch 3, 2026-11-28): the figures in this docstring are from the
+  ORIGINAL 197-row demo training (test AUC 0.821, Brier 0.148; baseline
+  0.467 / 0.358; calibration rejected, CV Brier 0.157 vs 0.143). The LIVE
+  numbers are re-measured on every retrain, stored in the model artifact
+  and served by /ml/status — see README "How predictions work" for the
+  current snapshot (n=204 at last training: test AUC 0.773, Brier 0.164,
+  log-loss 0.490; baseline 0.320 / 0.378 / 0.976; Elo baseline 0.664 /
+  0.212 / 0.597; calibration NOT shipped, CV Brier 0.157 vs 0.157).
+  The Batch 3 backtest also measured a leakage-free by-time split
+  (cutoff 2026-10-01: RF test AUC 0.683, log-loss 0.607) — the honest
+  generalization number; the random-split AUC is optimistic.
   Do not quote the figures here without checking the artifact first.
 - SELECTION BIAS, stated plainly: the training rows are problems the
   user already attempted — never-attempted problems (most of the
@@ -61,7 +65,7 @@ import numpy as np
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, brier_score_loss, roc_auc_score
+from sklearn.metrics import accuracy_score, brier_score_loss, log_loss, roc_auc_score
 from sklearn.model_selection import StratifiedKFold, cross_val_predict, train_test_split
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -107,11 +111,13 @@ def training_running() -> bool:
 #                   problem_rating}
 # ---------------------------------------------------------------------------
 
-def _tag_stats(rows: list[dict]) -> dict[str, dict]:
+def _tag_stats(rows: list[dict], now: datetime | None = None) -> dict[str, dict]:
     """Per-tag stats with the blueprint SS5 formula. att_set / sol_set are
     the unique attempted / solved problem keys — used to exclude a target
-    problem from its own tag acceptance (no leakage)."""
-    recent_cutoff = datetime.utcnow() - timedelta(days=RECENT_DAYS)
+    problem from its own tag acceptance (no leakage). `now` anchors the
+    30-day "recent" window (default: utcnow); the Batch 3 backtest passes
+    the cutoff date so "recent" never leaks post-cutoff submissions."""
+    recent_cutoff = (now or datetime.utcnow()) - timedelta(days=RECENT_DAYS)
     per: dict[str, dict] = defaultdict(
         lambda: {"att": set(), "sol": set(), "wrong": 0, "tot": 0,
                  "recent_sol": 0, "recent_tot": 0,
@@ -256,9 +262,13 @@ def _rows_to_xy(rows: list[dict], feature_names: list[str]):
 
 
 def _metrics(p: np.ndarray, y: np.ndarray) -> dict:
+    """Accuracy, Brier, log-loss and AUC. Batch 3: log-loss was never
+    computed before — it is the proper scoring rule for a probability, so
+    it is recorded for every model and baseline from here on."""
     pred = (p >= 0.5).astype(int)
     out = {"accuracy": round(float(accuracy_score(y, pred)), 3),
-           "brier": round(float(brier_score_loss(y, p)), 3)}
+           "brier": round(float(brier_score_loss(y, p)), 3),
+           "logloss": round(float(log_loss(y, p, labels=[0, 1])), 3)}
     try:
         out["auc"] = round(float(roc_auc_score(y, p)), 3)
     except ValueError:

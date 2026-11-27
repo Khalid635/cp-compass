@@ -47,3 +47,6 @@ start-backend.bat
 
 # archived scratch (kept, never commit)
 archive/
+
+# Batch 3: live Codeforces problemset cache for the backtest
+backend/scripts/problemset-cache.json

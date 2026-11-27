@@ -1,0 +1,397 @@
+{
+  "cutoff": "2026-10-01",
+  "generated_at": "2026-11-27T20:14:34.709137Z",
+  "protocol_a_random_split": {
+    "n_rows": 204,
+    "sources": {
+      "demo_coder (seed)": 193,
+      "Khalid_Bin_Masud": 11
+    },
+    "split": {
+      "train": 163,
+      "test": 41,
+      "solved_total": 148,
+      "unsolved_total": 56,
+      "test_solved": 30,
+      "test_unsolved": 11
+    },
+    "baseline_rule": {
+      "accuracy": 0.293,
+      "brier": 0.378,
+      "logloss": 0.976,
+      "auc": 0.32
+    },
+    "baseline_elo": {
+      "accuracy": 0.659,
+      "brier": 0.212,
+      "logloss": 0.597,
+      "auc": 0.664
+    },
+    "logreg": {
+      "cv_auc": 0.832,
+      "cv_brier": 0.147,
+      "cv_logloss": 0.445,
+      "test_extreme_share": 0.171,
+      "test_accuracy": 0.707,
+      "test_brier": 0.189,
+      "test_logloss": 0.58,
+      "test_auc": 0.712
+    },
+    "random_forest": {
+      "cv_auc": 0.816,
+      "cv_brier": 0.157,
+      "cv_logloss": 0.475,
+      "test_extreme_share": 0.049,
+      "test_accuracy": 0.756,
+      "test_brier": 0.164,
+      "test_logloss": 0.49,
+      "test_auc": 0.773
+    },
+    "hist_gb": {
+      "cv_auc": 0.981,
+      "cv_brier": 0.035,
+      "cv_logloss": 0.141,
+      "test_extreme_share": 0.927,
+      "test_accuracy": 0.976,
+      "test_brier": 0.025,
+      "test_logloss": 0.273,
+      "test_auc": 0.912
+    },
+    "calibration_random_forest_test": [
+      {
+        "bin": "0.0-0.2",
+        "n": 0,
+        "mean_predicted": null,
+        "actual_solve_rate": null
+      },
+      {
+        "bin": "0.2-0.4",
+        "n": 3,
+        "mean_predicted": 0.364,
+        "actual_solve_rate": 0.0
+      },
+      {
+        "bin": "0.4-0.6",
+        "n": 12,
+        "mean_predicted": 0.502,
+        "actual_solve_rate": 0.667
+      },
+      {
+        "bin": "0.6-0.8",
+        "n": 15,
+        "mean_predicted": 0.716,
+        "actual_solve_rate": 0.8
+      },
+      {
+        "bin": "0.8-1.0",
+        "n": 11,
+        "mean_predicted": 0.906,
+        "actual_solve_rate": 0.909
+      }
+    ]
+  },
+  "protocol_b_by_time": {
+    "cutoff": "2026-10-01T00:00:00",
+    "n_train": 157,
+    "n_test": 36,
+    "train_solved": 107,
+    "test_solved": 21,
+    "top_tags": [
+      "greedy",
+      "dp",
+      "implementation",
+      "graphs",
+      "math"
+    ],
+    "baseline_rule": {
+      "accuracy": 0.222,
+      "brier": 0.388,
+      "logloss": 0.999,
+      "auc": 0.203
+    },
+    "baseline_elo": {
+      "accuracy": 0.583,
+      "brier": 0.275,
+      "logloss": 0.847,
+      "auc": 0.706
+    },
+    "logreg": {
+      "cv_auc": 0.802,
+      "cv_brier": 0.165,
+      "cv_logloss": 0.501,
+      "test_extreme_share": 0.0,
+      "test_accuracy": 0.611,
+      "test_brier": 0.202,
+      "test_logloss": 0.585,
+      "test_auc": 0.776
+    },
+    "random_forest": {
+      "cv_auc": 0.805,
+      "cv_brier": 0.169,
+      "cv_logloss": 0.508,
+      "test_extreme_share": 0.0,
+      "test_accuracy": 0.722,
+      "test_brier": 0.209,
+      "test_logloss": 0.607,
+      "test_auc": 0.683
+    },
+    "hist_gb": {
+      "cv_auc": 0.971,
+      "cv_brier": 0.058,
+      "cv_logloss": 0.212,
+      "test_extreme_share": 0.806,
+      "test_accuracy": 0.722,
+      "test_brier": 0.274,
+      "test_logloss": 1.427,
+      "test_auc": 0.522
+    },
+    "calibration_random_forest_test": [
+      {
+        "bin": "0.0-0.2",
+        "n": 0,
+        "mean_predicted": null,
+        "actual_solve_rate": null
+      },
+      {
+        "bin": "0.2-0.4",
+        "n": 7,
+        "mean_predicted": 0.368,
+        "actual_solve_rate": 0.143
+      },
+      {
+        "bin": "0.4-0.6",
+        "n": 10,
+        "mean_predicted": 0.566,
+        "actual_solve_rate": 0.8
+      },
+      {
+        "bin": "0.6-0.8",
+        "n": 19,
+        "mean_predicted": 0.732,
+        "actual_solve_rate": 0.632
+      },
+      {
+        "bin": "0.8-1.0",
+        "n": 0,
+        "mean_predicted": null,
+        "actual_solve_rate": null
+      }
+    ]
+  },
+  "protocol_c_precision_at_k": {
+    "ran": true,
+    "rating_at_cutoff": 1443,
+    "pool_size": 995,
+    "rule_pool_size": 995,
+    "post_cutoff_attempted": 36,
+    "post_cutoff_solved": 21,
+    "post_cutoff_in_pool": 4,
+    "post_cutoff_in_band": 4,
+    "base_solve_rate_post_cutoff": 0.583,
+    "topk": {
+      "rule_score": {
+        "k3": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        },
+        "k5": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        },
+        "k10": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        },
+        "k50": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        },
+        "k100": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        }
+      },
+      "ml_probability": {
+        "k3": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        },
+        "k5": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        },
+        "k10": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        },
+        "k50": {
+          "attempted": 1,
+          "solved": 0,
+          "precision": 0.0
+        },
+        "k100": {
+          "attempted": 1,
+          "solved": 0,
+          "precision": 0.0
+        }
+      },
+      "elo": {
+        "k3": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        },
+        "k5": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        },
+        "k10": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        },
+        "k50": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        },
+        "k100": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        }
+      },
+      "random": {
+        "k3": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        },
+        "k5": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        },
+        "k10": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        },
+        "k50": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        },
+        "k100": {
+          "attempted": 0,
+          "solved": 0,
+          "precision": null
+        }
+      }
+    },
+    "predictor_on_post_cutoff": {
+      "rule_score": {
+        "accuracy": 0.222,
+        "brier": 0.388,
+        "logloss": 0.999,
+        "auc": 0.203
+      },
+      "ml_probability": {
+        "accuracy": 0.722,
+        "brier": 0.209,
+        "logloss": 0.607,
+        "auc": 0.683
+      },
+      "elo": {
+        "accuracy": 0.583,
+        "brier": 0.275,
+        "logloss": 0.847,
+        "auc": 0.706
+      }
+    }
+  },
+  "retrain": {
+    "trained": true,
+    "model_type": "RandomForest (n=300, max_depth=4, min_samples_leaf=10)",
+    "trained_at": "2026-11-27T20:15:05.705916Z",
+    "n_rows": 204,
+    "n_solved": 148,
+    "sources": {
+      "demo_coder (seed)": 193,
+      "Khalid_Bin_Masud": 11
+    },
+    "demo_rows": 193,
+    "real_rows": 11,
+    "features": [
+      "user_rating",
+      "problem_rating",
+      "rating_diff",
+      "min_tag_acc",
+      "mean_tag_acc",
+      "prev_attempts",
+      "tag_greedy",
+      "tag_dp",
+      "tag_implementation",
+      "tag_graphs",
+      "tag_math",
+      "tag_brute force"
+    ],
+    "evaluation": {
+      "split": {
+        "train": 163,
+        "test": 41,
+        "solved_total": 148,
+        "unsolved_total": 56
+      },
+      "baseline": {
+        "accuracy": 0.293,
+        "brier": 0.378,
+        "logloss": 0.976,
+        "auc": 0.32
+      },
+      "baseline_note": "The rule-based score is a practice-priority score, not a solvability score \u2014 it rewards weak tags and harder problems, so it scores below chance as a probability.",
+      "logreg": {
+        "cv_auc": 0.832,
+        "cv_brier": 0.147,
+        "test_accuracy": 0.707,
+        "test_brier": 0.189,
+        "test_logloss": 0.58,
+        "test_auc": 0.712
+      },
+      "random_forest": {
+        "cv_auc": 0.816,
+        "cv_brier": 0.157,
+        "test_accuracy": 0.756,
+        "test_brier": 0.164,
+        "test_logloss": 0.49,
+        "test_auc": 0.773
+      },
+      "hist_gb": {
+        "cv_auc": 0.981,
+        "cv_brier": 0.035,
+        "test_accuracy": 0.976,
+        "test_brier": 0.025,
+        "test_logloss": 0.273,
+        "test_auc": 0.912
+      },
+      "calibration": {
+        "tried": "sigmoid (CalibratedClassifierCV, cv=3)",
+        "cv_brier_uncalibrated": 0.157,
+        "cv_brier_calibrated": 0.157,
+        "shipped_calibrated": false
+      }
+    },
+    "shipped": true,
+    "ship_reason": "Random Forest beats the baseline on held-out AUC and Brier.",
+    "bias_note": "Rows are problems the user already attempted; never-attempted problems are not in the data. Demo rows are synthetic (seed.py). Treat the probability as a hint, not a guarantee."
+  }
+}
