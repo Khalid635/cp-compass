@@ -484,27 +484,24 @@ def _load_artifact():
     return artifact
 
 
-def get_or_train(db=None):
-    """Returns the artifact, training lazily (demo + DB rows) if missing."""
+def model_status(db=None, own_handle=None) -> dict:
+    """Public status payload for the UI.
+
+    Batch 1 (audit F5): NEVER trains here — training happens only at
+    startup (background) or via /ml/retrain (cooldown-gated). If no
+    artifact exists yet, the honest answer is "not trained yet".
+    Batch 1 (audit F9): per-user sources are scoped to the requesting
+    user's own handle; the demo gets aggregates only. The `db` argument
+    is kept for signature compatibility and is unused."""
     artifact = _load_artifact()
-    if artifact is not None:
-        return artifact
-    try:
-        train_model(db)
-    except Exception as exc:  # noqa: BLE001 — never break the API on ML
-        print(f"[ml] training failed: {exc}")
-        return None
-    return _load_artifact()
-
-
-def model_status(db=None) -> dict:
-    """Public status payload for the UI. Trains lazily on first call."""
-    artifact = get_or_train(db)
     if artifact is None:
         return {"trained": False,
-                "reason": "Model could not be trained yet."}
+                "reason": "Model not trained yet."}
     md = artifact["metadata"]
     ev = md["evaluation"]
+    sources = md["sources"]
+    scoped_sources = ({own_handle: sources[own_handle]}
+                      if own_handle and own_handle in sources else {})
     return {
         "trained": True,
         "model_type": md["model_type"],
@@ -513,7 +510,7 @@ def model_status(db=None) -> dict:
         "n_solved": md["n_solved"],
         "demo_rows": md["demo_rows"],
         "real_rows": md["real_rows"],
-        "sources": md["sources"],
+        "sources": scoped_sources,
         "features": md["features"],
         "shipped": md["shipped"],
         "ship_reason": md["ship_reason"],
@@ -586,21 +583,22 @@ def _prev_attempts_map(submissions: list[dict]) -> dict:
     return dict(prev)
 
 
-def predict_for_user(db, user, problems: list[dict]) -> dict:
+def predict_for_user(db, user, problems: list[dict], handle=None) -> dict:
     """Predictions for one DB user. `problems` are recommendation-shaped
-    dicts ({contest_id, index, name, rating, tags})."""
-    artifact = get_or_train(db)
+    dicts ({contest_id, index, name, rating, tags}). No lazy training
+    (audit F5) — without an artifact every probability is None."""
+    artifact = _load_artifact()
     subs = _user_submission_dicts(db, user.id)
     stats = _tag_stats(subs)
     prev = _prev_attempts_map(subs)
     rating = user.current_rating or 1200
     return {"predictions": _predict_rows(artifact, rating, stats, prev, problems),
-            "model": model_status(db) if artifact else {"trained": False}}
+            "model": model_status(db, handle) if artifact else {"trained": False}}
 
 
 def predict_for_demo(problems: list[dict]) -> dict:
     """Predictions for the demo persona (rating 1478, seed history)."""
-    artifact = get_or_train(None)
+    artifact = _load_artifact()
     subs, _, _ = _demo_set()
     stats = _tag_stats(subs)
     prev = _prev_attempts_map(subs)

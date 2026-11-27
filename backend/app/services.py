@@ -787,6 +787,8 @@ def settings_data(db: Session, user: User) -> dict:
     week = _week_stats(db, user.id, monday)
     return {
         "email": user.email,
+        "email_verified": bool(user.email_verified),
+        "totp_enabled": bool(user.totp_enabled),
         "cf_handle": account.handle if account else None,
         "rank": account.rank if account else None,
         "current_rating": user.current_rating,

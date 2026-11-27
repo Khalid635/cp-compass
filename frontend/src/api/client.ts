@@ -106,18 +106,86 @@ export interface AuthResponse {
   cf_handle: string | null;
 }
 
+/* Batch 1 security: register no longer returns tokens — it returns a
+   verification prompt, and login may stop at the 2FA second step. */
+export interface RegisterResponse {
+  email: string;
+  verification_required: boolean;
+  message: string;
+}
+
+export interface LoginResponse {
+  access_token?: string;
+  refresh_token?: string;
+  token_type?: string;
+  email: string;
+  cf_handle?: string | null;
+  totp_required?: boolean;
+  pre_token?: string;
+}
+
+export interface HandleStartResponse {
+  handle: string;
+  token: string;
+  expires_in_minutes: number;
+  fields: string[];
+  message: string;
+}
+
+export interface HandlePendingResponse {
+  pending: { handle: string; expires_at: string; attempts_left: number } | null;
+}
+
 export const api = {
   health: () => request<{ status: string }>(`${V1}/health`),
   register: (email: string, password: string) =>
-    request<AuthResponse>(`${V1}/auth/register`, {
+    request<RegisterResponse>(`${V1}/auth/register`, {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    }),
+  verifyEmail: (email: string, code: string) =>
+    request<AuthResponse>(`${V1}/auth/verify-email`, {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    }),
+  resendCode: (email: string) =>
+    request<{ ok: boolean; message: string }>(`${V1}/auth/resend-code`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
     }),
   login: (email: string, password: string) =>
-    request<AuthResponse>(`${V1}/auth/login`, {
+    request<LoginResponse>(`${V1}/auth/login`, {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
+  totpVerify: (pre_token: string, code: string) =>
+    request<AuthResponse>(`${V1}/auth/2fa/verify`, {
+      method: 'POST',
+      body: JSON.stringify({ pre_token, code }),
+    }),
+  totpStatus: () =>
+    request<{ enabled: boolean; backup_codes_remaining: number }>(
+      `${V1}/auth/2fa/status`,
+    ),
+  totpSetup: () =>
+    request<{ secret: string; otpauth_uri: string }>(`${V1}/auth/2fa/setup`, {
+      method: 'POST',
+    }),
+  totpEnable: (code: string) =>
+    request<{ ok: boolean; backup_codes: string[] }>(`${V1}/auth/2fa/enable`, {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+  totpDisable: (password: string) =>
+    request<{ ok: boolean }>(`${V1}/auth/2fa/disable`, {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
+  totpRegenerateCodes: (password: string) =>
+    request<{ ok: boolean; backup_codes: string[] }>(
+      `${V1}/auth/2fa/backup-codes`,
+      { method: 'POST', body: JSON.stringify({ password }) },
+    ),
   logout: () => {
     const rt = refreshToken();
     if (!rt) return Promise.resolve({ ok: true });
@@ -130,9 +198,18 @@ export const api = {
     request<{ email: string; cf_handle: string | null; current_rating: number | null }>(
       `${V1}/auth/me`,
     ),
-  setHandle: (handle: string) =>
+  /* Handle verification (Batch 1 / F1): ownership proof via a profile
+     token — the old direct-link endpoint is closed server-side. */
+  startHandleVerification: (handle: string) =>
+    request<HandleStartResponse>(`${V1}/auth/handle/start`, {
+      method: 'POST',
+      body: JSON.stringify({ handle }),
+    }),
+  pendingHandleVerification: () =>
+    request<HandlePendingResponse>(`${V1}/auth/handle/pending`),
+  confirmHandleVerification: (handle: string) =>
     request<{ cf_handle: string; current_rating: number | null; rank?: string }>(
-      `${V1}/auth/handle`,
+      `${V1}/auth/handle/confirm`,
       { method: 'POST', body: JSON.stringify({ handle }) },
     ),
   startSync: () => request<{ job_id: number; status: string }>(`${V1}/sync`, { method: 'POST' }),
@@ -202,8 +279,11 @@ export const api = {
     }),
   disconnectHandle: () =>
     request<{ ok: boolean }>(`${V1}/settings/handle`, { method: 'DELETE' }),
-  deleteAccount: () =>
-    request<{ ok: boolean }>(`${V1}/auth/account`, { method: 'DELETE' }),
+  deleteAccount: (password: string) =>
+    request<{ ok: boolean }>(`${V1}/auth/account`, {
+      method: 'DELETE',
+      body: JSON.stringify({ password }),
+    }),
   exportData: () => request<Record<string, unknown>>(`${V1}/export`),
 
   /* Demo — no auth, read-only, honestly labelled seed data. */

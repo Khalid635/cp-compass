@@ -1,6 +1,19 @@
+/* Auth state. Batch 1 security: register no longer logs the user in
+   (an email code must be verified first), and login may stop at the
+   TOTP second step — both return their response so the page can branch
+   on it. Handle linking goes through the profile-token flow. */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { api, clearTokens, storeTokens } from '../api/client';
+import {
+  api,
+  clearTokens,
+  storeTokens,
+} from '../api/client';
+import type {
+  HandleStartResponse,
+  LoginResponse,
+  RegisterResponse,
+} from '../api/client';
 
 export interface AuthUser {
   email: string;
@@ -11,11 +24,14 @@ export interface AuthUser {
 interface AuthState {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<LoginResponse>;
+  register: (email: string, password: string) => Promise<RegisterResponse>;
+  verifyEmail: (email: string, code: string) => Promise<void>;
+  verifyTotp: (preToken: string, code: string) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
-  setHandle: (handle: string) => Promise<void>;
+  startHandleVerification: (handle: string) => Promise<HandleStartResponse>;
+  confirmHandleVerification: (handle: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -49,13 +65,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.login(email, password);
+    if (res.totp_required) return res; // second step: TOTP code
+    if (!res.access_token || !res.refresh_token) return res;
+    storeTokens(res.access_token, res.refresh_token);
+    const me = await api.me();
+    setUser(me);
+    return res;
+  }, []);
+
+  const register = useCallback(async (email: string, password: string) => {
+    // No auto-login: the account is unverified until the email code.
+    return api.register(email, password);
+  }, []);
+
+  const verifyEmail = useCallback(async (email: string, code: string) => {
+    const res = await api.verifyEmail(email, code);
     storeTokens(res.access_token, res.refresh_token);
     const me = await api.me();
     setUser(me);
   }, []);
 
-  const register = useCallback(async (email: string, password: string) => {
-    const res = await api.register(email, password);
+  const verifyTotp = useCallback(async (preToken: string, code: string) => {
+    const res = await api.totpVerify(preToken, code);
     storeTokens(res.access_token, res.refresh_token);
     const me = await api.me();
     setUser(me);
@@ -67,15 +98,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const setHandle = useCallback(async (handle: string) => {
-    await api.setHandle(handle);
+  const startHandleVerification = useCallback(async (handle: string) => {
+    return api.startHandleVerification(handle);
+  }, []);
+
+  const confirmHandleVerification = useCallback(async (handle: string) => {
+    await api.confirmHandleVerification(handle);
     const me = await api.me();
     setUser(me);
   }, []);
 
   const value = useMemo(
-    () => ({ user, loading, login, register, logout, refresh, setHandle }),
-    [user, loading, login, register, logout, refresh, setHandle],
+    () => ({
+      user, loading, login, register, verifyEmail, verifyTotp, logout,
+      refresh, startHandleVerification, confirmHandleVerification,
+    }),
+    [user, loading, login, register, verifyEmail, verifyTotp, logout,
+     refresh, startHandleVerification, confirmHandleVerification],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

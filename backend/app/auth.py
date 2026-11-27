@@ -31,6 +31,11 @@ from .models import RefreshToken, User
 bearer = HTTPBearer(auto_error=False)
 _ph = PasswordHasher()
 
+# A fixed Argon2 hash of a password nobody knows: verified when the
+# login email does not exist, so a wrong-email login costs the same
+# time as a wrong-password login (audit F7 — no timing oracle).
+_DUMMY_HASH = _ph.hash("no-such-password-" + secrets.token_hex(16))
+
 
 def hash_password(password: str) -> str:
     return _ph.hash(password)
@@ -43,11 +48,36 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
+def verify_password_dummy(password: str) -> bool:
+    """Burns the same Argon2 time as a real check; always False."""
+    return verify_password(password, _DUMMY_HASH)
+
+
 def create_access_token(user_id: int) -> str:
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_EXPIRE_MINUTES)
     return jwt.encode(
         {"sub": str(user_id), "type": "access", "exp": expire},
         SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def create_totp_pending_token(user_id: int) -> str:
+    """Short-lived token for the 2FA second step: proves the password
+    was just accepted, but grants nothing by itself. 5 minutes."""
+    expire = datetime.utcnow() + timedelta(minutes=5)
+    return jwt.encode(
+        {"sub": str(user_id), "type": "totp_pending", "exp": expire},
+        SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def decode_totp_pending_token(raw: str) -> int | None:
+    """Returns the user id if the token is a live totp_pending token."""
+    try:
+        payload = jwt.decode(raw, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        if payload.get("type") != "totp_pending":
+            return None
+        return int(payload["sub"])
+    except (JWTError, KeyError, ValueError):
+        return None
 
 
 def _new_refresh_token(db: Session, user_id: int) -> str:
@@ -77,16 +107,31 @@ def _find_refresh_token(db: Session, raw: str) -> RefreshToken | None:
 
 def refresh_tokens(db: Session, raw: str) -> tuple[dict, int] | None:
     """Validates a refresh token and rotates it.
-    Returns (new tokens, user_id) or None."""
-    row = _find_refresh_token(db, raw)
-    if row is None or row.revoked_at is not None:
-        return None
-    if row.expires_at < datetime.utcnow():
-        return None
-    user_id = row.user_id
-    row.revoked_at = datetime.utcnow()  # rotation: old token dies here
+    Returns (new tokens, user_id) or None.
+
+    Batch 1 / audit F4 — reuse detection: the rotation is one atomic
+    UPDATE ... WHERE revoked_at IS NULL, so two concurrent refreshes
+    with the same token cannot both succeed. Presenting a token that
+    was already rotated (revoked, not yet expired) is treated as theft:
+    the whole token family is revoked, so the attacker's rotated copy
+    dies too, and the user must log in again."""
+    token_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    now = datetime.utcnow()
+    rotated = db.query(RefreshToken).filter(
+        RefreshToken.token_hash == token_hash,
+        RefreshToken.revoked_at.is_(None),
+        RefreshToken.expires_at > now,
+    ).update({"revoked_at": now}, synchronize_session=False)
     db.commit()
-    return issue_tokens(db, user_id), user_id
+    if rotated:
+        row = db.query(RefreshToken).filter_by(token_hash=token_hash).first()
+        return issue_tokens(db, row.user_id), row.user_id
+    # No live token matched. If the token exists and was revoked while
+    # still unexpired, it was replayed after rotation -> revoke family.
+    row = db.query(RefreshToken).filter_by(token_hash=token_hash).first()
+    if row is not None and row.revoked_at is not None and row.expires_at > now:
+        revoke_all_refresh_tokens(db, row.user_id)
+    return None
 
 
 def revoke_refresh_token(db: Session, raw: str) -> bool:

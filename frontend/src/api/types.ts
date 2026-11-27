@@ -259,6 +259,8 @@ export interface ProblemDetailData {
 
 export interface SettingsData {
   email: string | null;
+  email_verified: boolean;
+  totp_enabled: boolean;
   cf_handle: string | null;
   rank: string | null;
   current_rating: number | null;

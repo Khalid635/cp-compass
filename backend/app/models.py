@@ -49,6 +49,13 @@ class User(Base):
     current_rating = Column(Integer, nullable=True)
     # Weekly practice goal: problems to solve per week (Phase 2, Settings).
     weekly_goal = Column(Integer, nullable=False, default=5)
+    # Batch 1 security: email verified via a code at signup; TOTP 2FA is
+    # optional per user. Accounts created before verification existed are
+    # backfilled verified by migration 0003 (dev DB only).
+    email_verified = Column(Boolean, nullable=False, default=False)
+    totp_enabled = Column(Boolean, nullable=False, default=False)
+    # Last ML retrain (Batch 1 F5 cooldown: max 1 retrain per user per hour).
+    last_retrain_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now, nullable=False)
 
 
@@ -253,3 +260,77 @@ class RefreshToken(Base):
     expires_at = Column(DateTime, nullable=False)
     revoked_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now, nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Batch 1 security tables (audit F1 / F6).
+# ---------------------------------------------------------------------------
+
+class EmailVerification(Base):
+    """One-time 6-digit signup code. Only the SHA-256 hash is stored; a
+    code expires after EMAIL_CODE_EXPIRE_MINUTES and dies after
+    EMAIL_CODE_MAX_ATTEMPTS wrong guesses. Old rows are deleted when a
+    new code is issued so exactly one live code exists per user."""
+
+    __tablename__ = "email_verifications"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    email = Column(String, nullable=False)
+    code_hash = Column(String, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    attempts = Column(Integer, nullable=False, default=0)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_now, nullable=False)
+
+
+class TotpSecret(Base):
+    """Per-user TOTP secret for authenticator-app 2FA. The secret is
+    stored encrypted with a key derived from SECRET_KEY (see app.totp),
+    never in plaintext. A row exists only while 2FA is being set up or
+    is enabled; disabling 2FA deletes it."""
+
+    __tablename__ = "totp_secrets"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, unique=True, index=True)
+    secret_encrypted = Column(String, nullable=False)
+    created_at = Column(DateTime, default=_now, nullable=False)
+
+
+class BackupCode(Base):
+    """Single-use 2FA backup codes (SHA-256 hashed). Shown to the user
+    once when 2FA is enabled or regenerated; a used code is marked and
+    can never be reused."""
+
+    __tablename__ = "backup_codes"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    code_hash = Column(String, nullable=False, index=True)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_now, nullable=False)
+
+
+class HandleVerification(Base):
+    """Pending Codeforces handle ownership proof (audit F1). The user
+    puts a random token in an editable Codeforces profile field
+    (first name / last name / city / organization — user.info has no
+    'about' field) and the backend confirms it via the public CF API
+    before linking. Expires after 1 hour; 5 confirm attempts max."""
+
+    __tablename__ = "handle_verifications"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    handle = Column(String, nullable=False)
+    handle_norm = Column(String, nullable=False)
+    token_hash = Column(String, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    attempts = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=_now, nullable=False)
+

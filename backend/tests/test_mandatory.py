@@ -132,6 +132,8 @@ def test_2_interrupted_sync_recovers(client, db):
 
 
 def test_3_bad_handle_clear_error(client, db, monkeypatch):
+    """Batch 1: bad handle -> clear error on the verification start step;
+    the old direct-link endpoint is closed (it cannot prove ownership)."""
     from app.cf import CFError
 
     async def bad_handle(handle):
@@ -140,10 +142,14 @@ def test_3_bad_handle_clear_error(client, db, monkeypatch):
     monkeypatch.setattr("app.main.cf.verify_handle", bad_handle)
     user = _user(db)
     headers, _ = _auth_headers(user.id)
-    res = client.post("/api/v1/auth/handle", json={"handle": "no-such-handle-xyz"},
-                      headers=headers)
+    res = client.post("/api/v1/auth/handle/start",
+                      json={"handle": "no-such-handle-xyz"}, headers=headers)
     assert res.status_code == 400
     assert "Codeforces" in res.json()["detail"]
+    res = client.post("/api/v1/auth/handle", json={"handle": "tourist"},
+                      headers=headers)
+    assert res.status_code == 400
+    assert "verification" in res.json()["detail"]
 
 
 def test_4_notes_isolation(client, db):

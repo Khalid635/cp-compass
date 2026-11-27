@@ -185,6 +185,51 @@ export interface Dict {
   handlePlaceholder: string;
   verifyConnect: string;
   handleVerifyError: string;
+  // Batch 1 — email verification
+  verifyEmailTitle: string;
+  verifyEmailText: (email: string) => string;
+  verifyCodeLabel: string;
+  verifyCodePlaceholder: string;
+  verifyEmailBtn: string;
+  resendCode: string;
+  codeResent: string;
+  // Batch 1 — TOTP 2FA
+  totpTitle: string;
+  totpText: string;
+  totpCodeLabel: string;
+  totpUseBackup: string;
+  totpVerifyBtn: string;
+  totpSetupTitle: string;
+  totpSetupText: string;
+  totpScanQr: string;
+  totpManualSecret: string;
+  totpEnableBtn: string;
+  totpEnabled: string;
+  totpDisabled: string;
+  totpDisableBtn: string;
+  totpBackupTitle: string;
+  totpBackupText: string;
+  totpBackupSaved: string;
+  totpRegenerate: string;
+  totpStatusOn: string;
+  totpStatusOff: string;
+  totpRemaining: (n: number) => string;
+  // Batch 1 — handle verification
+  handleStep1Text: string;
+  handleTokenLabel: string;
+  handleTokenHint: string;
+  handleConfirmBtn: string;
+  handleVerified: string;
+  handlePendingText: (handle: string) => string;
+  handleStartAgain: string;
+  copyToken: string;
+  tokenCopied: string;
+  // Batch 1 — security
+  securityTitle: string;
+  emailVerified: string;
+  emailNotVerified: string;
+  passwordConfirmLabel: string;
+  deletePasswordHint: string;
   // 404
   notFoundTitle: string;
   notFoundText: string;
