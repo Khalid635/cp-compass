@@ -24,6 +24,8 @@ import { CumulativeSolved, Heatmap, RatingChart, TopicRadar } from '../component
 import type { ChartRange } from '../components/charts';
 import { RecentSubmissions, StatCard } from '../components/cards';
 import { GoalRings } from '../components/GoalRings';
+import { HudPanel } from '../components/HudPanel';
+import { SegmentedScore } from '../components/SegmentedScore';
 import { ColdStartBanner } from '../components/layout';
 import { Button, Card, EmptyState, RatingBadge, SegmentedControl, Skeleton } from '../components/ui';
 import { HandleConnect } from './Auth';
@@ -185,6 +187,19 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
         )}
       </div>
 
+      {/* HUD telemetry strip — ops-style status line, real data only. */}
+      <HudPanel
+        rating={d.stats?.rating ?? null}
+        delta={delta}
+        solved={d.stats?.solved ?? 0}
+        streak={d.stats?.streak ?? 0}
+        revisionsDue={d.stats?.revisions_due ?? 0}
+        rankName={rank.name}
+        synced={d.synced}
+        demo={demo}
+        lastContest={t.lastContest}
+      />
+
       {/* Row 1 — stat cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
@@ -242,21 +257,18 @@ export default function Dashboard({ demo = false }: { demo?: boolean }) {
                   {t.navSettings} →
                 </Link>
               </div>
-              <div className="h-2.5 w-full overflow-hidden rounded-full bg-surface-2">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-500"
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      Math.round(
-                        (settingsQuery.data.solved_this_week /
-                          Math.max(1, settingsQuery.data.weekly_goal)) *
-                          100,
-                      ),
-                    )}%`,
-                  }}
-                />
-              </div>
+              <SegmentedScore
+                pct={Math.round(
+                  (settingsQuery.data.solved_this_week /
+                    Math.max(1, settingsQuery.data.weekly_goal)) *
+                    100,
+                )}
+                variant="wide"
+                label={t.settingsGoalProgress(
+                  settingsQuery.data.solved_this_week,
+                  settingsQuery.data.weekly_goal,
+                )}
+              />
               {settingsQuery.data.solved_this_week >= settingsQuery.data.weekly_goal && (
                 <p className="text-xs text-success">{t.weeklyGoalDone}</p>
               )}

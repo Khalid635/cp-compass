@@ -2,10 +2,12 @@
    one ring per top tag, acceptance % in the centre, a fixed 80% goal, and
    one action that jumps to Practice pre-filtered by that tag. No invented
    numbers — every % is the tag's real acceptance rate. */
+import type { CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { TagStrength } from '../api/types';
 import { useLanguage } from '../i18n';
 import { Button } from './ui';
+import { SegmentedScore } from './SegmentedScore';
 
 const GOAL_PCT = 80;
 
@@ -26,6 +28,9 @@ function Ring({ pct, weak }: { pct: number; weak: boolean }) {
         strokeWidth="9"
         strokeLinecap="round"
         strokeDasharray={`${filled * c} ${c}`}
+        strokeDashoffset={c - filled * c}
+        className="ring-sweep"
+        style={{ '--ring-c': c, '--ring-off': c - filled * c } as CSSProperties}
         transform="rotate(-90 48 48)"
       />
       <text
@@ -61,6 +66,7 @@ export function GoalRings({ tags, base }: { tags: TagStrength[]; base: string })
             className="flex flex-col items-center gap-1 rounded-lg border border-border bg-bg p-4 text-center"
           >
             <Ring pct={pct} weak={tg.weak} />
+            <SegmentedScore pct={pct} label={`${tg.tag} acceptance ${pct}%`} />
             <p className="mt-1 text-sm font-semibold">{tg.tag}</p>
             <p className="text-xs text-muted">
               {t.goalAttempted(tg.attempted)} · {t.goalTarget(GOAL_PCT)}

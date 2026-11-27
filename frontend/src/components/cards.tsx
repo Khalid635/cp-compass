@@ -30,7 +30,7 @@ export function StatCard({
 }) {
   return (
     <div
-      className="rounded-lg border border-border bg-surface p-5"
+      className="frost rounded-lg border border-border p-5 transition-transform duration-200 hover:-translate-y-0.5"
       style={{ boxShadow: 'var(--shadow-card)' }}
     >
       <div className="flex items-center justify-between">

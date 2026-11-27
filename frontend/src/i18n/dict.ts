@@ -49,7 +49,11 @@ export interface Dict {
   coldStart: string;
   // landing
   landingBadge: string;
-  landingTitle: string;
+  landingTitlePre: string;
+  landingTitleOutline: string;
+  landingTitleMid: string;
+  landingTitleGold: string;
+  landingTitlePost: string;
   landingSub: string;
   tryDemoNoLogin: string;
   tryDemo: string;

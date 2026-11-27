@@ -162,7 +162,7 @@ export default function Analytics({ demo = false }: { demo?: boolean }) {
                     }}
                   />
                   <Bar dataKey="solved" fill="var(--primary)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
-                  <Bar dataKey="attempted" fill="var(--surface-2)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                  <Bar dataKey="attempted" fill="var(--gold-bar)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -172,7 +172,7 @@ export default function Analytics({ demo = false }: { demo?: boolean }) {
               <span className="inline-block h-2.5 w-2.5 rounded-sm bg-primary" /> {t.statSolved}
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-surface-2" /> {t.problemAttempts}
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-gold-bar" /> {t.problemAttempts}
             </span>
           </div>
         </Card>

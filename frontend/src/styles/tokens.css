@@ -27,10 +27,17 @@
    Contrast re-verified with a WCAG script after the 2026-11-27 colour-fix
    batch (see ratios in the batch report): dark muted 9.64:1 on bg,
    light muted 5.57:1, primary button dark text 7.62:1 on teal.
-   Semantic + rank colours unchanged. */
+   Semantic + rank colours unchanged.
+   Dashboard-apply batch 2026-11-27: dark --bg #0a0f0e -> #050505
+   (Freight near-black; #131f1b cards now stand out — the flatness nit
+   from the 18:28 colour review). New --gold (#ffc800 dark / #8a6d00
+   light, 3:1+ on light bg) for ONE hero word only; --gold-bar
+   (#c9b89a dark / #a08c5f light) for secondary bars. Fonts: Wide
+   Signal — Manrope body, Spline Sans Mono data, Michroma display;
+   Inter + JetBrains Mono removed; Noto Sans Bengali kept. */
 
 :root[data-theme="dark"] {
-  --bg: #0a0f0e;
+  --bg: #050505;
   --surface: #131f1b;
   --surface-2: #1a2c26;
   --primary: #2bb8c6;
@@ -44,6 +51,8 @@
   --success: #34d399;
   --warning: #fbbf24;
   --danger: #f87171;
+  --gold: #ffc800;
+  --gold-bar: #c9b89a;
   --rank-newbie: #9ca3af;
   --rank-pupil: #4ade80;
   --rank-specialist: #2dd4bf;
@@ -72,6 +81,8 @@
   --success: #047857;
   --warning: #b45309;
   --danger: #b91c1c;
+  --gold: #8a6d00;
+  --gold-bar: #a08c5f;
   --rank-newbie: #6b7280;
   --rank-pupil: #15803d;
   --rank-specialist: #0f766e;
@@ -95,8 +106,9 @@
 }
 
 @theme inline {
-  --font-sans: "Inter", "Noto Sans Bengali", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "Manrope", "Noto Sans Bengali", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Spline Sans Mono", "Noto Sans Bengali", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: "Michroma", "Manrope", "Noto Sans Bengali", ui-sans-serif, sans-serif;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   --color-bg: var(--bg);
@@ -113,6 +125,8 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-gold: var(--gold);
+  --color-gold-bar: var(--gold-bar);
   --color-rank-newbie: var(--rank-newbie);
   --color-rank-pupil: var(--rank-pupil);
   --color-rank-specialist: var(--rank-specialist);

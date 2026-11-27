@@ -109,3 +109,18 @@
     transition-duration: 1ms !important;
   }
 }
+
+@keyframes ring-sweep {
+  from {
+    stroke-dashoffset: var(--ring-c);
+  }
+  to {
+    stroke-dashoffset: var(--ring-off);
+  }
+}
+
+/* Goal rings sweep in once on load (~300ms). Under
+   prefers-reduced-motion the global rule collapses this to 1ms. */
+.ring-sweep {
+  animation: ring-sweep 300ms var(--ease-out) both;
+}

@@ -256,9 +256,13 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
           </motion.div>
           <motion.h1
             {...rise(0.08)}
-            className="hero-shimmer relative z-[1] mx-auto mt-5 max-w-[26ch] text-[clamp(2.25rem,5vw,3.5rem)] font-semibold leading-[1.1] tracking-tight"
+            className="font-display relative z-[1] mx-auto mt-5 max-w-[26ch] text-[clamp(2.25rem,5vw,3.5rem)] font-normal leading-[1.15]"
           >
-            {t.landingTitle}
+            {t.landingTitlePre}
+            <span className="text-outline">{t.landingTitleOutline}</span>
+            {t.landingTitleMid}
+            <span className="text-gold">{t.landingTitleGold}</span>
+            {t.landingTitlePost}
           </motion.h1>
           <motion.p {...rise(0.16)} className="mx-auto mt-4 max-w-xl text-base text-muted md:text-lg">
             {t.landingSub}

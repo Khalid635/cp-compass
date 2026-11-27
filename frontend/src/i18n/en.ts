@@ -34,7 +34,11 @@ export const en: Dict = {
   coldStart: 'Waking up the server (free hosting). This can take up to a minute.',
 
   landingBadge: 'Codeforces only · 100% free',
-  landingTitle: 'Your Codeforces data knows what to practice next.',
+  landingTitlePre: 'Your ',
+  landingTitleOutline: 'Codeforces',
+  landingTitleMid: ' data knows what to ',
+  landingTitleGold: 'practice',
+  landingTitlePost: ' next.',
   landingSub:
     'CP Compass turns your submissions into a daily plan: which topic is weak, which problem to solve today, and what to revise.',
   tryDemoNoLogin: 'Try demo — no login',

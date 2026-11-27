@@ -32,7 +32,7 @@ export function Logo({ size = 28 }: { size?: number }) {
   return (
     <span className="inline-flex items-center gap-2 font-semibold">
       <Compass size={size} className="text-primary" aria-hidden />
-      <span className="text-base tracking-tight">CP Compass</span>
+      <span className="font-display text-base">CP Compass</span>
     </span>
   );
 }

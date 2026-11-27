@@ -34,7 +34,11 @@ export const bn: Dict = {
   coldStart: 'সার্ভার চালু হচ্ছে (ফ্রি হোস্টিং)। এক মিনিট পর্যন্ত লাগতে পারে।',
 
   landingBadge: 'শুধু Codeforces · 100% ফ্রি',
-  landingTitle: 'তোমার Codeforces ডাটাই বলে দেবে এরপর কী প্র্যাকটিস করবে।',
+  landingTitlePre: 'তোমার ',
+  landingTitleOutline: 'Codeforces',
+  landingTitleMid: ' ডাটাই বলে দেবে এরপর কী ',
+  landingTitleGold: 'প্র্যাকটিস',
+  landingTitlePost: ' করবে।',
   landingSub:
     'CP Compass তোমার সাবমিশন থেকে প্রতিদিনের প্ল্যান বানায়: কোন টপিক দুর্বল, আজ কোন প্রবলেম করবে, আর কী রিভিশন দেবে।',
   tryDemoNoLogin: 'ডেমো দেখো — লগইন লাগবে না',
