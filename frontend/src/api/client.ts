@@ -6,6 +6,8 @@ import type {
   CalendarMonth,
   DashboardData,
   FailurePatternsData,
+  HintUnlockResponse,
+  HintsResponse,
   MlPredictionsResponse,
   MlStatus,
   ProblemDetailData,
@@ -289,6 +291,13 @@ export const api = {
     request<ProblemNote>(`${V1}/problems/${contest_id}/${index}/notes`, {
       method: 'PUT',
       body: JSON.stringify({ body }),
+    }),
+  getHints: (contest_id: number, index: string) =>
+    request<HintsResponse>(`${V1}/problems/${contest_id}/${index}/hints`),
+  requestHint: (contest_id: number, index: string, step: number, lang: string) =>
+    request<HintUnlockResponse>(`${V1}/problems/${contest_id}/${index}/hints`, {
+      method: 'POST',
+      body: JSON.stringify({ step, lang }),
     }),
   settings: () => request<SettingsData>(`${V1}/settings`),
   setGoal: (target: number) =>

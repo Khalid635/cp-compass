@@ -264,6 +264,29 @@ export interface ProblemDetailData {
   preference: string | null;
 }
 
+/* ---------- AI Hint Ladder ---------- */
+export interface HintStep {
+  step: number;
+  text: string;
+  lang: string;
+  created_at: string;
+}
+
+export interface HintsResponse {
+  configured: boolean;
+  hints: HintStep[];
+  used_today: number;
+  limit: number;
+}
+
+export interface HintUnlockResponse {
+  step: number;
+  text: string;
+  cached: boolean;
+  used_today: number;
+  limit: number;
+}
+
 /* ---------- Batch 2 — failure-pattern analysis ---------- */
 
 export interface FailureTopicPattern {

@@ -481,6 +481,19 @@ export interface Dict {
   notePreview: string;
   noteEdit: string;
   noteEmpty: string;
+  // AI Hint Ladder
+  hintTitle: string;
+  hintStep: (n: number) => string;
+  hintGetStep: (n: number) => string;
+  hintUsedToday: (used: number, limit: number) => string;
+  hintNotConfigured: string;
+  hintUnavailable: string;
+  hintLimitReached: string;
+  hintDemoNote: string;
+  hintSolvedNote: string;
+  hintStepLocked: string;
+  hintGenerating: string;
+  hintNeverSolution: string;
   revisionStatus: string;
   revisionNoRevision: string;
   // Phase 2 settings

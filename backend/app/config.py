@@ -97,3 +97,11 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REDIRECT_URI = os.environ.get(
     "GOOGLE_REDIRECT_URI", "http://localhost:5173/auth/callback")
+# --- AI Hint Ladder (Gemini Flash, server-side only) ----------------------
+# The key lives in the environment (Render env in production) — never in
+# code. Until it is set, the hint endpoints answer 503. Hints are
+# generated server-side only; end users never supply their own key.
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")  # 2.5-flash 404s for new keys; 3.8-flash hangs on generateContent (verified 2026-11-28)
+HINT_DAILY_LIMIT = int(os.environ.get("HINT_DAILY_LIMIT", "10"))
+HINT_HTTP_TIMEOUT_S = int(os.environ.get("HINT_HTTP_TIMEOUT_S", "30"))

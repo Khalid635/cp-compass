@@ -30,7 +30,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import google_oauth, mailer, ml, ratelimit, seed, services, sync as sync_engine, totp
+from . import google_oauth, hints, mailer, ml, ratelimit, seed, services, sync as sync_engine, totp
 from .auth import (
     create_totp_pending_token,
     decode_totp_pending_token,
@@ -50,6 +50,7 @@ from .config import (
     EMAIL_CODE_EXPIRE_MINUTES,
     EMAIL_CODE_MAX_ATTEMPTS,
     ENV,
+    HINT_DAILY_LIMIT,
     MAX_BODY_BYTES,
     MIN_PASSWORD_LENGTH,
     RESEND_API_KEY,
@@ -1035,6 +1036,85 @@ def put_note(contest_id: int, index: str, body: NoteIn,
     if note is None:
         raise HTTPException(404, "Problem not found")
     return note
+
+
+# ---------- AI Hint Ladder ----------
+class HintIn(BaseModel):
+    step: int = Field(..., ge=1, le=3)
+    lang: str = "en"
+
+
+async def _hint_problem(db, contest_id, index, user_id):
+    """(Problem row, detail dict) for the hint endpoints, or (None, None)
+    when the problem exists nowhere. Creates the catalog row from the
+    public CF problemset when the problem is not local yet, so the hint
+    has a problem to attach to."""
+    detail = services.problem_detail(db, user_id, contest_id, index)
+    if detail is not None:
+        prob = db.query(Problem).filter_by(
+            contest_id=contest_id, index=index, platform="codeforces").first()
+        return prob, detail
+    try:
+        problems = await cf.problemset()
+    except CFError as exc:
+        raise HTTPException(502, f"Codeforces didn't respond: {exc}")
+    for p in problems:
+        if p.get("contestId") == contest_id and p.get("index") == index:
+            prob = Problem(contest_id=contest_id, index=index,
+                           name=p.get("name", ""), rating=p.get("rating"),
+                           tags=p.get("tags", []))
+            db.add(prob)
+            db.commit()
+            return prob, services.problem_detail(db, user_id, contest_id, index)
+    return None, None
+
+
+@app.get(f"{V1}/problems/{{contest_id}}/{{index}}/hints")
+async def get_hints(contest_id: int, index: str,
+                    user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    prob, _detail = await _hint_problem(db, contest_id, index, user.id)
+    if prob is None:
+        raise HTTPException(404, "Problem not found on Codeforces")
+    return {
+        "configured": hints.is_configured(),
+        "hints": [{"step": h.step, "text": h.text, "lang": h.lang,
+                   "created_at": h.created_at.isoformat()}
+                  for h in hints.get_hints(db, user.id, prob.id)],
+        "used_today": hints.used_today(db, user.id),
+        "limit": HINT_DAILY_LIMIT,
+    }
+
+
+@app.post(f"{V1}/problems/{{contest_id}}/{{index}}/hints")
+async def post_hint(contest_id: int, index: str, body: HintIn,
+                    user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    prob, detail = await _hint_problem(db, contest_id, index, user.id)
+    if prob is None:
+        raise HTTPException(404, "Problem not found on Codeforces")
+    lang = body.lang if body.lang in ("en", "bn") else "en"
+    try:
+        text, cached = hints.unlock_hint(
+            db, user,
+            {"contest_id": prob.contest_id, "index": prob.index,
+             "name": prob.name, "rating": prob.rating,
+             "tags": prob.tags or []},
+            prob.id, detail, body.step, lang)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except hints.HintNotConfigured:
+        raise HTTPException(503, "AI hints are not configured yet")
+    except hints.HintLimitReached as exc:
+        raise HTTPException(
+            429, "Daily hint limit reached — try again tomorrow",
+            headers={"Retry-After": str(exc.retry_after)})
+    except hints.HintError:
+        raise HTTPException(
+            502, "The hint service is unavailable — try again later")
+    return {"step": body.step, "text": text, "cached": cached,
+            "used_today": hints.used_today(db, user.id),
+            "limit": HINT_DAILY_LIMIT}
 
 
 # ---------- Phase 2: settings ----------

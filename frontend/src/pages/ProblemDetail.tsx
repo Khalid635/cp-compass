@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowUpRight, Bookmark, Check, Eye, Pencil, RefreshCw, X } from 'lucide-react';
+import { ArrowUpRight, Bookmark, Check, Eye, Lightbulb, Pencil, RefreshCw, X } from 'lucide-react';
 import { api, ApiError } from '../api/client';
 import { cfUrl, rankOf } from '../api/types';
 import { formatDate, formatTimeAgo, useLanguage } from '../i18n';
@@ -56,6 +56,25 @@ export default function ProblemDetail({ demo = false }: { demo?: boolean }) {
     onSuccess: (_res, action) => {
       toast(action === 'later' ? t.toastSavedLater : t.toastNotInterested);
       void qc.invalidateQueries({ queryKey: ['problem', cid, idx] });
+    },
+  });
+
+  const [hintPendingStep, setHintPendingStep] = useState<number | null>(null);
+
+  const hintsQuery = useQuery({
+    queryKey: ['hints', cid, idx],
+    queryFn: () => api.getHints(cid, idx),
+    enabled: !demo && cid > 0 && idx !== '',
+    staleTime: 30_000,
+  });
+
+  const hintMut = useMutation({
+    mutationFn: (step: number) => api.requestHint(cid, idx, step, lang),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['hints', cid, idx] });
+    },
+    onSettled: () => {
+      setHintPendingStep(null);
     },
   });
 
@@ -266,6 +285,80 @@ export default function ProblemDetail({ demo = false }: { demo?: boolean }) {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </Card>
+
+      {/* AI hints */}
+      <Card title={t.hintTitle} className="min-w-0">
+        {demo ? (
+          <p className="py-4 text-center text-sm text-muted">{t.hintDemoNote}</p>
+        ) : d.solved ? (
+          <p className="py-4 text-center text-sm text-muted">{t.hintSolvedNote}</p>
+        ) : hintsQuery.isPending ? (
+          <Skeleton className="h-[120px] w-full" />
+        ) : hintsQuery.isError ? (
+          <p className="py-4 text-center text-sm text-muted">{t.hintUnavailable}</p>
+        ) : (
+          <div className="flex flex-col gap-3 text-sm">
+            <p className="text-xs text-muted">{t.hintNeverSolution}</p>
+            {!hintsQuery.data!.configured && (
+              <p className="text-muted">{t.hintNotConfigured}</p>
+            )}
+            <p className="text-muted">
+              {t.hintUsedToday(hintsQuery.data!.used_today, hintsQuery.data!.limit)}
+            </p>
+            {[1, 2, 3].map((step) => {
+              const unlocked = hintsQuery.data!.hints.find((h) => h.step === step);
+              const prevUnlocked =
+                step === 1 || hintsQuery.data!.hints.some((h) => h.step === step - 1);
+              return (
+                <div key={step} className="rounded-md border border-border bg-surface-2 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">{t.hintStep(step)}</span>
+                    {!unlocked && (
+                      <Button
+                        variant="secondary"
+                        className="h-8 text-xs"
+                        disabled={
+                          !prevUnlocked ||
+                          !hintsQuery.data!.configured ||
+                          hintMut.isPending ||
+                          hintsQuery.data!.used_today >= hintsQuery.data!.limit
+                        }
+                        onClick={() => {
+                          setHintPendingStep(step);
+                          hintMut.mutate(step);
+                        }}
+                      >
+                        <Lightbulb size={13} aria-hidden />{' '}
+                        {hintMut.isPending && hintPendingStep === step
+                          ? t.hintGenerating
+                          : t.hintGetStep(step)}
+                      </Button>
+                    )}
+                  </div>
+                  {unlocked ? (
+                    <p className="mt-2">{unlocked.text}</p>
+                  ) : (
+                    !prevUnlocked && <p className="mt-2 text-xs text-muted">{t.hintStepLocked}</p>
+                  )}
+                </div>
+              );
+            })}
+            {hintMut.isError && (
+              <p className="text-danger">
+                {hintMut.error instanceof ApiError
+                  ? hintMut.error.status === 503
+                    ? t.hintNotConfigured
+                    : hintMut.error.status === 502
+                      ? t.hintUnavailable
+                      : hintMut.error.status === 429
+                        ? t.hintLimitReached
+                        : hintMut.error.message
+                  : t.somethingWrong}
+              </p>
+            )}
           </div>
         )}
       </Card>

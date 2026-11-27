@@ -122,6 +122,52 @@ class Submission(Base):
     )
 
 
+class AiHint(Base):
+    """One cached AI hint (Hint Ladder, batch ai-hint-ladder).
+
+    One row per (user, problem, step) — the cache key. `lang` records
+    the language the text was generated in; switching UI language
+    regenerates the step (counts against the daily limit).
+    """
+
+    __tablename__ = "ai_hints"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    problem_id = Column(Integer, ForeignKey("problems.id", ondelete="CASCADE"),
+                        nullable=False)
+    step = Column(Integer, nullable=False)  # 1 nudge, 2 approach, 3 insight
+    lang = Column(String, nullable=False, default="en")
+    text = Column(String, nullable=False)
+    created_at = Column(DateTime, default=_now, nullable=False)
+
+    __table_args__ = (
+        Index("ix_ai_hints_user_created", "user_id", "created_at"),
+        UniqueConstraint("user_id", "problem_id", "step"),
+    )
+
+
+class HintUsage(Base):
+    """One row per AI hint GENERATION (Hint Ladder, batch ai-hint-ladder).
+
+    The daily limit counts generations, not cached rows: a language
+    regeneration updates the AiHint row in place, so counting AiHint
+    rows would under-count. Cache hits insert nothing here.
+    """
+
+    __tablename__ = "hint_usage"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    created_at = Column(DateTime, default=_now, nullable=False)
+
+    __table_args__ = (
+        Index("ix_hint_usage_user_created", "user_id", "created_at"),
+    )
+
+
 class RatingHistory(Base):
     """One row per rated contest, newest last. Built from user.rating."""
 
