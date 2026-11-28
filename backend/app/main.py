@@ -68,7 +68,7 @@ from .config import (
     RETRAIN_COOLDOWN_S,
     RETRAIN_GLOBAL_MIN_GAP_S,
 )
-from .db import SessionLocal, get_db
+from .db import SessionLocal, get_db, set_rls_user
 from .models import (
     BackupCode, CfAccount, DailyStat, EmailVerification, HandleVerification,
     PasswordResetToken, Problem, ProblemNote, ProblemPreference, RatingHistory, RefreshToken,
@@ -377,6 +377,10 @@ def _issue_email_code(db: Session, user: User) -> bool:
     old code keeps working (a re-register used to kill the victim's
     pending code first, then strand them when the mail failed).
     """
+    # Batch 7 (RLS): registration / resend run pre-auth -- scope the
+    # session to this user first, so the INSERT and the post-send
+    # old-row delete are visible to the policy.
+    set_rls_user(db, user.id)
     code = "".join(secrets.choice("0123456789") for _ in range(6))
     row = EmailVerification(
         user_id=user.id, email=user.email, code_hash=_hash_code(code),
@@ -459,6 +463,10 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
     user = User(email=body.email, password_hash=hash_password(body.password))
     db.add(user)
     db.commit()
+    # Batch 7 (RLS): scope to the new user before issuing the code
+    # (pre-auth request, no context yet; _issue_email_code sets it
+    # again -- idempotent).
+    set_rls_user(db, user.id)
     sent = _issue_email_code(db, user)
     if not sent and RESEND_API_KEY:
         # Production mailer failed: the account exists but the user has
@@ -476,6 +484,9 @@ def verify_email(body: VerifyEmailIn, response: Response, db: Session = Depends(
     user = db.query(User).filter_by(email=body.email).first()
     if user is None:
         raise HTTPException(400, "Invalid or expired code")
+    # Batch 7 (RLS): the code proves this email -- scope the session
+    # to the user before reading or mutating their verification rows.
+    set_rls_user(db, user.id)
     row = (db.query(EmailVerification)
            .filter_by(user_id=user.id, used_at=None)
            .order_by(EmailVerification.created_at.desc()).first())
@@ -502,6 +513,8 @@ def resend_code(body: ResendCodeIn, db: Session = Depends(get_db)):
     ratelimit.check_resend_allowed(body.email)
     user = db.query(User).filter_by(email=body.email).first()
     if user is not None and not user.email_verified:
+        # Batch 7 (RLS): scope to the user before issuing a new code.
+        set_rls_user(db, user.id)
         _issue_email_code(db, user)
     ratelimit.record_resend(body.email)
     return {"ok": True, "message": _REGISTER_MESSAGE}
@@ -516,6 +529,8 @@ def _issue_reset_token(db: Session, user: User) -> bool:
     AFTER a successful send; if the send fails, the new row is
     deleted instead and the old token keeps working.
     """
+    # Batch 7 (RLS): forgot-password runs pre-auth -- scope first.
+    set_rls_user(db, user.id)
     raw = secrets.token_urlsafe(32)
     row = PasswordResetToken(
         user_id=user.id, token_hash=_hash_code(raw),
@@ -526,6 +541,10 @@ def _issue_reset_token(db: Session, user: User) -> bool:
     reset_url = f"{FRONTEND_URL}/auth/reset?token={raw}"
     sent = mailer.send_password_reset(user.email, reset_url)
     if sent:
+        # Batch 7 (RLS): a commit sits between the INSERT and this
+        # delete -- the hook re-applies the context, this call is
+        # belt-and-braces so the delete never silently drops to 0 rows.
+        set_rls_user(db, user.id)
         db.query(PasswordResetToken).filter(
             PasswordResetToken.user_id == user.id,
             PasswordResetToken.id != row.id,
@@ -548,6 +567,8 @@ def forgot_password(body: ForgotPasswordIn, db: Session = Depends(get_db)):
     ratelimit.record_forgot(body.email)
     user = db.query(User).filter_by(email=body.email).first()
     if user is not None:
+        # Batch 7 (RLS): scope to the user before issuing a reset token.
+        set_rls_user(db, user.id)
         _issue_reset_token(db, user)
     return {"ok": True,
             "message": "If an account exists for this email, a reset link was sent."}
@@ -568,6 +589,9 @@ def reset_password(body: ResetPasswordIn, request: Request, db: Session = Depend
     user = db.query(User).get(row.user_id)
     if user is None:
         raise HTTPException(400, "Invalid or expired reset link")
+    # Batch 7 (RLS): the token proves this account -- scope the session
+    # to the user before mutating the token or the password.
+    set_rls_user(db, user.id)
     row.used_at = datetime.utcnow()
     user.password_hash = hash_password(body.new_password)
     db.commit()
@@ -647,6 +671,9 @@ def google_callback(body: GoogleCallbackIn, response: Response, db: Session = De
                     400, "This email is already linked to a different Google account")
             user.google_id = sub
             user.email_verified = True
+            # Batch 7 (RLS): scope before the link UPDATE commits --
+            # the users UPDATE policy needs a context.
+            set_rls_user(db, user.id)
         else:
             user = User(email=email, password_hash=None, google_id=sub,
                         email_verified=True)
@@ -657,6 +684,9 @@ def google_callback(body: GoogleCallbackIn, response: Response, db: Session = De
             db.rollback()
             raise HTTPException(
                 400, "This Google account is already linked to another account")
+    # Batch 7 (RLS): the create path has no id until the commit --
+    # scope now (idempotent on the link path, already set above).
+    set_rls_user(db, user.id)
     if user.totp_enabled:
         return {"totp_required": True,
                 "pre_token": create_totp_pending_token(user.id),
@@ -675,6 +705,9 @@ def totp_verify(body: TotpVerifyIn, response: Response, db: Session = Depends(ge
     user = db.query(User).get(user_id)
     if user is None or not user.totp_enabled:
         raise HTTPException(401, "Invalid or expired login session — log in again")
+    # Batch 7 (RLS): the pre_token proves the password step -- scope
+    # the session before reading backup codes / the TOTP secret.
+    set_rls_user(db, user.id)
     ratelimit.check_totp_allowed(user.id)
     code = body.code.strip().replace(" ", "").replace("-", "")
     for row in db.query(BackupCode).filter_by(user_id=user.id, used_at=None).all():
@@ -850,6 +883,10 @@ async def handle_start(body: HandleIn, user: User = Depends(get_current_user),
         await cf.verify_handle(handle)
     except CFError as exc:
         raise HTTPException(400, f"Codeforces could not verify this handle: {exc}")
+    # Batch 7 (RLS): under RLS this only ever sees the caller's own
+    # accounts, so `taken` is always None here -- the handle_norm
+    # UNIQUE constraint in _link_handle is the real cross-user guard
+    # (same 400, via IntegrityError). The check still works on SQLite.
     taken = (db.query(CfAccount)
              .filter(CfAccount.handle_norm == handle.lower(),
                      CfAccount.user_id != user.id).first())
@@ -1014,6 +1051,10 @@ async def sync_stream(request: Request, user: User = Depends(get_current_user)):
                 break
             db = _stream_session()
             try:
+                # Batch 7 (RLS): this session is separate from the
+                # request's -- scope it to the stream owner, or the
+                # job reads below always return "never".
+                set_rls_user(db, user_id)
                 if db.query(User).get(user_id) is None:
                     yield "event: error\ndata: " + json.dumps(
                         {"detail": "User not found"}) + "\n\n"
@@ -1618,6 +1659,11 @@ def public_profile(handle: str, request: Request, db: Session = Depends(get_db))
     user = db.query(User).get(account.user_id)
     if user is None or not user.public_profile:
         raise HTTPException(404, "Profile not found")
+    # Batch 7 (RLS): the user opted in to a public profile -- scope
+    # this (unauthenticated) request to them so the aggregate reads
+    # below are visible to the policy. Nothing else in this request
+    # runs after it.
+    set_rls_user(db, user.id)
     return services.public_profile_stats(db, user)
 
 

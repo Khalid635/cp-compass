@@ -43,7 +43,7 @@ from .config import (
     REFRESH_EXPIRE_DAYS,
     SECRET_KEY,
 )
-from .db import get_db
+from .db import get_db, set_rls_user
 from .models import RefreshToken, User
 
 ACCESS_COOKIE = "cp_access"
@@ -103,6 +103,11 @@ def decode_totp_pending_token(raw: str) -> int | None:
 
 def _new_refresh_token(db: Session, user_id: int) -> str:
     """Creates a refresh token row and returns the raw token (shown once)."""
+    # Batch 7 (RLS): this runs in pre-auth flows (login / verify-email /
+    # totp-verify / Google callback / refresh) where no session context
+    # exists yet -- scope the session to this user first, so the INSERT
+    # is visible to the policy.
+    set_rls_user(db, user_id)
     raw = secrets.token_urlsafe(32)
     db.add(RefreshToken(
         user_id=user_id,
@@ -138,6 +143,17 @@ def refresh_tokens(db: Session, raw: str) -> tuple[dict, int] | None:
     dies too, and the user must log in again."""
     token_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
     now = datetime.utcnow()
+    # Batch 7 (RLS): the token hash IS the credential here -- no user is
+    # known until the row is found (the SELECT uses the policy's
+    # no-context exception). Scope the session to that user BEFORE the
+    # rotation UPDATE, so the UPDATE is visible to the policy. The race
+    # semantics are unchanged: the UPDATE is still one atomic WHERE
+    # revoked_at IS NULL, so a second concurrent refresh with the same
+    # token updates 0 rows and hits the reuse path below.
+    row = db.query(RefreshToken).filter_by(token_hash=token_hash).first()
+    if row is None:
+        return None
+    set_rls_user(db, row.user_id)
     rotated = db.query(RefreshToken).filter(
         RefreshToken.token_hash == token_hash,
         RefreshToken.revoked_at.is_(None),
@@ -145,7 +161,6 @@ def refresh_tokens(db: Session, raw: str) -> tuple[dict, int] | None:
     ).update({"revoked_at": now}, synchronize_session=False)
     db.commit()
     if rotated:
-        row = db.query(RefreshToken).filter_by(token_hash=token_hash).first()
         return issue_tokens(db, row.user_id), row.user_id
     # No live token matched. If the token exists and was revoked while
     # still unexpired, it was replayed after rotation -> revoke family.
@@ -161,12 +176,19 @@ def revoke_refresh_token(db: Session, raw: str) -> bool:
     row = _find_refresh_token(db, raw)
     if row is None or row.revoked_at is not None:
         return False
+    # Batch 7 (RLS): logout is pre-auth -- scope to the token's owner
+    # before mutating, so the UPDATE is visible to the policy.
+    set_rls_user(db, row.user_id)
     row.revoked_at = datetime.utcnow()
     db.commit()
     return True
 
 
 def revoke_all_refresh_tokens(db: Session, user_id: int) -> int:
+    # Batch 7 (RLS): reset-password calls this pre-auth, after a commit
+    # that cleared the session context -- scope first, so the read and
+    # the updates are visible to the policy.
+    set_rls_user(db, user_id)
     rows = db.query(RefreshToken).filter(
         RefreshToken.user_id == user_id,
         RefreshToken.revoked_at.is_(None)).all()
@@ -242,4 +264,8 @@ def get_current_user(
     user = db.query(User).get(user_id)
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
+    # Batch 7 (RLS): the choke point for every authenticated endpoint --
+    # scope this request's session to the caller before any other query
+    # runs on it. The hook in app.db re-applies it after every commit.
+    set_rls_user(db, user.id)
     return user

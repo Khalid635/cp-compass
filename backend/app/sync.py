@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 
 from . import services
 from .cf import CFError, cf
+from .db import set_rls_user
 from .config import SYNC_LEASE_S, SYNC_MAX_ATTEMPTS, WORKER_POLL_S
 from .models import (
     CfAccount,
@@ -339,6 +340,12 @@ def _run_job_sync(job_id: int, user_id: int) -> None:
         job = session.query(SyncJob).get(job_id)
         if user is None or job is None:
             return
+        # Batch 7 (RLS): the worker session has no request context --
+        # scope it to the job's owner before the sync reads/writes
+        # anything (the loads above use the no-context SELECT
+        # exceptions). The hook re-applies it after every checkpoint
+        # commit inside run_sync.
+        set_rls_user(session, user.id)
         asyncio.run(run_sync(session, user, job))
     finally:
         session.close()

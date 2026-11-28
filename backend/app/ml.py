@@ -313,7 +313,18 @@ def _db_sets(db) -> list[tuple[list[dict], list[tuple[datetime, int]], int, str]
     """One (submissions, rating history, current rating, handle) tuple per
     DB user with submissions."""
     sets = []
+    # Batch 7 (RLS): training reads EVERY user's data, as before --
+    # scope the session to each user in turn before reading their
+    # rows, and restore the caller's context afterwards. A retrain
+    # runs inside an authenticated request; leaving the session
+    # scoped to the last user in the loop would break the endpoint's
+    # later reads/writes for any other requester. (When there is no
+    # caller context -- startup training, backtest -- the context is
+    # cleared instead, so nothing is left scoped.)
+    from .db import clear_rls_user, set_rls_user
+    prev_rls_user = db.info.get("rls_user_id")
     for user in db.query(User).all():
+        set_rls_user(db, user.id)
         subs_q = (
             db.query(Submission, Problem)
             .join(Problem, Submission.problem_id == Problem.id)
@@ -333,6 +344,10 @@ def _db_sets(db) -> list[tuple[list[dict], list[tuple[datetime, int]], int, str]
         account = db.query(CfAccount).filter_by(user_id=user.id).first()
         handle = account.handle if account else f"user-{user.id}"
         sets.append((subs, hist, user.current_rating, handle))
+    if prev_rls_user is None:
+        clear_rls_user(db)
+    else:
+        set_rls_user(db, prev_rls_user)
     return sets
 
 
