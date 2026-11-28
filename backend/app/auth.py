@@ -1,12 +1,27 @@
 """JWT auth: Argon2 password hashing + short-lived access tokens and
 rotating, revocable refresh tokens (blueprint §11).
 
-- Access token: 15 minutes, claim type="access".
+Batch 6, N4 (arena winner a005): tokens live in HttpOnly cookies, never
+in localStorage or any JS-readable store.
+
+- Access token: 15 minutes, claim type="access", cookie cp_access.
 - Refresh token: opaque random string, 7 days, SHA-256 hash stored in
-  refresh_tokens. Refresh rotates (old token revoked, new one issued).
+  refresh_tokens, cookie cp_refresh path-scoped to /api/v1/auth (only
+  the refresh/logout endpoints need it). Refresh rotates (old token
+  revoked, new one issued).
+- CSRF token: random 32-byte value, cookie cp_csrf (HttpOnly — the
+  frontend reads it from the GET /auth/csrf JSON body, never from
+  document.cookie, because cross-site JS cannot read a cookie set for
+  another origin). Double-submit + Origin check on every mutation
+  (CSRF middleware in main.py, a003's supplement).
 - Logout revokes one token; logout-all revokes every token of the user.
 - Password hashes are Argon2id. Old bcrypt hashes are NOT migratable:
   accounts created before this change must re-register (dev DB only).
+- The totp_pending token for the 2FA second step stays a short-lived
+  JWT in the JSON body, held only in React state (a003): it does not
+  persist across reloads, and a reload mid-2FA just restarts login.
+  Cookie-izing it would add a fourth cookie for zero gain.
+
 JWTs use PyJWT (python-jose removed 2026-11-27: GHSA-3qf3-8w2g-rqmx).
 """
 import hashlib
@@ -15,13 +30,15 @@ from datetime import datetime, timedelta
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from fastapi import Depends, HTTPException, Query, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends, HTTPException, Request, Response, status
 import jwt
 from sqlalchemy.orm import Session
 
+from . import audit
 from .config import (
     ACCESS_EXPIRE_MINUTES,
+    COOKIE_SAMESITE,
+    COOKIE_SECURE,
     JWT_ALGORITHM,
     REFRESH_EXPIRE_DAYS,
     SECRET_KEY,
@@ -29,7 +46,10 @@ from .config import (
 from .db import get_db
 from .models import RefreshToken, User
 
-bearer = HTTPBearer(auto_error=False)
+ACCESS_COOKIE = "cp_access"
+REFRESH_COOKIE = "cp_refresh"
+CSRF_COOKIE = "cp_csrf"
+
 _ph = PasswordHasher()
 
 # A fixed Argon2 hash of a password nobody knows: verified when the
@@ -131,6 +151,8 @@ def refresh_tokens(db: Session, raw: str) -> tuple[dict, int] | None:
     # still unexpired, it was replayed after rotation -> revoke family.
     row = db.query(RefreshToken).filter_by(token_hash=token_hash).first()
     if row is not None and row.revoked_at is not None and row.expires_at > now:
+        # Batch 6, #8: a rotated token presented again is token theft.
+        audit.log("auth.refresh_reused", user_id=row.user_id)
         revoke_all_refresh_tokens(db, row.user_id)
     return None
 
@@ -155,42 +177,63 @@ def revoke_all_refresh_tokens(db: Session, user_id: int) -> int:
     return len(rows)
 
 
-def decode_access_token_query(token: str | None) -> int:
-    """Decodes a JWT access token passed as a ?token= query param
-    (EventSource cannot send an Authorization header, so the SSE stream
-    uses this). Same checks as get_current_user: type == "access",
-    signature, expiry. Returns the user id; 401 otherwise."""
-    if not token:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing token")
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
-        if payload.get("type") != "access":
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
-        return int(payload["sub"])
-    except (jwt.InvalidTokenError, KeyError, ValueError):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+# --- Batch 6, N4: HttpOnly cookies + CSRF token ---------------------------
+
+def new_csrf_token() -> str:
+    """32 random bytes, urlsafe. Stateless: validity is equality with
+    the cp_csrf cookie, so no server state and no DB hit per mutation."""
+    return secrets.token_urlsafe(32)
 
 
-def get_current_user_query(
-    token: str | None = Query(None),
-    db: Session = Depends(get_db),
-) -> User:
-    """Same as get_current_user, but the token comes from ?token=."""
-    user_id = decode_access_token_query(token)
-    user = db.query(User).get(user_id)
-    if user is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
-    return user
+def _cookie_kwargs(*, path: str = "/") -> dict:
+    return {"httponly": True, "secure": COOKIE_SECURE,
+            "samesite": COOKIE_SAMESITE, "path": path}
+
+
+def set_auth_cookies(response: Response, access: str, refresh: str,
+                     csrf_token: str | None = None) -> None:
+    """Sets cp_access (15 min) + cp_refresh (7 days, path-scoped to
+    /api/v1/auth — only the refresh/logout endpoints read it). When
+    csrf_token is given, the cp_csrf cookie is set/rotated too."""
+    response.set_cookie(ACCESS_COOKIE, access,
+                        max_age=ACCESS_EXPIRE_MINUTES * 60, **_cookie_kwargs())
+    response.set_cookie(REFRESH_COOKIE, refresh,
+                        max_age=REFRESH_EXPIRE_DAYS * 86400,
+                        **_cookie_kwargs(path="/api/v1/auth"))
+    if csrf_token is not None:
+        response.set_cookie(CSRF_COOKIE, csrf_token,
+                            max_age=REFRESH_EXPIRE_DAYS * 86400,
+                            **_cookie_kwargs())
+
+
+def set_csrf_cookie(response: Response, token: str) -> None:
+    """Sets only the cp_csrf cookie (used by GET /auth/csrf). Same
+    flags as the auth cookies."""
+    response.set_cookie(CSRF_COOKIE, token,
+                        max_age=REFRESH_EXPIRE_DAYS * 86400, **_cookie_kwargs())
+
+
+def clear_auth_cookies(response: Response) -> None:
+    """Deletes all three auth cookies. The path (and Secure/SameSite)
+    must match the set, or the browser keeps the old cookies."""
+    for name, path in ((ACCESS_COOKIE, "/"), (REFRESH_COOKIE, "/api/v1/auth"),
+                       (CSRF_COOKIE, "/")):
+        response.delete_cookie(name, path=path, secure=COOKIE_SECURE,
+                               samesite=COOKIE_SAMESITE)
 
 
 def get_current_user(
-    creds: HTTPAuthorizationCredentials | None = Depends(bearer),
+    request: Request,
     db: Session = Depends(get_db),
 ) -> User:
-    if creds is None:
+    """Reads the access JWT from the cp_access cookie only (Batch 6,
+    N4). No Authorization header, no ?token= query param — both are
+    deleted, so there is no second credential path for XSS to steal."""
+    raw = request.cookies.get(ACCESS_COOKIE)
+    if not raw:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing token")
     try:
-        payload = jwt.decode(creds.credentials, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(raw, SECRET_KEY, algorithms=[JWT_ALGORITHM])
         if payload.get("type") != "access":
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
         user_id = int(payload["sub"])

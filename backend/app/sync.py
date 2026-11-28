@@ -303,6 +303,10 @@ async def run_sync(db: Session, user: User, job: SyncJob) -> None:
                 await backfill_passed_test_counts(db, user)
             except CFError:
                 pass  # backfill is best-effort; the sync itself succeeded
+        # Batch 6: a completed sync stamps last_synced_at even when
+        # 0 new submissions were found — otherwise the chip shows
+        # "Synced never" for a sync that did run.
+        job.last_synced_at = datetime.utcnow()
         job.status = "done"
         job.error = None
         job.lease_owner = None

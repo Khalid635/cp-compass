@@ -275,6 +275,19 @@ export interface Dict {
   verifyEmailBtn: string;
   resendCode: string;
   codeResent: string;
+  cookiesBlocked: (origin: string) => string;
+  // Batch 6 — password recovery
+  forgotPassword: string;
+  forgotPasswordTitle: string;
+  forgotPasswordText: string;
+  forgotPasswordSent: string;
+  forgotPasswordBtn: string;
+  resetPasswordTitle: string;
+  resetPasswordText: string;
+  newPassword: string;
+  resetPasswordBtn: string;
+  resetPasswordDone: string;
+  resetPasswordBadLink: string;
   // Batch 1 — TOTP 2FA
   totpTitle: string;
   totpText: string;

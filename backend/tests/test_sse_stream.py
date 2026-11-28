@@ -14,6 +14,8 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 
+import secrets
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -87,13 +89,33 @@ def _tokens(user_id):
         session.close()
 
 
+ORIGIN = "http://localhost:5173"
+
+
+def _csrf_token():
+    return secrets.token_urlsafe(32)
+
+
+def _anon_headers():
+    """CSRF headers for an unauthenticated mutation (register/login/
+    verify/forgot/reset/callback): a fresh CSRF token in both the
+    Cookie header and the X-CSRF-Token header, plus Origin. The server
+    only compares header to cookie — no stored token — so a minted
+    token is valid, and nothing touches the client's cookie jar."""
+    csrf = _csrf_token()
+    return {"Cookie": f"cp_csrf={csrf}", "X-CSRF-Token": csrf, "Origin": ORIGIN}
+
 def _auth_headers(user_id):
+    """Cookie-based auth (Batch 6, N4): tokens travel as
+    HttpOnly-cookie values in an explicit Cookie header, plus
+    the double-submit CSRF header and Origin. Same signature
+    as before, so call sites don't change — and per-request
+    cookies keep two-user tests working."""
     tokens = _tokens(user_id)
-    return {"Authorization": f"Bearer {tokens['access_token']}"}
-
-
-def _access_token(user_id):
-    return _tokens(user_id)["access_token"]
+    csrf = _csrf_token()
+    cookie = (f"cp_access={tokens['access_token']}; "
+              f"cp_refresh={tokens['refresh_token']}; cp_csrf={csrf}")
+    return {"Cookie": cookie, "X-CSRF-Token": csrf, "Origin": ORIGIN}
 
 
 def _job(db, user_id, status="pending", total=0, error=None):
@@ -109,19 +131,21 @@ def test_stream_401_no_token(client):
 
 
 def test_stream_401_bad_token(client):
-    assert client.get("/api/v1/sync/stream?token=nope").status_code == 401
+    assert client.get("/api/v1/sync/stream",
+                      headers={"Cookie": "cp_access=nope"}).status_code == 401
 
 
 def test_stream_401_refresh_token_is_not_an_access_token(client, db):
     u = _user(db)
     refresh = _tokens(u.id)["refresh_token"]
-    r = client.get(f"/api/v1/sync/stream?token={refresh}")
+    r = client.get("/api/v1/sync/stream",
+                   headers={"Cookie": f"cp_access={refresh}"})
     assert r.status_code == 401
 
 
 def test_stream_never_state_no_job(client, db):
     u = _user(db)
-    r = client.get(f"/api/v1/sync/stream?token={_access_token(u.id)}")
+    r = client.get("/api/v1/sync/stream", headers=_auth_headers(u.id))
     assert r.status_code == 200
     assert "text/event-stream" in r.headers["content-type"]
     assert "event: state" in r.text
@@ -131,7 +155,7 @@ def test_stream_never_state_no_job(client, db):
 def test_stream_done_job_closes(client, db):
     u = _user(db)
     _job(db, u.id, status="done", total=12)
-    r = client.get(f"/api/v1/sync/stream?token={_access_token(u.id)}")
+    r = client.get("/api/v1/sync/stream", headers=_auth_headers(u.id))
     assert r.status_code == 200
     assert "event: state" in r.text
     assert "event: done" in r.text
@@ -141,7 +165,7 @@ def test_stream_done_job_closes(client, db):
 def test_stream_failed_job_closes(client, db):
     u = _user(db)
     _job(db, u.id, status="failed", total=3, error="Codeforces is down")
-    r = client.get(f"/api/v1/sync/stream?token={_access_token(u.id)}")
+    r = client.get("/api/v1/sync/stream", headers=_auth_headers(u.id))
     assert r.status_code == 200
     assert "event: failed" in r.text
     assert "Codeforces is down" in r.text
@@ -151,7 +175,7 @@ def test_stream_only_own_job(client, db):
     a = _user(db, email="a@test.dev")
     b = _user(db, email="b@test.dev")
     _job(db, b.id, status="running", total=42)
-    r = client.get(f"/api/v1/sync/stream?token={_access_token(a.id)}")
+    r = client.get("/api/v1/sync/stream", headers=_auth_headers(a.id))
     assert r.status_code == 200
     assert '"status": "never"' in r.text
     assert "42" not in r.text
@@ -167,7 +191,7 @@ def test_stream_live_progress(client, db, monkeypatch):
 
     def _get():
         results["r"] = client.get(
-            f"/api/v1/sync/stream?token={_access_token(u.id)}")
+            "/api/v1/sync/stream", headers=_auth_headers(u.id))
 
     t = threading.Thread(target=_get, daemon=True)
     t.start()

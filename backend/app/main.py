@@ -31,17 +31,22 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import google_oauth, hints, mailer, ml, postmortem_ai, ratelimit, seed, services, sync as sync_engine, totp
+from . import audit, google_oauth, hints, mailer, ml, postmortem_ai, ratelimit, seed, services, sync as sync_engine, totp
 from .auth import (
+    CSRF_COOKIE,
+    REFRESH_COOKIE,
+    clear_auth_cookies,
     create_totp_pending_token,
-    decode_access_token_query,
     decode_totp_pending_token,
     get_current_user,
     hash_password,
     issue_tokens,
+    new_csrf_token,
     refresh_tokens,
     revoke_all_refresh_tokens,
     revoke_refresh_token,
+    set_auth_cookies,
+    set_csrf_cookie,
     verify_password,
     verify_password_dummy,
 )
@@ -52,18 +57,21 @@ from .config import (
     EMAIL_CODE_EXPIRE_MINUTES,
     EMAIL_CODE_MAX_ATTEMPTS,
     ENV,
+    FRONTEND_URL,
+    IS_PROD,
     HINT_DAILY_LIMIT,
     MAX_BODY_BYTES,
     MIN_PASSWORD_LENGTH,
     POSTMORTEM_DAILY_LIMIT,
     RESEND_API_KEY,
+    RESET_TOKEN_EXPIRE_MINUTES,
     RETRAIN_COOLDOWN_S,
     RETRAIN_GLOBAL_MIN_GAP_S,
 )
 from .db import SessionLocal, get_db
 from .models import (
     BackupCode, CfAccount, DailyStat, EmailVerification, HandleVerification,
-    Problem, ProblemNote, ProblemPreference, RatingHistory, RefreshToken,
+    PasswordResetToken, Problem, ProblemNote, ProblemPreference, RatingHistory, RefreshToken,
     Revision, Submission, SyncJob, TotpSecret, User, WeeklyReport,
 )
 
@@ -123,11 +131,10 @@ async def lifespan(app: FastAPI):
 # Reel check #12 (2026-11-27): interactive API docs are public by
 # default. Disable them outside local dev so the full API surface is
 # not advertised; local dev keeps docs for debugging. Production is
-# detected the same way as config.py's SECRET_KEY fail-fast: ENV ==
-# "production" OR a non-SQLite DATABASE_URL. (Render does not set ENV,
-# so an ENV-only check would have left docs on live.)
-_is_prod = ENV == "production" or not DATABASE_URL.startswith("sqlite")
-_docs_kwargs = {} if not _is_prod else {
+# detected in config.py (IS_PROD: ENV == "production" OR a non-SQLite
+# DATABASE_URL — Render does not set ENV, so an ENV-only check would
+# have left docs on live).
+_docs_kwargs = {} if not IS_PROD else {
     "docs_url": None, "redoc_url": None, "openapi_url": None}
 app = FastAPI(title="CP Compass API", version="1.0.0", lifespan=lifespan,
               **_docs_kwargs)
@@ -170,6 +177,48 @@ async def _body_size_limit(request: Request, call_next):
     return await call_next(request)
 
 
+# ---------- Batch 6, N4: CSRF protection (arena winner a005 + a003) -------
+# A middleware (not a per-endpoint dependency) covers every mutation
+# automatically — including the N2 endpoints built in the same batch —
+# and a future mutation cannot forget the check. It only reads headers
+# + cookies (never the body), and returns a JSONResponse 403 directly:
+# an http middleware cannot raise HTTPException into a response.
+def _csrf_failure(request: Request) -> str | None:
+    """Returns a 403 detail string if the mutation fails CSRF, else
+    None. One detail for every failure (a001's supplement) so a probe
+    learns nothing about which gate tripped."""
+    # (1) Double-submit: X-CSRF-Token must equal the cp_csrf cookie.
+    header = request.headers.get("x-csrf-token")
+    cookie = request.cookies.get(CSRF_COOKIE)
+    if not header or not cookie or not hmac.compare_digest(header, cookie):
+        return "csrf_check_failed"
+    # (2) Origin: the Origin header (or Referer if Origin is absent)
+    # must be in the exact CORS allowlist; both absent -> reject.
+    # Browsers always send Origin on a fetch POST; page JS cannot
+    # spoof it (forbidden header). SameSite is NOT a layer here: prod
+    # cookies are SameSite=None, which by definition sends them
+    # cross-site.
+    origin = request.headers.get("origin")
+    if origin is None:
+        referer = request.headers.get("referer")
+        if referer and "://" in referer:
+            origin = referer.split("://", 1)[0] + "://" + \
+                referer.split("://", 1)[1].split("/")[0]
+    if origin is None or origin not in CORS_ORIGINS:
+        return "csrf_check_failed"
+    return None
+
+
+@app.middleware("http")
+async def _csrf_protect(request: Request, call_next):
+    if (request.method in ("POST", "PUT", "PATCH", "DELETE")
+            and request.url.path.startswith("/api/v1")):
+        detail = _csrf_failure(request)
+        if detail is not None:
+            return JSONResponse({"detail": detail}, status_code=403)
+    return await call_next(request)
+
+
 # ---------- schemas ----------
 # Batch 1 (F10): every string input is length-bounded so no endpoint
 # accepts an unbounded body. EmailStr already validates the format.
@@ -192,9 +241,6 @@ class HandleIn(BaseModel):
     handle: str = Field(min_length=1, max_length=64)
 
 
-class RefreshIn(BaseModel):
-    refresh_token: str = Field(min_length=1, max_length=128)
-
 
 class VerifyEmailIn(BaseModel):
     email: EmailStr
@@ -203,6 +249,15 @@ class VerifyEmailIn(BaseModel):
 
 class ResendCodeIn(BaseModel):
     email: EmailStr
+
+
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordIn(BaseModel):
+    token: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=128)
 
 
 class TotpVerifyIn(BaseModel):
@@ -243,11 +298,9 @@ class NoteIn(BaseModel):
 
 
 class AuthOut(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
     email: str
     cf_handle: str | None
+    csrf_token: str | None = None
 
 
 # ---------- helpers ----------
@@ -291,11 +344,22 @@ _REGISTER_MESSAGE = ("If this email is new, check your inbox for the "
 
 
 def _client_ip(request: Request) -> str:
-    """Best-effort client IP (X-Forwarded-For on Render, else the peer)."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    """Best-effort client IP (Batch 6, hacker review N3).
+
+    Render terminates TLS at its edge and APPENDS the connecting IP
+    as the LAST X-Forwarded-For entry — earlier entries are
+    client-controlled and must never be trusted (an attacker can put
+    any IP first and dodge a per-IP bucket). So in production
+    (behind Render) the last entry is the client; in local dev there
+    is no proxy, so XFF is ignored entirely and the direct peer is
+    the client.
+    """
+    peer = request.client.host if request.client else "unknown"
+    if IS_PROD:
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[-1].strip()
+    return peer
 
 
 def _hash_code(code: str) -> str:
@@ -303,17 +367,74 @@ def _hash_code(code: str) -> str:
 
 
 def _issue_email_code(db: Session, user: User) -> bool:
-    """Creates a fresh 6-digit code (any old one is deleted), emails it
-    via the pluggable mailer. Returns True if it was sent — the dev
-    outbox counts as sent."""
-    db.query(EmailVerification).filter_by(user_id=user.id).delete()
+    """Creates a fresh 6-digit code and emails it via the pluggable
+    mailer. Returns True if it was sent — the dev outbox counts as
+    sent.
+
+    Batch 6, N1: the old code stays valid until the new one is
+    actually sent. The old code is only deleted AFTER a successful
+    send; if the send fails, the new row is deleted instead and the
+    old code keeps working (a re-register used to kill the victim's
+    pending code first, then strand them when the mail failed).
+    """
     code = "".join(secrets.choice("0123456789") for _ in range(6))
-    db.add(EmailVerification(
+    row = EmailVerification(
         user_id=user.id, email=user.email, code_hash=_hash_code(code),
         expires_at=datetime.utcnow() + timedelta(minutes=EMAIL_CODE_EXPIRE_MINUTES),
-    ))
+    )
+    db.add(row)
     db.commit()
-    return mailer.send_verification_code(user.email, code)
+    sent = mailer.send_verification_code(user.email, code)
+    if sent:
+        db.query(EmailVerification).filter(
+            EmailVerification.user_id == user.id,
+            EmailVerification.id != row.id).delete()
+    else:
+        db.delete(row)
+    db.commit()
+    return sent
+
+
+def _auth_out(response: Response, db: Session, user: User) -> AuthOut:
+    """Issues fresh tokens, sets the auth cookies, and returns AuthOut
+    — no token fields (Batch 6, N4). The CSRF token is rotated on auth
+    transitions (login, verify-email, totp-verify, Google callback)
+    and echoed in the JSON body (a004's pattern) so the frontend can
+    update its in-memory copy; refresh does NOT rotate (see refresh)."""
+    tokens = issue_tokens(db, user.id)
+    csrf = new_csrf_token()
+    set_auth_cookies(response, tokens["access_token"], tokens["refresh_token"], csrf)
+    return AuthOut(email=user.email, cf_handle=_cf_handle(db, user), csrf_token=csrf)
+
+
+@app.get(f"{V1}/auth/csrf")
+def get_csrf(request: Request, response: Response):
+    """Issues the CSRF token (Batch 6, N4 — a005). Idempotent: if a
+    cp_csrf cookie is already present, its value is returned (no
+    rotation — any site could otherwise rotate the victim's token at
+    will); else a new token is minted, set as the cookie, and
+    returned. The JSON body is load-bearing: JS on the Vercel origin
+    cannot read a cookie set for the Render origin via document.cookie.
+    Cache-Control: no-store. No rate limit (a003): minting a random
+    token is harmless — no DB, no auth."""
+    token = request.cookies.get(CSRF_COOKIE) or new_csrf_token()
+    set_csrf_cookie(response, token)
+    response.headers["Cache-Control"] = "no-store"
+    return {"csrf_token": token}
+
+
+@app.get(f"{V1}/auth/cookie-probe")
+def cookie_probe(request: Request, response: Response):
+    """Confirms whether the browser is blocking third-party cookies
+    (Batch 6, N4 — a002's supplement). First call sets a throwaway
+    cookie and answers cookies_ok False; the frontend calls again and
+    checks whether it came back."""
+    if request.cookies.get("cp_probe") == "1":
+        return {"cookies_ok": True}
+    response.set_cookie("cp_probe", "1", max_age=60, httponly=True,
+                        secure=IS_PROD, samesite="none" if IS_PROD else "lax",
+                        path="/")
+    return {"cookies_ok": False}
 
 
 @app.post(f"{V1}/auth/register", status_code=status.HTTP_201_CREATED)
@@ -322,7 +443,13 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
     response is identical whether the email is new, already registered
     and unverified (a fresh code is sent), or already registered and
     verified — no account enumeration (audit F7). No tokens are issued
-    until the code is verified."""
+    until the code is verified. Rate-limited per email (1/min, 5/hour,
+    shared with resend-code — Batch 6, N1)."""
+    # Batch 6, N1: checked before the DB lookup, recorded on every
+    # call that passes — exactly like resend-code, so no enumeration
+    # oracle is introduced.
+    ratelimit.check_resend_allowed(body.email)
+    ratelimit.record_resend(body.email)
     existing = db.query(User).filter_by(email=body.email).first()
     if existing is not None:
         if not existing.email_verified:
@@ -343,7 +470,7 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
 
 
 @app.post(f"{V1}/auth/verify-email", response_model=AuthOut)
-def verify_email(body: VerifyEmailIn, db: Session = Depends(get_db)):
+def verify_email(body: VerifyEmailIn, response: Response, db: Session = Depends(get_db)):
     """Checks the 6-digit signup code. Wrong codes, expired codes and
     unknown emails all give the same generic 400 (audit F7)."""
     user = db.query(User).filter_by(email=body.email).first()
@@ -365,8 +492,7 @@ def verify_email(body: VerifyEmailIn, db: Session = Depends(get_db)):
     row.used_at = datetime.utcnow()
     user.email_verified = True
     db.commit()
-    tokens = issue_tokens(db, user.id)
-    return AuthOut(**tokens, email=user.email, cf_handle=None)
+    return _auth_out(response, db, user)
 
 
 @app.post(f"{V1}/auth/resend-code")
@@ -381,8 +507,76 @@ def resend_code(body: ResendCodeIn, db: Session = Depends(get_db)):
     return {"ok": True, "message": _REGISTER_MESSAGE}
 
 
+def _issue_reset_token(db: Session, user: User) -> bool:
+    """Creates a single-use reset token row and mails the link.
+    Returns True if it was sent — the dev outbox counts as sent.
+
+    Batch 6, N2: like _issue_email_code, the old token stays valid
+    until the new one is actually sent. The old rows are only deleted
+    AFTER a successful send; if the send fails, the new row is
+    deleted instead and the old token keeps working.
+    """
+    raw = secrets.token_urlsafe(32)
+    row = PasswordResetToken(
+        user_id=user.id, token_hash=_hash_code(raw),
+        expires_at=datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES),
+    )
+    db.add(row)
+    db.commit()
+    reset_url = f"{FRONTEND_URL}/auth/reset?token={raw}"
+    sent = mailer.send_password_reset(user.email, reset_url)
+    if sent:
+        db.query(PasswordResetToken).filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.id != row.id,
+            PasswordResetToken.used_at.is_(None)).delete()
+    else:
+        db.delete(row)
+    db.commit()
+    return sent
+
+
+@app.post(f"{V1}/auth/forgot-password")
+def forgot_password(body: ForgotPasswordIn, db: Session = Depends(get_db)):
+    """Starts a password reset (Batch 6, N2). The response is identical
+    whether the email exists or not — no account enumeration.
+    Rate-limited per email (1/min, 5/hour). The reset link is
+    single-use, 30 minutes. Note the Resend test-domain limit: until
+    a custom domain is live, the mail only delivers to the account
+    owner's own address."""
+    ratelimit.check_forgot_allowed(body.email)
+    ratelimit.record_forgot(body.email)
+    user = db.query(User).filter_by(email=body.email).first()
+    if user is not None:
+        _issue_reset_token(db, user)
+    return {"ok": True,
+            "message": "If an account exists for this email, a reset link was sent."}
+
+
+@app.post(f"{V1}/auth/reset-password")
+def reset_password(body: ResetPasswordIn, request: Request, db: Session = Depends(get_db)):
+    """Completes a password reset (Batch 6, N2). Every failure is the
+    same generic 400 — the token is never confirmed to exist. On
+    success the token is consumed and ALL refresh tokens are revoked,
+    so every other session is signed out."""
+    ip = _client_ip(request)
+    ratelimit.check_reset_attempt_allowed(ip)
+    ratelimit.record_reset_attempt(ip)
+    row = db.query(PasswordResetToken).filter_by(token_hash=_hash_code(body.token)).first()
+    if row is None or row.used_at is not None or row.expires_at < datetime.utcnow():
+        raise HTTPException(400, "Invalid or expired reset link")
+    user = db.query(User).get(row.user_id)
+    if user is None:
+        raise HTTPException(400, "Invalid or expired reset link")
+    row.used_at = datetime.utcnow()
+    user.password_hash = hash_password(body.new_password)
+    db.commit()
+    revoke_all_refresh_tokens(db, user.id)
+    return {"ok": True, "message": "Password reset — sign in with your new password"}
+
+
 @app.post(f"{V1}/auth/login")
-def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
+def login(body: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)):
     """Password step. Returns AuthOut — or {totp_required, pre_token}
     when 2FA is on, or 403 when the signup code was never verified.
     Wrong email and wrong password give the same 401 after the same
@@ -404,8 +598,7 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
         return {"totp_required": True,
                 "pre_token": create_totp_pending_token(user.id),
                 "email": user.email}
-    tokens = issue_tokens(db, user.id)
-    return AuthOut(**tokens, email=user.email, cf_handle=_cf_handle(db, user))
+    return _auth_out(response, db, user)
 
 
 @app.get(f"{V1}/auth/google")
@@ -419,7 +612,7 @@ def google_auth_url():
 
 
 @app.post(f"{V1}/auth/google/callback")
-def google_callback(body: GoogleCallbackIn, db: Session = Depends(get_db)):
+def google_callback(body: GoogleCallbackIn, response: Response, db: Session = Depends(get_db)):
     """Exchanges Google's authorization code for CP Compass tokens.
 
     Finds the user by google_id, else by email (linking the Google
@@ -468,12 +661,11 @@ def google_callback(body: GoogleCallbackIn, db: Session = Depends(get_db)):
         return {"totp_required": True,
                 "pre_token": create_totp_pending_token(user.id),
                 "email": user.email}
-    tokens = issue_tokens(db, user.id)
-    return AuthOut(**tokens, email=user.email, cf_handle=_cf_handle(db, user))
+    return _auth_out(response, db, user)
 
 
 @app.post(f"{V1}/auth/2fa/verify", response_model=AuthOut)
-def totp_verify(body: TotpVerifyIn, db: Session = Depends(get_db)):
+def totp_verify(body: TotpVerifyIn, response: Response, db: Session = Depends(get_db)):
     """Second login step (audit F6): exchanges the 5-minute pre-auth
     token + a 6-digit authenticator code — or a single-use backup code
     — for real tokens. 5 wrong codes in 15 minutes -> 429."""
@@ -490,38 +682,47 @@ def totp_verify(body: TotpVerifyIn, db: Session = Depends(get_db)):
             row.used_at = datetime.utcnow()
             db.commit()
             ratelimit.record_totp_success(user.id)
-            tokens = issue_tokens(db, user.id)
-            return AuthOut(**tokens, email=user.email, cf_handle=_cf_handle(db, user))
+            return _auth_out(response, db, user)
     secret_row = db.query(TotpSecret).filter_by(user_id=user.id).first()
     secret = totp.decrypt_secret(secret_row.secret_encrypted) if secret_row else None
     if secret is None or not totp.verify_code(secret, code):
         ratelimit.record_totp_failure(user.id)
         raise HTTPException(401, "Wrong code")
     ratelimit.record_totp_success(user.id)
-    tokens = issue_tokens(db, user.id)
-    return AuthOut(**tokens, email=user.email, cf_handle=_cf_handle(db, user))
+    return _auth_out(response, db, user)
 
 
 @app.post(f"{V1}/auth/refresh", response_model=AuthOut)
-def refresh(body: RefreshIn, db: Session = Depends(get_db)):
-    result = refresh_tokens(db, body.refresh_token)
+def refresh(request: Request, response: Response, db: Session = Depends(get_db)):
+    """Rotates the refresh token from the cp_refresh cookie (Batch 6,
+    N4). The CSRF token is NOT rotated here (a005): rotating every 15
+    minutes races parallel tabs. The frontend keeps its copy."""
+    raw = request.cookies.get(REFRESH_COOKIE)
+    if not raw:
+        raise HTTPException(401, "Invalid or expired refresh token")
+    result = refresh_tokens(db, raw)
     if result is None:
         raise HTTPException(401, "Invalid or expired refresh token")
     tokens, user_id = result
     user = db.query(User).get(user_id)
-    return AuthOut(**tokens, email=user.email if user else "",
+    set_auth_cookies(response, tokens["access_token"], tokens["refresh_token"])
+    return AuthOut(email=user.email if user else "",
                     cf_handle=_cf_handle(db, user) if user else None)
 
 
 @app.post(f"{V1}/auth/logout")
-def logout(body: RefreshIn, db: Session = Depends(get_db)):
-    if not revoke_refresh_token(db, body.refresh_token):
+def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    raw = request.cookies.get(REFRESH_COOKIE)
+    if not raw or not revoke_refresh_token(db, raw):
         raise HTTPException(401, "Invalid refresh token")
+    clear_auth_cookies(response)
     return {"ok": True}
 
 
 @app.post(f"{V1}/auth/logout-all")
-def logout_all(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def logout_all(response: Response, user: User = Depends(get_current_user),
+               db: Session = Depends(get_db)):
+    clear_auth_cookies(response)
     return {"ok": True, "revoked": revoke_all_refresh_tokens(db, user.id)}
 
 
@@ -778,18 +979,26 @@ def _job_state(job) -> dict:
 
 
 @app.get(f"{V1}/sync/stream")
-async def sync_stream(token: str | None = Query(None)):
-    """Live sync progress over Server-Sent Events (batch 5).
+async def sync_stream(request: Request, user: User = Depends(get_current_user)):
+    """Live sync progress over Server-Sent Events (batch 5; cookie auth
+    in batch 6, N4).
 
-    EventSource cannot send an Authorization header, so the same JWT
-    access token is accepted as ?token=. The stream only ever exposes
-    the caller's own latest job. Events: an immediate `state` event,
-    `progress` whenever total_synced/status changes, a terminal `done`
-    / `failed` event, then the server closes. No job yet: one `state`
-    event ({status: "never"}) and close. `: ping` heartbeat comments
-    every 15 s. 401 when the token is missing or invalid.
+    EventSource sends cookies with withCredentials, so the access
+    token no longer travels as ?token= (deleted — a URL token lands in
+    server logs, browser history, and the Referer header). The stream
+    only ever exposes the caller's own latest job. Origin-checked
+    (a001's supplement): EventSource always sends Origin. Events: an
+    immediate `state` event, `progress` whenever total_synced/status
+    changes, a terminal `done` / `failed` event, then the server
+    closes. No job yet: one `state` event ({status: "never"}) and
+    close. `: ping` heartbeat comments every 15 s. 401 when the cookie
+    is missing or invalid.
     """
-    user_id = decode_access_token_query(token)
+    origin = request.headers.get("origin")
+    if origin is None or origin not in CORS_ORIGINS:
+        raise HTTPException(403, "Forbidden origin")
+    ratelimit.check_endpoint_allowed("sync/stream", str(user.id))
+    user_id = user.id
 
     async def _generate():
         # Fresh import: app.db.SessionLocal is rebound by the test
@@ -1083,6 +1292,7 @@ def _ics_escape(text: str) -> str:
 @app.get(f"{V1}/calendar/export.ics")
 async def export_calendar_ics(user: User = Depends(get_current_user)):
     """Upcoming Codeforces contests as an .ics file (batch 5)."""
+    ratelimit.check_endpoint_allowed("calendar/export.ics", str(user.id))
     try:
         contests = await cf.contest_list()
     except CFError as exc:
@@ -1376,6 +1586,7 @@ def set_goal(body: GoalIn, user: User = Depends(get_current_user),
 def set_public_profile(body: PublicProfileIn, user: User = Depends(get_current_user),
                        db: Session = Depends(get_db)):
     """Opt-in toggle for the public profile (batch 5). Default OFF."""
+    ratelimit.check_endpoint_allowed("settings/public-profile", str(user.id))
     user.public_profile = bool(body.public)
     db.commit()
     return {"public_profile": bool(user.public_profile)}
@@ -1396,10 +1607,11 @@ def disconnect_handle(user: User = Depends(get_current_user),
 
 # ---------- public profile (batch 5, no auth) ----------
 @app.get(f"{V1}/u/{{handle}}")
-def public_profile(handle: str, db: Session = Depends(get_db)):
+def public_profile(handle: str, request: Request, db: Session = Depends(get_db)):
     """Public profile. 404 when the handle has no account OR the user
     has not opted in - the two cases are deliberately indistinguishable.
     Only aggregate stats; no email, no user id, no submission data."""
+    ratelimit.check_endpoint_allowed("u/handle", _client_ip(request))
     account = db.query(CfAccount).filter_by(handle_norm=handle.lower()).first()
     if account is None:
         raise HTTPException(404, "Profile not found")

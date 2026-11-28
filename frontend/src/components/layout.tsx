@@ -55,11 +55,13 @@ function navItems(base: string, t: Dict) {
 }
 
 /* Batch 5 — SSE sync progress: while a sync runs, an EventSource
-   streams live progress (total_synced) instead of the 15 s poll. The
-   stream URL carries the access token as ?token= (EventSource cannot
-   send headers); on any stream error the chip falls back to polling.
-   The poll is the source of truth for starting/stopping the stream,
-   so a stale live state can never mask a finished sync. */
+   streams live progress (total_synced) instead of the 15 s poll.
+   Batch 6, N4: the access token no longer travels as ?token= — the
+   cookie goes with withCredentials. On a stream error the chip
+   reconnects with backoff (a010: 1s -> 2s -> 5s cap, max 5 attempts
+   per sync), refreshing the session once via api.me(); after that the
+   poll is the fallback and the source of truth, so a stale live state
+   can never mask a finished sync. */
 function SyncChip() {
   const { t } = useLanguage();
   const qc = useQueryClient();
@@ -83,38 +85,65 @@ function SyncChip() {
       return;
     }
     setLive(null); // a stale live state must not mask the new sync
+    if (typeof EventSource === 'undefined') return; // poll fallback
     const url = api.syncStreamUrl();
-    if (!url || typeof EventSource === 'undefined') return; // poll fallback
     setStreaming(true);
-    const es = new EventSource(url);
-    const onEvent = (e: MessageEvent) => {
-      try {
-        setLive(JSON.parse(e.data) as SyncStatus);
-      } catch {
-        /* ignore a malformed event; the poll still refreshes */
-      }
+    let closed = false;
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let es: EventSource | null = null;
+    const open = () => {
+      if (closed) return;
+      es = new EventSource(url, { withCredentials: true });
+      const onEvent = (e: MessageEvent) => {
+        try {
+          setLive(JSON.parse(e.data) as SyncStatus);
+        } catch {
+          /* ignore a malformed event; the poll still refreshes */
+        }
+      };
+      es.addEventListener('state', onEvent);
+      es.addEventListener('progress', onEvent);
+      es.addEventListener('done', (e: MessageEvent) => {
+        onEvent(e);
+        es?.close();
+        setStreaming(false);
+        void qc.invalidateQueries({ queryKey: ['sync-status'] });
+        void qc.invalidateQueries({ queryKey: ['dashboard'] });
+      });
+      es.addEventListener('failed', (e: MessageEvent) => {
+        onEvent(e);
+        es?.close();
+        setStreaming(false);
+        void qc.invalidateQueries({ queryKey: ['sync-status'] });
+      });
+      es.onerror = () => {
+        es?.close();
+        if (closed) return;
+        if (attempts >= 5) {
+          setStreaming(false); // fall back to the 15 s poll
+          return;
+        }
+        attempts += 1;
+        const delay = Math.min(1000 * 2 ** (attempts - 1), 5000);
+        timer = setTimeout(() => {
+          // A 401 (expired cookie) refreshes once via api.me() — if
+          // the session is alive the stream reopens, else the poll
+          // fallback covers progress.
+          void api.me().then(
+            () => {
+              if (!closed) open();
+            },
+            () => setStreaming(false),
+          );
+        }, delay);
+      };
     };
-    es.addEventListener('state', onEvent);
-    es.addEventListener('progress', onEvent);
-    es.addEventListener('done', (e: MessageEvent) => {
-      onEvent(e);
-      es.close();
-      setStreaming(false);
-      void qc.invalidateQueries({ queryKey: ['sync-status'] });
-      void qc.invalidateQueries({ queryKey: ['dashboard'] });
-    });
-    es.addEventListener('failed', (e: MessageEvent) => {
-      onEvent(e);
-      es.close();
-      setStreaming(false);
-      void qc.invalidateQueries({ queryKey: ['sync-status'] });
-    });
-    es.onerror = () => {
-      es.close();
-      setStreaming(false); // fall back to the 15 s poll
-    };
+    open();
     return () => {
-      es.close();
+      closed = true;
+      if (timer) clearTimeout(timer);
+      es?.close();
       setStreaming(false);
     };
     // Re-open only when the poll first reports a running sync.

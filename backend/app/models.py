@@ -397,6 +397,24 @@ class EmailVerification(Base):
     created_at = Column(DateTime, default=_now, nullable=False)
 
 
+class PasswordResetToken(Base):
+    """Single-use password-reset token (Batch 6, N2). Only the SHA-256
+    hash of the 32-byte token is stored; a token expires after
+    RESET_TOKEN_EXPIRE_MINUTES and dies once used. Issuing a new token
+    invalidates older rows (same shape as the email-verification
+    codes)."""
+
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    token_hash = Column(String, nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_now, nullable=False)
+
+
 class TotpSecret(Base):
     """Per-user TOTP secret for authenticator-app 2FA. The secret is
     stored encrypted with a key derived from SECRET_KEY (see app.totp),

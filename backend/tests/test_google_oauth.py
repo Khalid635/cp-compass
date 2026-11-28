@@ -15,6 +15,8 @@ import os
 import sys
 import time
 
+import secrets
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -102,6 +104,22 @@ def _mock_google(monkeypatch, sub="google-sub-1", email="a@test.dev",
     monkeypatch.setattr(google_oauth, "fetch_userinfo", userinfo)
 
 
+ORIGIN = "http://localhost:5173"
+
+
+def _csrf_token():
+    return secrets.token_urlsafe(32)
+
+
+def _anon_headers():
+    """CSRF headers for an unauthenticated mutation (register/login/
+    verify/forgot/reset/callback): a fresh CSRF token in both the
+    Cookie header and the X-CSRF-Token header, plus Origin. The server
+    only compares header to cookie — no stored token — so a minted
+    token is valid, and nothing touches the client's cookie jar."""
+    csrf = _csrf_token()
+    return {"Cookie": f"cp_csrf={csrf}", "X-CSRF-Token": csrf, "Origin": ORIGIN}
+
 def _expired_state():
     payload = {"exp": int(time.time()) - 60, "nonce": "old-nonce"}
     data = base64.urlsafe_b64encode(
@@ -135,7 +153,7 @@ def test_google_auth_url(client, configured):
 
 def test_callback_bad_state(client, configured):
     res = client.post("/api/v1/auth/google/callback",
-                      json={"code": "good-code", "state": "garbage"})
+                      json={"code": "good-code", "state": "garbage"}, headers=_anon_headers())
     assert res.status_code == 400
 
 
@@ -143,11 +161,12 @@ def test_callback_new_user(client, db, configured, monkeypatch):
     _mock_google(monkeypatch)
     state = google_oauth.build_state()
     res = client.post("/api/v1/auth/google/callback",
-                      json={"code": "good-code", "state": state})
+                      json={"code": "good-code", "state": state}, headers=_anon_headers())
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["email"] == "a@test.dev"
-    assert body["access_token"] and body["refresh_token"]
+    assert body["csrf_token"]
+    assert res.cookies.get("cp_access")
     user = db.query(models.User).filter_by(email="a@test.dev").first()
     assert user is not None
     assert user.email_verified is True
@@ -161,7 +180,7 @@ def test_callback_links_existing_password_user(client, db, configured, monkeypat
     _mock_google(monkeypatch)
     state = google_oauth.build_state()
     res = client.post("/api/v1/auth/google/callback",
-                      json={"code": "good-code", "state": state})
+                      json={"code": "good-code", "state": state}, headers=_anon_headers())
     assert res.status_code == 200, res.text
     db.expire_all()
     linked = db.query(models.User).filter_by(email="a@test.dev").first()
@@ -171,7 +190,7 @@ def test_callback_links_existing_password_user(client, db, configured, monkeypat
     assert linked.password_hash == old_hash
     # Password login still works for the linked account.
     res = client.post("/api/v1/auth/login",
-                      json={"email": "a@test.dev", "password": "secret123"})
+                      json={"email": "a@test.dev", "password": "secret123"}, headers=_anon_headers())
     assert res.status_code == 200, res.text
     assert res.json()["email"] == "a@test.dev"
 
@@ -181,7 +200,7 @@ def test_callback_links_unverified_password_user(client, db, configured, monkeyp
     _mock_google(monkeypatch)
     state = google_oauth.build_state()
     res = client.post("/api/v1/auth/google/callback",
-                      json={"code": "good-code", "state": state})
+                      json={"code": "good-code", "state": state}, headers=_anon_headers())
     assert res.status_code == 200, res.text
     db.expire_all()
     linked = db.query(models.User).filter_by(email="a@test.dev").first()
@@ -196,7 +215,7 @@ def test_callback_duplicate_google_account(client, db, configured, monkeypatch):
     _mock_google(monkeypatch, sub="google-sub-2", email="a@test.dev")
     state = google_oauth.build_state()
     res = client.post("/api/v1/auth/google/callback",
-                      json={"code": "good-code", "state": state})
+                      json={"code": "good-code", "state": state}, headers=_anon_headers())
     assert res.status_code == 400
     assert "different Google account" in res.json()["detail"]
 
@@ -205,7 +224,7 @@ def test_callback_unverified_google_email(client, configured, monkeypatch):
     _mock_google(monkeypatch, verified=False)
     state = google_oauth.build_state()
     res = client.post("/api/v1/auth/google/callback",
-                      json={"code": "good-code", "state": state})
+                      json={"code": "good-code", "state": state}, headers=_anon_headers())
     assert res.status_code == 400
     assert "verified email" in res.json()["detail"]
 
@@ -217,7 +236,7 @@ def test_callback_exchange_failure(client, configured, monkeypatch):
     monkeypatch.setattr(google_oauth, "exchange_code", boom)
     state = google_oauth.build_state()
     res = client.post("/api/v1/auth/google/callback",
-                      json={"code": "good-code", "state": state})
+                      json={"code": "good-code", "state": state}, headers=_anon_headers())
     assert res.status_code == 502
 
 
@@ -225,10 +244,10 @@ def test_google_only_user_password_login_401(client, db, configured, monkeypatch
     _mock_google(monkeypatch)
     state = google_oauth.build_state()
     res = client.post("/api/v1/auth/google/callback",
-                      json={"code": "good-code", "state": state})
+                      json={"code": "good-code", "state": state}, headers=_anon_headers())
     assert res.status_code == 200
     res = client.post("/api/v1/auth/login",
-                      json={"email": "a@test.dev", "password": "anything123"})
+                      json={"email": "a@test.dev", "password": "anything123"}, headers=_anon_headers())
     assert res.status_code == 401
 
 
@@ -239,7 +258,7 @@ def test_callback_totp_user(client, db, configured, monkeypatch):
     _mock_google(monkeypatch)
     state = google_oauth.build_state()
     res = client.post("/api/v1/auth/google/callback",
-                      json={"code": "good-code", "state": state})
+                      json={"code": "good-code", "state": state}, headers=_anon_headers())
     assert res.status_code == 200, res.text
     body = res.json()
     assert body.get("totp_required") is True

@@ -16,6 +16,8 @@ import os
 import sys
 from datetime import datetime, timedelta
 
+import secrets
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -67,9 +69,29 @@ def _tokens(user_id):
         session.close()
 
 
+ORIGIN = "http://localhost:5173"
+
+
+def _csrf_token():
+    return secrets.token_urlsafe(32)
+
+
+def _anon_headers():
+    """CSRF headers for an unauthenticated mutation (register/login/
+    verify/forgot/reset/callback): a fresh CSRF token in both the
+    Cookie header and the X-CSRF-Token header, plus Origin. The server
+    only compares header to cookie — no stored token — so a minted
+    token is valid, and nothing touches the client's cookie jar."""
+    csrf = _csrf_token()
+    return {"Cookie": f"cp_csrf={csrf}", "X-CSRF-Token": csrf, "Origin": ORIGIN}
+
 def _auth_headers(user_id):
+    """Cookie-based auth (Batch 6, N4) — see test_hints.py."""
     tokens = _tokens(user_id)
-    return {"Authorization": f"Bearer {tokens['access_token']}"}, tokens
+    csrf = _csrf_token()
+    cookie = (f"cp_access={tokens['access_token']}; "
+              f"cp_refresh={tokens['refresh_token']}; cp_csrf={csrf}")
+    return {"Cookie": cookie, "X-CSRF-Token": csrf, "Origin": ORIGIN}, tokens
 
 
 @pytest.fixture()
@@ -192,9 +214,12 @@ def test_5_revision_queue_no_duplicates(client, db):
 def test_6_demo_mode_read_only(client):
     """Demo endpoints are GET-only: POST/PUT/DELETE are rejected."""
     assert client.get("/api/v1/demo/dashboard").status_code == 200
-    assert client.post("/api/v1/demo/dashboard").status_code == 405
-    assert client.post("/api/v1/demo/recommendations").status_code == 405
-    assert client.delete("/api/v1/demo/revisions").status_code == 405
+    assert client.post("/api/v1/demo/dashboard",
+                       headers=_anon_headers()).status_code == 405
+    assert client.post("/api/v1/demo/recommendations",
+                       headers=_anon_headers()).status_code == 405
+    assert client.delete("/api/v1/demo/revisions",
+                         headers=_anon_headers()).status_code == 405
 
 
 def test_7_empty_history_dashboard_ok(client, db, monkeypatch):

@@ -47,7 +47,9 @@ SYNC_MAX_ATTEMPTS = int(os.environ.get("SYNC_MAX_ATTEMPTS", "3"))
 # CORS: comma-separated allowed origins. Local dev defaults; production
 # sets this to the Vercel frontend URL (never "*" with credentials).
 CORS_ORIGINS = [o.strip() for o in os.environ.get(
-    "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,"
+    "http://localhost:4173,http://127.0.0.1:4173").split(",") if o.strip()]
 
 # --- Batch 1: email verification + TOTP 2FA -------------------------------
 # Email verification codes: 6 digits, 15 minutes, 5 attempts per code.
@@ -106,3 +108,29 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")  # 2.5-flash 4
 HINT_DAILY_LIMIT = int(os.environ.get("HINT_DAILY_LIMIT", "10"))
 HINT_HTTP_TIMEOUT_S = int(os.environ.get("HINT_HTTP_TIMEOUT_S", "30"))
 POSTMORTEM_DAILY_LIMIT = int(os.environ.get("POSTMORTEM_DAILY_LIMIT", "5"))
+
+# --- Batch 6, N4: HttpOnly cookie flags (arena winner a005) -------------
+# IS_PROD is the same test main.py used for _is_prod: ENV == "production"
+# OR a non-SQLite DATABASE_URL. (Render does not set ENV, so an ENV-only
+# check would be wrong on live.) Prod is genuinely cross-site (Vercel
+# frontend, Render API) so cookies need SameSite=None; Secure. Dev is
+# plain HTTP: Secure cookies would never be set and None without Secure
+# is rejected, so dev uses SameSite=Lax, Secure off. Dev is same-origin
+# through the Vite /api proxy, so Lax works there.
+IS_PROD = ENV == "production" or not DATABASE_URL.startswith("sqlite")
+COOKIE_SECURE = IS_PROD
+COOKIE_SAMESITE = "none" if IS_PROD else "lax"
+assert not (COOKIE_SAMESITE == "none" and not COOKIE_SECURE), \
+    "SameSite=None requires Secure"
+
+# --- Batch 6: password recovery + least-privilege DB role ------------------
+# FRONTEND_URL is the base URL baked into password-reset links. Prod
+# must set it in Render env to https://cp-compass-phi.vercel.app —
+# until then a live reset link points at localhost (stated limit).
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+# Password-reset tokens: single-use, 30 minutes.
+RESET_TOKEN_EXPIRE_MINUTES = int(os.environ.get("RESET_TOKEN_EXPIRE_MINUTES", "30"))
+# MIGRATION_DATABASE_URL: the owner-role connection Alembic uses at
+# startup (Batch 6, reel #3). Falls back to DATABASE_URL. The runtime
+# engine keeps DATABASE_URL (the least-privilege app role in prod).
+MIGRATION_DATABASE_URL = os.environ.get("MIGRATION_DATABASE_URL", DATABASE_URL)

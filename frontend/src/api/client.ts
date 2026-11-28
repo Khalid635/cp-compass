@@ -1,6 +1,9 @@
-/* Tiny fetch wrapper: JWT access token from localStorage, JSON errors
-   surfaced as messages. On a 401 the refresh token is tried once and the
-   original request retried — the access token lives only 15 minutes. */
+/* Tiny fetch wrapper. Batch 6, N4 (arena winner a005): auth tokens live
+   in HttpOnly cookies — never in localStorage or any JS-readable store.
+   Every request sends credentials: 'include'; mutations carry the CSRF
+   token (X-CSRF-Token) from the /auth/csrf JSON body. On a 401 the
+   refresh cookie is tried once (single-flight) and the original request
+   retried — the access token lives only 15 minutes. */
 import type {
   AnalyticsData,
   CalendarMonth,
@@ -36,43 +39,72 @@ export class ApiError extends Error {
   }
 }
 
-function accessToken(): string | null {
-  return localStorage.getItem('cp_access_token');
+/* The API origin, for messages that must name it (e.g. the
+   third-party-cookies-blocked banner). In dev BASE is '' (Vite proxy)
+   so the origin is the page itself; in prod it is the Render URL. */
+export function apiOrigin(): string {
+  return BASE || window.location.origin;
 }
 
-function refreshToken(): string | null {
-  return localStorage.getItem('cp_refresh_token');
-}
-
-export function storeTokens(access: string, refresh: string) {
-  localStorage.setItem('cp_access_token', access);
-  localStorage.setItem('cp_refresh_token', refresh);
-}
-
-export function clearTokens() {
+/* Legacy localStorage token keys (pre-Batch 6). Deleted unconditionally
+   on boot, never read — a005's live-session migration. */
+export function clearLegacyTokens() {
   localStorage.removeItem('cp_access_token');
   localStorage.removeItem('cp_refresh_token');
   localStorage.removeItem('cp_token'); // legacy single-token key
 }
 
-/* Single-flight refresh: concurrent 401s share one refresh call. */
+/* CSRF token: module-level only, never persisted. The value comes from
+   the GET /auth/csrf JSON body (a005) — cross-site JS cannot read the
+   cp_csrf cookie via document.cookie, so the body is load-bearing. */
+let csrfToken: string | null = null;
+let csrfPromise: Promise<string> | null = null;
+
+export function setCsrfToken(token: string | null) {
+  csrfToken = token;
+}
+
+export function clearCsrfToken() {
+  csrfToken = null;
+  csrfPromise = null;
+}
+
+/** Fetches the CSRF token (single-flight). Idempotent server-side:
+    /auth/csrf returns the current cookie value if one exists. */
+export async function ensureCsrf(force = false): Promise<string> {
+  if (csrfToken && !force) return csrfToken;
+  if (!force && csrfPromise) return csrfPromise;
+  csrfPromise = (async () => {
+    const res = await fetch(`${BASE}${V1}/auth/csrf`, { credentials: 'include' });
+    if (!res.ok) throw new ApiError(res.status, `Request failed (${res.status})`);
+    const body = (await res.json()) as { csrf_token: string };
+    csrfToken = body.csrf_token;
+    return csrfToken;
+  })();
+  try {
+    return await csrfPromise;
+  } finally {
+    csrfPromise = null;
+  }
+}
+
+/* Single-flight refresh: concurrent 401s share one refresh call.
+   Cookie-based (Batch 6, N4): the refresh token travels in the
+   cp_refresh cookie, never in a body. Refresh is a mutation, so it
+   carries the CSRF header too. */
 let refreshPromise: Promise<boolean> | null = null;
 
 async function tryRefresh(): Promise<boolean> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
-      const rt = refreshToken();
-      if (!rt) return false;
       try {
+        const token = await ensureCsrf();
         const res = await fetch(`${BASE}${V1}/auth/refresh`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: rt }),
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
         });
-        if (!res.ok) return false;
-        const body = (await res.json()) as { access_token: string; refresh_token: string };
-        storeTokens(body.access_token, body.refresh_token);
-        return true;
+        return res.ok;
       } catch {
         return false;
       } finally {
@@ -83,20 +115,40 @@ async function tryRefresh(): Promise<boolean> {
   return refreshPromise;
 }
 
-async function request<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
+function isMutation(init?: RequestInit): boolean {
+  const m = (init?.method ?? 'GET').toUpperCase();
+  return m === 'POST' || m === 'PUT' || m === 'PATCH' || m === 'DELETE';
+}
+
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  retried = false,
+  csrfRetried = false,
+): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const t = accessToken();
-  if (t) headers.Authorization = `Bearer ${t}`;
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+  if (isMutation(init)) {
+    headers['X-CSRF-Token'] = await ensureCsrf();
+  }
+  const res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: 'include' });
   let body: unknown = null;
   try {
     body = await res.json();
   } catch {
     body = null;
   }
-  if (res.status === 401 && !retried && refreshToken()) {
-    if (await tryRefresh()) return request<T>(path, init, true);
-    clearTokens();
+  // CSRF 403: the token rotated (e.g. on login) and our in-memory copy
+  // is stale — refetch once and retry once (a005/a001).
+  if (
+    res.status === 403 &&
+    !csrfRetried &&
+    (body as { detail?: string } | null)?.detail === 'csrf_check_failed'
+  ) {
+    await ensureCsrf(true);
+    return request<T>(path, init, retried, true);
+  }
+  if (res.status === 401 && !retried) {
+    if (await tryRefresh()) return request<T>(path, init, true, csrfRetried);
   }
   if (!res.ok) {
     const msg =
@@ -107,15 +159,11 @@ async function request<T>(path: string, init?: RequestInit, retried = false): Pr
 }
 
 /* Same as request(), but for endpoints that return a file (the .ics
-   export): the body is a Blob, not JSON. */
+   export): the body is a Blob, not JSON. GET only, so no CSRF header. */
 async function requestBlob(path: string, retried = false): Promise<Blob> {
-  const headers: Record<string, string> = {};
-  const t = accessToken();
-  if (t) headers.Authorization = `Bearer ${t}`;
-  const res = await fetch(`${BASE}${path}`, { headers });
-  if (res.status === 401 && !retried && refreshToken()) {
+  const res = await fetch(`${BASE}${path}`, { credentials: 'include' });
+  if (res.status === 401 && !retried) {
     if (await tryRefresh()) return requestBlob(path, true);
-    clearTokens();
   }
   if (!res.ok) {
     let msg = `Request failed (${res.status})`;
@@ -129,12 +177,13 @@ async function requestBlob(path: string, retried = false): Promise<Blob> {
   return res.blob();
 }
 
+/* Batch 6, N4: no token fields — tokens live in HttpOnly cookies.
+   csrf_token is echoed by the backend after an auth transition so the
+   frontend can update its in-memory copy. */
 export interface AuthResponse {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
   email: string;
   cf_handle: string | null;
+  csrf_token?: string | null;
 }
 
 /* Batch 1 security: register no longer returns tokens — it returns a
@@ -152,11 +201,9 @@ export type GoogleCallbackResponse =
   | { totp_required: true; pre_token: string; email: string };
 
 export interface LoginResponse {
-  access_token?: string;
-  refresh_token?: string;
-  token_type?: string;
   email: string;
   cf_handle?: string | null;
+  csrf_token?: string | null;
   totp_required?: boolean;
   pre_token?: string;
 }
@@ -189,6 +236,17 @@ export const api = {
     request<{ ok: boolean; message: string }>(`${V1}/auth/resend-code`, {
       method: 'POST',
       body: JSON.stringify({ email }),
+    }),
+  /* Batch 6, N2 — password recovery. */
+  forgotPassword: (email: string) =>
+    request<{ ok: boolean; message: string }>(`${V1}/auth/forgot-password`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  resetPassword: (token: string, newPassword: string) =>
+    request<{ ok: boolean; message: string }>(`${V1}/auth/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ token, new_password: newPassword }),
     }),
   login: (email: string, password: string) =>
     request<LoginResponse>(`${V1}/auth/login`, {
@@ -233,14 +291,20 @@ export const api = {
       `${V1}/auth/2fa/backup-codes`,
       { method: 'POST', body: JSON.stringify({ password }) },
     ),
-  logout: () => {
-    const rt = refreshToken();
-    if (!rt) return Promise.resolve({ ok: true });
-    return request<{ ok: boolean }>(`${V1}/auth/logout`, {
-      method: 'POST',
-      body: JSON.stringify({ refresh_token: rt }),
-    });
+  logout: async () => {
+    try {
+      return await request<{ ok: boolean }>(`${V1}/auth/logout`, {
+        method: 'POST',
+      });
+    } finally {
+      clearCsrfToken();
+    }
   },
+  /* Batch 6, N4 (a002's supplement): confirms whether the browser is
+     blocking third-party cookies. First call sets a throwaway cookie;
+     a second call checks whether it came back. */
+  cookieProbe: () =>
+    request<{ cookies_ok: boolean }>(`${V1}/auth/cookie-probe`),
   me: () =>
     request<{ email: string; cf_handle: string | null; current_rating: number | null }>(
       `${V1}/auth/me`,
@@ -261,14 +325,11 @@ export const api = {
     ),
   startSync: () => request<{ job_id: number; status: string }>(`${V1}/sync`, { method: 'POST' }),
   syncStatus: () => request<SyncStatus>(`${V1}/sync/status`),
-  /* Batch 5 — SSE sync stream: EventSource cannot send an Authorization
-     header, so the access token travels as a ?token= query param (the
-     backend decodes the same JWT). Never log this URL. */
-  syncStreamUrl: () => {
-    const t = accessToken();
-    if (!t) return null;
-    return `${BASE}${V1}/sync/stream?token=${encodeURIComponent(t)}`;
-  },
+  /* Batch 5 — SSE sync stream; Batch 6, N4: the access token no longer
+     travels as a ?token= query param (deleted server-side — a URL token
+     lands in logs, history, and Referer). The cookie goes with
+     withCredentials instead; layout.tsx opens the stream. */
+  syncStreamUrl: () => `${BASE}${V1}/sync/stream`,
   dashboard: () => request<DashboardData>(`${V1}/dashboard`),
   recommendations: (params: { tag?: string; min_rating?: number; max_rating?: number } = {}) => {
     const q = new URLSearchParams();

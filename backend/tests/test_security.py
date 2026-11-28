@@ -15,6 +15,8 @@ monkeypatched — no network is touched.
 import os
 import sys
 
+import secrets
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -68,9 +70,29 @@ def _tokens(user_id):
         session.close()
 
 
+ORIGIN = "http://localhost:5173"
+
+
+def _csrf_token():
+    return secrets.token_urlsafe(32)
+
+
+def _anon_headers():
+    """CSRF headers for an unauthenticated mutation (register/login/
+    verify/forgot/reset/callback): a fresh CSRF token in both the
+    Cookie header and the X-CSRF-Token header, plus Origin. The server
+    only compares header to cookie — no stored token — so a minted
+    token is valid, and nothing touches the client's cookie jar."""
+    csrf = _csrf_token()
+    return {"Cookie": f"cp_csrf={csrf}", "X-CSRF-Token": csrf, "Origin": ORIGIN}
+
 def _auth_headers(user_id):
+    """Cookie-based auth (Batch 6, N4) — see test_hints.py."""
     tokens = _tokens(user_id)
-    return {"Authorization": f"Bearer {tokens['access_token']}"}, tokens
+    csrf = _csrf_token()
+    cookie = (f"cp_access={tokens['access_token']}; "
+              f"cp_refresh={tokens['refresh_token']}; cp_csrf={csrf}")
+    return {"Cookie": cookie, "X-CSRF-Token": csrf, "Origin": ORIGIN}, tokens
 
 
 @pytest.fixture()
@@ -171,41 +193,54 @@ def test_f2_login_lockout_after_failures(client, db):
     _user(db)
     for _ in range(5):
         res = client.post("/api/v1/auth/login",
-                          json={"email": "a@test.dev", "password": "wrongpass"})
+                          json={"email": "a@test.dev", "password": "wrongpass"},
+                          headers=_anon_headers())
         assert res.status_code == 401
     # 6th attempt — even with the RIGHT password — is locked out.
     res = client.post("/api/v1/auth/login",
-                      json={"email": "a@test.dev", "password": "secret123"})
+                      json={"email": "a@test.dev", "password": "secret123"},
+                      headers=_anon_headers())
     assert res.status_code == 429
     assert "Retry-After" in res.headers
 
 
 def test_f2_password_minimum_8(client):
     res = client.post("/api/v1/auth/register",
-                      json={"email": "short@test.dev", "password": "abc1234"})
+                      json={"email": "short@test.dev", "password": "abc1234"},
+                      headers=_anon_headers())
     assert res.status_code == 422  # 7 chars: rejected by validation
     res = client.post("/api/v1/auth/register",
-                      json={"email": "ok@test.dev", "password": "abc12345"})
+                      json={"email": "ok@test.dev", "password": "abc12345"},
+                      headers=_anon_headers())
     assert res.status_code == 201  # 8 chars: accepted
 
 
 # ---------------------------------------------------------------------------
 # F4 — refresh-token reuse detection
 # ---------------------------------------------------------------------------
+def _refresh_headers(refresh_token):
+    """Cookie-based refresh (Batch 6, N4): the refresh token travels in
+    the cp_refresh cookie, plus the CSRF double-submit + Origin."""
+    csrf = _csrf_token()
+    return {"Cookie": f"cp_refresh={refresh_token}; cp_csrf={csrf}",
+            "X-CSRF-Token": csrf, "Origin": ORIGIN}
+
+
 def test_f4_refresh_reuse_revokes_family(client, db):
     user = _user(db)
     tokens = _tokens(user.id)
     res = client.post("/api/v1/auth/refresh",
-                      json={"refresh_token": tokens["refresh_token"]})
+                      headers=_refresh_headers(tokens["refresh_token"]))
     assert res.status_code == 200
-    new_refresh = res.json()["refresh_token"]
+    assert res.cookies.get("cp_access")
+    new_refresh = res.cookies["cp_refresh"]
     # Replaying the OLD (rotated) token -> 401, and the family dies:
     # the NEW token no longer refreshes either.
     res = client.post("/api/v1/auth/refresh",
-                      json={"refresh_token": tokens["refresh_token"]})
+                      headers=_refresh_headers(tokens["refresh_token"]))
     assert res.status_code == 401
     res = client.post("/api/v1/auth/refresh",
-                      json={"refresh_token": new_refresh})
+                      headers=_refresh_headers(new_refresh))
     assert res.status_code == 401
 
 
@@ -238,30 +273,37 @@ def test_f6_email_code_flow(client, db, monkeypatch):
 
     monkeypatch.setattr("app.main.mailer.send_verification_code", fake_send)
     res = client.post("/api/v1/auth/register",
-                      json={"email": "new@test.dev", "password": "secret123"})
+                      json={"email": "new@test.dev", "password": "secret123"},
+                      headers=_anon_headers())
     assert res.status_code == 201
     assert res.json()["verification_required"] is True
     assert "code" in captured
     # Login before verification -> 403, no tokens.
     res = client.post("/api/v1/auth/login",
-                      json={"email": "new@test.dev", "password": "secret123"})
+                      json={"email": "new@test.dev", "password": "secret123"},
+                      headers=_anon_headers())
     assert res.status_code == 403
     # Wrong code -> 400.
     res = client.post("/api/v1/auth/verify-email",
-                      json={"email": "new@test.dev", "code": "000000"})
+                      json={"email": "new@test.dev", "code": "000000"},
+                      headers=_anon_headers())
     assert res.status_code == 400
-    # Right code -> tokens.
+    # Right code -> cookies (Batch 6, N4: no tokens in the body).
     res = client.post("/api/v1/auth/verify-email",
-                      json={"email": "new@test.dev", "code": captured["code"]})
+                      json={"email": "new@test.dev", "code": captured["code"]},
+                      headers=_anon_headers())
     assert res.status_code == 200
-    assert res.json()["access_token"]
+    assert res.json()["csrf_token"]
+    assert res.cookies.get("cp_access")
     # Same code again -> already used.
     res = client.post("/api/v1/auth/verify-email",
-                      json={"email": "new@test.dev", "code": captured["code"]})
+                      json={"email": "new@test.dev", "code": captured["code"]},
+                      headers=_anon_headers())
     assert res.status_code == 400
     # Login now works.
     res = client.post("/api/v1/auth/login",
-                      json={"email": "new@test.dev", "password": "secret123"})
+                      json={"email": "new@test.dev", "password": "secret123"},
+                      headers=_anon_headers())
     assert res.status_code == 200
 
 
@@ -287,32 +329,40 @@ def test_f6_totp_setup_login_and_backup_codes(client, db):
     assert len(backup_codes) == 10
     # Login now stops at the second factor.
     res = client.post("/api/v1/auth/login",
-                      json={"email": "a@test.dev", "password": "secret123"})
+                      json={"email": "a@test.dev", "password": "secret123"},
+                      headers=_anon_headers())
     assert res.status_code == 200
     assert res.json()["totp_required"] is True
     pre_token = res.json()["pre_token"]
     # Wrong second-factor code -> 401.
     res = client.post("/api/v1/auth/2fa/verify",
-                      json={"pre_token": pre_token, "code": "000000"})
+                      json={"pre_token": pre_token, "code": "000000"},
+                      headers=_anon_headers())
     assert res.status_code == 401
-    # Right TOTP code -> tokens.
+    # Right TOTP code -> cookies (Batch 6, N4: no tokens in the body).
     res = client.post("/api/v1/auth/2fa/verify",
                       json={"pre_token": pre_token,
-                            "code": pyotp.TOTP(secret).now()})
+                            "code": pyotp.TOTP(secret).now()},
+                      headers=_anon_headers())
     assert res.status_code == 200
-    assert res.json()["access_token"]
+    assert res.json()["csrf_token"]
+    assert res.cookies.get("cp_access")
     # Backup code works once, then dies.
     res = client.post("/api/v1/auth/login",
-                      json={"email": "a@test.dev", "password": "secret123"})
+                      json={"email": "a@test.dev", "password": "secret123"},
+                      headers=_anon_headers())
     pre_token = res.json()["pre_token"]
     res = client.post("/api/v1/auth/2fa/verify",
-                      json={"pre_token": pre_token, "code": backup_codes[0]})
+                      json={"pre_token": pre_token, "code": backup_codes[0]},
+                      headers=_anon_headers())
     assert res.status_code == 200
     res = client.post("/api/v1/auth/login",
-                      json={"email": "a@test.dev", "password": "secret123"})
+                      json={"email": "a@test.dev", "password": "secret123"},
+                      headers=_anon_headers())
     pre_token = res.json()["pre_token"]
     res = client.post("/api/v1/auth/2fa/verify",
-                      json={"pre_token": pre_token, "code": backup_codes[0]})
+                      json={"pre_token": pre_token, "code": backup_codes[0]},
+                      headers=_anon_headers())
     assert res.status_code == 401
     # Disable needs the password; afterwards login is single-step again.
     res = client.post("/api/v1/auth/2fa/disable",
@@ -322,7 +372,8 @@ def test_f6_totp_setup_login_and_backup_codes(client, db):
                       json={"password": "secret123"}, headers=headers)
     assert res.status_code == 200
     res = client.post("/api/v1/auth/login",
-                      json={"email": "a@test.dev", "password": "secret123"})
+                      json={"email": "a@test.dev", "password": "secret123"},
+                      headers=_anon_headers())
     assert res.status_code == 200
     assert "totp_required" not in res.json()
 
@@ -334,14 +385,16 @@ def test_f7_register_response_identical_for_existing_email(client, db):
     _user(db, "a@test.dev")
     before = db.query(models.User).count()
     res = client.post("/api/v1/auth/register",
-                      json={"email": "a@test.dev", "password": "secret123"})
+                      json={"email": "a@test.dev", "password": "secret123"},
+                      headers=_anon_headers())
     assert res.status_code == 201
     assert res.json()["verification_required"] is True
     assert db.query(models.User).count() == before  # no duplicate user
     # Login with a wrong email costs the same as a wrong password: 401,
     # never 404.
     res = client.post("/api/v1/auth/login",
-                      json={"email": "nobody@test.dev", "password": "secret123"})
+                      json={"email": "nobody@test.dev", "password": "secret123"},
+                      headers=_anon_headers())
     assert res.status_code == 401
 
 
@@ -390,7 +443,8 @@ def test_f9_ml_status_scoped_to_caller(client, db, monkeypatch):
 def test_f10_body_size_limit(client):
     big = "x" * 1_200_000
     res = client.post("/api/v1/auth/register",
-                      json={"email": f"{big}@test.dev", "password": "secret123"})
+                      json={"email": f"{big}@test.dev", "password": "secret123"},
+                      headers=_anon_headers())
     assert res.status_code == 413
 
 

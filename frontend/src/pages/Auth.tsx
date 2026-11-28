@@ -34,6 +34,169 @@ export function RegisterPage({
   return <AuthPage mode="register" theme={theme} toggleTheme={toggleTheme} />;
 }
 
+/* Batch 6, N2 — password recovery. The forgot page always shows the
+   same "sent" message (the backend never reveals whether the email
+   exists); the reset page reads ?token= and fails generically on a
+   bad/expired link. */
+export function ForgotPasswordPage({
+  theme,
+  toggleTheme,
+}: {
+  theme: Theme;
+  toggleTheme: () => void;
+}) {
+  const { t } = useLanguage();
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      await api.forgotPassword(email);
+      setSent(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t.somethingWrong);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-8 px-4 py-8 md:flex-row md:gap-14">
+      <LampToggle theme={theme} onToggle={toggleTheme} />
+      <div className="w-full max-w-sm">
+        <div className="mb-6 flex flex-col items-center gap-2 text-center">
+          <Compass size={32} className="text-primary" aria-hidden />
+          <h1 className="text-2xl font-semibold tracking-tight">{t.forgotPasswordTitle}</h1>
+          <p className="text-sm text-muted">{t.forgotPasswordText}</p>
+        </div>
+        <Card>
+          {sent ? (
+            <p className="rounded-md bg-success/10 px-3 py-2 text-sm text-success">
+              {t.forgotPasswordSent}
+            </p>
+          ) : (
+            <form onSubmit={submit} className="flex flex-col gap-4">
+              <label className="flex flex-col gap-1 text-sm font-medium">
+                {t.email}
+                <Input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                />
+              </label>
+              {error && (
+                <p role="alert" className="rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">
+                  {error}
+                </p>
+              )}
+              <Button type="submit" loading={busy} className="w-full">
+                {t.forgotPasswordBtn}
+              </Button>
+            </form>
+          )}
+        </Card>
+        <p className="mt-4 text-center text-sm text-muted">
+          <Link to="/login">{t.logIn}</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function ResetPasswordPage({
+  theme,
+  toggleTheme,
+}: {
+  theme: Theme;
+  toggleTheme: () => void;
+}) {
+  const { t } = useLanguage();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get('token') ?? '';
+  const [password, setPassword] = useState('');
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      await api.resetPassword(token, password);
+      setDone(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t.somethingWrong);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-8 px-4 py-8 md:flex-row md:gap-14">
+      <LampToggle theme={theme} onToggle={toggleTheme} />
+      <div className="w-full max-w-sm">
+        <div className="mb-6 flex flex-col items-center gap-2 text-center">
+          <Compass size={32} className="text-primary" aria-hidden />
+          <h1 className="text-2xl font-semibold tracking-tight">{t.resetPasswordTitle}</h1>
+          <p className="text-sm text-muted">{t.resetPasswordText}</p>
+        </div>
+        <Card>
+          {done ? (
+            <div className="flex flex-col gap-4">
+              <p className="rounded-md bg-success/10 px-3 py-2 text-sm text-success">
+                {t.resetPasswordDone}
+              </p>
+              <Button className="w-full" onClick={() => navigate('/login', { replace: true })}>
+                {t.logIn}
+              </Button>
+            </div>
+          ) : !token ? (
+            <p role="alert" className="rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">
+              {t.resetPasswordBadLink}
+            </p>
+          ) : (
+            <form onSubmit={submit} className="flex flex-col gap-4">
+              <label className="flex flex-col gap-1 text-sm font-medium">
+                {t.newPassword}
+                <Input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t.passwordPlaceholder}
+                  autoComplete="new-password"
+                />
+              </label>
+              {error && (
+                <p role="alert" className="rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">
+                  {error}
+                </p>
+              )}
+              <Button type="submit" loading={busy} className="w-full">
+                {t.resetPasswordBtn}
+              </Button>
+            </form>
+          )}
+        </Card>
+        <p className="mt-4 text-center text-sm text-muted">
+          <Link to="/login">{t.logIn}</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 type Step = 'form' | 'verify' | 'totp';
 
 function AuthPage({
@@ -46,7 +209,15 @@ function AuthPage({
   toggleTheme: () => void;
 }) {
   const { t } = useLanguage();
-  const { login, register, verifyEmail, verifyTotp, startGoogleSignIn } = useAuth();
+  const {
+    login,
+    register,
+    verifyEmail,
+    verifyTotp,
+    startGoogleSignIn,
+    cookiesBlocked,
+    cookiesBlockedOrigin,
+  } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -197,7 +368,21 @@ function AuthPage({
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 />
               </label>
-              {error && (
+              {mode === 'login' && (
+                <p className="text-right text-sm">
+                  <Link to="/auth/forgot">{t.forgotPassword}</Link>
+                </p>
+              )}
+              {/* Batch 6, N4 (a005, Q6): the login succeeded server-side
+                  but the session cookie did not stick — the browser is
+                  blocking third-party cookies. This banner replaces the
+                  generic 401 error, which would only confuse. */}
+              {cookiesBlocked && (
+                <p role="alert" className="rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">
+                  {t.cookiesBlocked(cookiesBlockedOrigin)}
+                </p>
+              )}
+              {!cookiesBlocked && error && (
                 <p role="alert" className="rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">
                   {error}
                 </p>

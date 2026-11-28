@@ -6,7 +6,7 @@
    streak, 3 due. They drift as the demo seed ages (the streak is
    date-relative) — update them when they visibly disagree with /demo.
    The hero preview is a REAL capture of the demo dashboard
-   (public/showcase-dashboard.png); the showcase images are real captures
+   (public/showcase-dashboard-v2.png); the showcase images are real captures
    from the dev server (/demo). The "Why this problem?" totals use the
    one shared score (lib/score — same formula as the demo and the real
    app, totals computed, never hand-written). Picks below 25 are dropped,
@@ -252,10 +252,10 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
      closes. All four are real captures from the dev server (/demo). */
   type ShowTab = 'dashboard' | 'analytics' | 'practice' | 'revision';
   const SHOW_TABS: { id: ShowTab; src: string; caption: string }[] = [
-    { id: 'dashboard', src: '/showcase-dashboard.png', caption: '' },
-    { id: 'analytics', src: '/showcase-analytics.png', caption: '' },
-    { id: 'practice', src: '/showcase-practice.png', caption: '' },
-    { id: 'revision', src: '/showcase-revision.png', caption: '' },
+    { id: 'dashboard', src: '/showcase-dashboard-v2.png', caption: '' },
+    { id: 'analytics', src: '/showcase-analytics-v2.png', caption: '' },
+    { id: 'practice', src: '/showcase-practice-v2.png', caption: '' },
+    { id: 'revision', src: '/showcase-revision-v2.png', caption: '' },
   ];
   const [showTab, setShowTab] = useState<ShowTab>('dashboard');
   const [zoom, setZoom] = useState<null | ShowTab>(null);
@@ -345,7 +345,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
           </motion.p>
 
           {/* Browser-frame dashboard preview — a REAL screenshot of the demo
-              dashboard (public/showcase-dashboard.png, cropped to its top),
+              dashboard (public/showcase-dashboard-v2.png, cropped to its top),
               with a count-up stat strip above it. The numbers are the demo
               account's snapshot (1478 rating, 138 solved, 2-day streak,
               3 due); they drift as the seed ages. */}
@@ -384,7 +384,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
               aria-label={t.showcaseDashboardCaption}
             >
               <img
-                src="/showcase-dashboard.png"
+                src="/showcase-dashboard-v2.png"
                 alt={t.showcaseDashboardCaption}
                 loading="lazy"
                 className="h-[240px] w-full object-cover object-top sm:h-[340px]"

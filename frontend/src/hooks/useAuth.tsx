@@ -1,13 +1,16 @@
-/* Auth state. Batch 1 security: register no longer logs the user in
-   (an email code must be verified first), and login may stop at the
-   TOTP second step — both return their response so the page can branch
-   on it. Handle linking goes through the profile-token flow. */
+/* Auth state. Batch 6, N4: tokens live in HttpOnly cookies — the
+   frontend never sees them. Boot is api.me() only; legacy localStorage
+   token keys are deleted unconditionally on boot, never read. Login may
+   stop at the TOTP second step — both return their response so the page
+   can branch on it. */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   api,
-  clearTokens,
-  storeTokens,
+  apiOrigin,
+  clearCsrfToken,
+  clearLegacyTokens,
+  setCsrfToken,
 } from '../api/client';
 import type {
   AuthResponse,
@@ -16,6 +19,7 @@ import type {
   LoginResponse,
   RegisterResponse,
 } from '../api/client';
+import { ApiError } from '../api/client';
 
 export interface AuthUser {
   email: string;
@@ -26,16 +30,18 @@ export interface AuthUser {
 interface AuthState {
   user: AuthUser | null;
   loading: boolean;
+  /** True when a login succeeded server-side but the session cookie did
+      not stick — the browser is blocking third-party cookies (a005, Q6).
+      The login page shows a banner naming the API origin. */
+  cookiesBlocked: boolean;
+  cookiesBlockedOrigin: string;
   login: (email: string, password: string) => Promise<LoginResponse>;
   register: (email: string, password: string) => Promise<RegisterResponse>;
-  verifyEmail: (email: string, code: string) => Promise<void>;
-  verifyTotp: (preToken: string, code: string) => Promise<void>;
+  verifyEmail: (email: string, code: string) => Promise<AuthResponse>;
+  verifyTotp: (pre_token: string, code: string) => Promise<AuthResponse>;
   startGoogleSignIn: () => Promise<void>;
-  completeGoogleSignIn: (
-    code: string,
-    state: string,
-  ) => Promise<GoogleCallbackResponse>;
-  logout: () => void;
+  completeGoogleSignIn: (code: string, state: string) => Promise<GoogleCallbackResponse>;
+  logout: () => Promise<void>;
   refresh: () => Promise<void>;
   startHandleVerification: (handle: string) => Promise<HandleStartResponse>;
   confirmHandleVerification: (handle: string) => Promise<void>;
@@ -46,20 +52,14 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cookiesBlocked, setCookiesBlocked] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!localStorage.getItem('cp_access_token')) {
-      // Legacy single-token sessions (pre-refresh era) are invalid now.
-      clearTokens();
-      setUser(null);
-      setLoading(false);
-      return;
-    }
+    clearLegacyTokens();
     try {
       const me = await api.me();
       setUser(me);
     } catch {
-      clearTokens();
       setUser(null);
     } finally {
       setLoading(false);
@@ -70,34 +70,82 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await api.login(email, password);
-    if (res.totp_required) return res; // second step: TOTP code
-    if (!res.access_token || !res.refresh_token) return res;
-    storeTokens(res.access_token, res.refresh_token);
-    const me = await api.me();
-    setUser(me);
+  /* After a login that succeeded server-side, an immediate me() 401
+     means the session cookie did not stick. Set the flag at once (the
+     banner is the honest message) and confirm with the probe: if the
+     cookies actually are coming back, clear it again. */
+  const checkCookiesStuck = useCallback(async () => {
+    try {
+      const first = await api.cookieProbe();
+      if (first.cookies_ok) {
+        setCookiesBlocked(false);
+        return;
+      }
+      const second = await api.cookieProbe();
+      if (second.cookies_ok) setCookiesBlocked(false);
+    } catch {
+      /* probe failure is not proof of blocking; the flag stays */
+    }
+  }, []);
+
+  /* After any auth transition: take the CSRF echo into the in-memory
+     copy, then prove the session with me(). A 401 here means the
+     cookie did not stick — flag it and throw so the page stays put. */
+  const afterAuth = useCallback(
+    async (res: AuthResponse): Promise<AuthResponse> => {
+      if (res.csrf_token) setCsrfToken(res.csrf_token);
+      try {
+        const me = await api.me();
+        setUser(me);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          setCookiesBlocked(true);
+          void checkCookiesStuck();
+        }
+        throw err;
+      }
+      return res;
+    },
+    [checkCookiesStuck],
+  );
+
+  const login = useCallback(
+    async (email: string, password: string): Promise<LoginResponse> => {
+      setCookiesBlocked(false);
+      const res = await api.login(email, password);
+      if (res.totp_required) return res;
+      await afterAuth({
+        email: res.email,
+        cf_handle: res.cf_handle ?? null,
+        csrf_token: res.csrf_token,
+      });
+      return res;
+    },
+    [afterAuth],
+  );
+
+  const register = useCallback(async (email: string, password: string) => {
+    const res = await api.register(email, password);
     return res;
   }, []);
 
-  const register = useCallback(async (email: string, password: string) => {
-    // No auto-login: the account is unverified until the email code.
-    return api.register(email, password);
-  }, []);
+  const verifyEmail = useCallback(
+    async (email: string, code: string): Promise<AuthResponse> => {
+      setCookiesBlocked(false);
+      const res = await api.verifyEmail(email, code);
+      return afterAuth(res);
+    },
+    [afterAuth],
+  );
 
-  const verifyEmail = useCallback(async (email: string, code: string) => {
-    const res = await api.verifyEmail(email, code);
-    storeTokens(res.access_token, res.refresh_token);
-    const me = await api.me();
-    setUser(me);
-  }, []);
-
-  const verifyTotp = useCallback(async (preToken: string, code: string) => {
-    const res = await api.totpVerify(preToken, code);
-    storeTokens(res.access_token, res.refresh_token);
-    const me = await api.me();
-    setUser(me);
-  }, []);
+  const verifyTotp = useCallback(
+    async (pre_token: string, code: string): Promise<AuthResponse> => {
+      setCookiesBlocked(false);
+      const res = await api.totpVerify(pre_token, code);
+      return afterAuth(res);
+    },
+    [afterAuth],
+  );
 
   const startGoogleSignIn = useCallback(async () => {
     const res = await api.googleAuthUrl();
@@ -105,26 +153,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const completeGoogleSignIn = useCallback(
-    async (code: string, state: string) => {
-      const res: GoogleCallbackResponse = await api.googleCallback(code, state);
-      if ('totp_required' in res) return res; // second step: TOTP code
-      const auth: AuthResponse = res;
-      storeTokens(auth.access_token, auth.refresh_token);
-      const me = await api.me();
-      setUser(me);
-      return res;
+    async (code: string, state: string): Promise<GoogleCallbackResponse> => {
+      setCookiesBlocked(false);
+      const res = await api.googleCallback(code, state);
+      if ('totp_required' in res) return res;
+      return afterAuth(res);
     },
-    [],
+    [afterAuth],
   );
 
-  const logout = useCallback(() => {
-    void api.logout().catch(() => undefined); // revoke server-side, best effort
-    clearTokens();
-    setUser(null);
-  }, []);
-
   const startHandleVerification = useCallback(async (handle: string) => {
-    return api.startHandleVerification(handle);
+    const res = await api.startHandleVerification(handle);
+    return res;
   }, []);
 
   const confirmHandleVerification = useCallback(async (handle: string) => {
@@ -133,16 +173,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(me);
   }, []);
 
-  const value = useMemo(
+  const logout = useCallback(async () => {
+    try {
+      await api.logout();
+    } catch {
+      /* logout is best-effort: the server may already have dropped the
+         session (expired refresh cookie) — still clear local state */
+    } finally {
+      clearCsrfToken();
+      setUser(null);
+    }
+  }, []);
+
+  const value = useMemo<AuthState>(
     () => ({
-      user, loading, login, register, verifyEmail, verifyTotp, logout,
-      refresh, startHandleVerification, confirmHandleVerification,
-      startGoogleSignIn, completeGoogleSignIn,
+      user,
+      loading,
+      cookiesBlocked,
+      cookiesBlockedOrigin: apiOrigin(),
+      login,
+      register,
+      verifyEmail,
+      verifyTotp,
+      startGoogleSignIn,
+      completeGoogleSignIn,
+      logout,
+      refresh,
+      startHandleVerification,
+      confirmHandleVerification,
     }),
-    [user, loading, login, register, verifyEmail, verifyTotp, logout,
-     refresh, startHandleVerification, confirmHandleVerification,
-     startGoogleSignIn, completeGoogleSignIn],
+    [
+      user,
+      loading,
+      cookiesBlocked,
+      login,
+      register,
+      verifyEmail,
+      verifyTotp,
+      startGoogleSignIn,
+      completeGoogleSignIn,
+      logout,
+      refresh,
+      startHandleVerification,
+      confirmHandleVerification,
+    ],
   );
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

@@ -10,6 +10,8 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 
+import secrets
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -83,9 +85,33 @@ def _tokens(user_id):
         session.close()
 
 
+ORIGIN = "http://localhost:5173"
+
+
+def _csrf_token():
+    return secrets.token_urlsafe(32)
+
+
+def _anon_headers():
+    """CSRF headers for an unauthenticated mutation (register/login/
+    verify/forgot/reset/callback): a fresh CSRF token in both the
+    Cookie header and the X-CSRF-Token header, plus Origin. The server
+    only compares header to cookie — no stored token — so a minted
+    token is valid, and nothing touches the client's cookie jar."""
+    csrf = _csrf_token()
+    return {"Cookie": f"cp_csrf={csrf}", "X-CSRF-Token": csrf, "Origin": ORIGIN}
+
 def _auth_headers(user_id):
+    """Cookie-based auth (Batch 6, N4): tokens travel as
+    HttpOnly-cookie values in an explicit Cookie header, plus
+    the double-submit CSRF header and Origin. Same signature
+    as before, so call sites don't change — and per-request
+    cookies keep two-user tests working."""
     tokens = _tokens(user_id)
-    return {"Authorization": f"Bearer {tokens['access_token']}"}
+    csrf = _csrf_token()
+    cookie = (f"cp_access={tokens['access_token']}; "
+              f"cp_refresh={tokens['refresh_token']}; cp_csrf={csrf}")
+    return {"Cookie": cookie, "X-CSRF-Token": csrf, "Origin": ORIGIN}
 
 
 def _access_token(user_id):
@@ -127,7 +153,8 @@ def test_public_profile_default_off(client, db):
 
 def test_public_profile_toggle_requires_auth(client, db):
     u = _user(db)
-    r = client.post("/api/v1/settings/public-profile", json={"public": True})
+    r = client.post("/api/v1/settings/public-profile", json={"public": True},
+                    headers=_anon_headers())
     assert r.status_code == 401
 
 

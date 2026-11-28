@@ -50,3 +50,5 @@ archive/
 
 # Batch 3: live Codeforces problemset cache for the backtest
 backend/scripts/problemset-cache.json
+# Batch 6 #3: Neon least-privilege app-role credential file (never commit)
+NEON-APP-ROLE.txt
