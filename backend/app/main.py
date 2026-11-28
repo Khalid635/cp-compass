@@ -14,6 +14,7 @@ at signup + optional TOTP 2FA (F6), generic auth errors (F7), security
 headers (F8), scoped ml/status (F9), request body size limits (F10).
 """
 import asyncio
+import json
 import hashlib
 import hmac
 import secrets
@@ -24,7 +25,7 @@ from datetime import date, datetime, timedelta
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -33,6 +34,7 @@ from sqlalchemy.orm import Session
 from . import google_oauth, hints, mailer, ml, postmortem_ai, ratelimit, seed, services, sync as sync_engine, totp
 from .auth import (
     create_totp_pending_token,
+    decode_access_token_query,
     decode_totp_pending_token,
     get_current_user,
     hash_password,
@@ -230,6 +232,10 @@ class ReviewIn(BaseModel):
 
 class GoalIn(BaseModel):
     target: int  # problems per week, 1..50
+
+
+class PublicProfileIn(BaseModel):
+    public: bool
 
 
 class NoteIn(BaseModel):
@@ -752,6 +758,88 @@ def sync_status(user: User = Depends(get_current_user), db: Session = Depends(ge
             "error": job.error}
 
 
+# SSE stream constants: poll the DB job row every second; a heartbeat
+# comment every 15 s keeps proxies from killing an idle stream; the
+# stream never lives longer than 10 minutes (the client falls back to
+# polling after that).
+SSE_POLL_S = 1.0
+SSE_HEARTBEAT_S = 15.0
+SSE_MAX_S = 600.0
+
+
+def _job_state(job) -> dict:
+    if job is None:
+        return {"status": "never", "total_synced": 0,
+                "last_synced_at": None, "error": None}
+    return {"status": job.status, "total_synced": job.total_synced,
+            "last_synced_at": job.last_synced_at.isoformat()
+            if job.last_synced_at else None,
+            "error": job.error}
+
+
+@app.get(f"{V1}/sync/stream")
+async def sync_stream(token: str | None = Query(None)):
+    """Live sync progress over Server-Sent Events (batch 5).
+
+    EventSource cannot send an Authorization header, so the same JWT
+    access token is accepted as ?token=. The stream only ever exposes
+    the caller's own latest job. Events: an immediate `state` event,
+    `progress` whenever total_synced/status changes, a terminal `done`
+    / `failed` event, then the server closes. No job yet: one `state`
+    event ({status: "never"}) and close. `: ping` heartbeat comments
+    every 15 s. 401 when the token is missing or invalid.
+    """
+    user_id = decode_access_token_query(token)
+
+    async def _generate():
+        # Fresh import: app.db.SessionLocal is rebound by the test
+        # harness, so resolve it here, not from main.py's import-time
+        # binding (same pattern as sync._run_job_sync).
+        from .db import SessionLocal as _stream_session
+        started = time.monotonic()
+        last_key = None
+        last_beat = time.monotonic()
+        first = True
+        while True:
+            if time.monotonic() - started > SSE_MAX_S:
+                break
+            db = _stream_session()
+            try:
+                if db.query(User).get(user_id) is None:
+                    yield "event: error\ndata: " + json.dumps(
+                        {"detail": "User not found"}) + "\n\n"
+                    break
+                state = _job_state(sync_engine.latest_job(db, user_id))
+            finally:
+                db.close()
+            key = (state["status"], state["total_synced"])
+            if key != last_key:
+                last_key = key
+                last_beat = time.monotonic()
+                if first:
+                    first = False
+                    yield "event: state\ndata: " + json.dumps(state) + "\n\n"
+                    if state["status"] in ("done", "failed"):
+                        yield "event: " + state["status"] + "\ndata: " + json.dumps(state) + "\n\n"
+                        break
+                    if state["status"] == "never":
+                        break
+                elif state["status"] in ("done", "failed"):
+                    yield "event: " + state["status"] + "\ndata: " + json.dumps(state) + "\n\n"
+                    break
+                else:
+                    yield "event: progress\ndata: " + json.dumps(state) + "\n\n"
+            elif time.monotonic() - last_beat >= SSE_HEARTBEAT_S:
+                last_beat = time.monotonic()
+                yield ": ping\n\n"
+            await asyncio.sleep(SSE_POLL_S)
+
+    return StreamingResponse(
+        _generate(), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no",
+                 "Connection": "keep-alive"})
+
+
 # ---------- dashboard ----------
 @app.get(f"{V1}/dashboard")
 async def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -985,6 +1073,46 @@ def calendar_day(day: str = Query(...),
     except ValueError:
         raise HTTPException(400, "Day must be YYYY-MM-DD")
     return {"date": d.isoformat(), "submissions": services.day_submissions(db, user.id, d)}
+
+
+def _ics_escape(text: str) -> str:
+    return (text.replace("\\", "\\\\").replace(";", "\\;")
+            .replace(",", "\\,").replace("\n", "\\n"))
+
+
+@app.get(f"{V1}/calendar/export.ics")
+async def export_calendar_ics(user: User = Depends(get_current_user)):
+    """Upcoming Codeforces contests as an .ics file (batch 5)."""
+    try:
+        contests = await cf.contest_list()
+    except CFError as exc:
+        raise HTTPException(502, f"Codeforces didn't respond: {exc}")
+    now = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    lines = ["BEGIN:VCALENDAR", "VERSION:2.0",
+             "PRODID:-//CP Compass//Codeforces Contests//EN",
+             "CALSCALE:GREGORIAN", "METHOD:PUBLISH"]
+    for c in contests:
+        if c.get("phase") != "BEFORE":
+            continue
+        start = c.get("startTimeSeconds")
+        if start is None:
+            continue
+        duration = c.get("durationSeconds") or 0
+        dtstart = datetime.utcfromtimestamp(start).strftime("%Y%m%dT%H%M%SZ")
+        dtend = datetime.utcfromtimestamp(start + duration).strftime("%Y%m%dT%H%M%SZ")
+        lines += ["BEGIN:VEVENT",
+                  f"UID:contest-{c.get('id')}@cp-compass",
+                  f"DTSTAMP:{now}",
+                  f"DTSTART:{dtstart}",
+                  f"DTEND:{dtend}",
+                  f"SUMMARY:{_ics_escape(str(c.get('name', '')))}",
+                  f"URL:https://codeforces.com/contest/{c.get('id')}",
+                  "END:VEVENT"]
+    lines.append("END:VCALENDAR")
+    return Response(content="\r\n".join(lines) + "\r\n",
+                    media_type="text/calendar",
+                    headers={"Content-Disposition":
+                             'attachment; filename="codeforces-contests.ics"'})
 
 
 @app.get(f"{V1}/reports/weekly")
@@ -1244,6 +1372,15 @@ def set_goal(body: GoalIn, user: User = Depends(get_current_user),
     return services.settings_data(db, user)
 
 
+@app.post(f"{V1}/settings/public-profile")
+def set_public_profile(body: PublicProfileIn, user: User = Depends(get_current_user),
+                       db: Session = Depends(get_db)):
+    """Opt-in toggle for the public profile (batch 5). Default OFF."""
+    user.public_profile = bool(body.public)
+    db.commit()
+    return {"public_profile": bool(user.public_profile)}
+
+
 @app.delete(f"{V1}/settings/handle")
 def disconnect_handle(user: User = Depends(get_current_user),
                       db: Session = Depends(get_db)):
@@ -1255,6 +1392,21 @@ def disconnect_handle(user: User = Depends(get_current_user),
     db.delete(account)
     db.commit()
     return {"ok": True}
+
+
+# ---------- public profile (batch 5, no auth) ----------
+@app.get(f"{V1}/u/{{handle}}")
+def public_profile(handle: str, db: Session = Depends(get_db)):
+    """Public profile. 404 when the handle has no account OR the user
+    has not opted in - the two cases are deliberately indistinguishable.
+    Only aggregate stats; no email, no user id, no submission data."""
+    account = db.query(CfAccount).filter_by(handle_norm=handle.lower()).first()
+    if account is None:
+        raise HTTPException(404, "Profile not found")
+    user = db.query(User).get(account.user_id)
+    if user is None or not user.public_profile:
+        raise HTTPException(404, "Profile not found")
+    return services.public_profile_stats(db, user)
 
 
 @app.delete(f"{V1}/auth/account")
@@ -1432,3 +1584,4 @@ def demo_settings():
 @app.get(f"{V1}/demo/export")
 def demo_export():
     return seed.export_payload()
+

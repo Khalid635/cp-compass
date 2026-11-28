@@ -15,6 +15,7 @@ import type {
   PostmortemData,
   PostmortemListItem,
   ProblemDetailData,
+  PublicProfile,
   ProblemNote,
   Recommendation,
   RevisionItem,
@@ -103,6 +104,29 @@ async function request<T>(path: string, init?: RequestInit, retried = false): Pr
     throw new ApiError(res.status, msg);
   }
   return body as T;
+}
+
+/* Same as request(), but for endpoints that return a file (the .ics
+   export): the body is a Blob, not JSON. */
+async function requestBlob(path: string, retried = false): Promise<Blob> {
+  const headers: Record<string, string> = {};
+  const t = accessToken();
+  if (t) headers.Authorization = `Bearer ${t}`;
+  const res = await fetch(`${BASE}${path}`, { headers });
+  if (res.status === 401 && !retried && refreshToken()) {
+    if (await tryRefresh()) return requestBlob(path, true);
+    clearTokens();
+  }
+  if (!res.ok) {
+    let msg = `Request failed (${res.status})`;
+    try {
+      msg = ((await res.json()) as { detail?: string }).detail ?? msg;
+    } catch {
+      /* keep the default message */
+    }
+    throw new ApiError(res.status, msg);
+  }
+  return res.blob();
 }
 
 export interface AuthResponse {
@@ -237,6 +261,14 @@ export const api = {
     ),
   startSync: () => request<{ job_id: number; status: string }>(`${V1}/sync`, { method: 'POST' }),
   syncStatus: () => request<SyncStatus>(`${V1}/sync/status`),
+  /* Batch 5 — SSE sync stream: EventSource cannot send an Authorization
+     header, so the access token travels as a ?token= query param (the
+     backend decodes the same JWT). Never log this URL. */
+  syncStreamUrl: () => {
+    const t = accessToken();
+    if (!t) return null;
+    return `${BASE}${V1}/sync/stream?token=${encodeURIComponent(t)}`;
+  },
   dashboard: () => request<DashboardData>(`${V1}/dashboard`),
   recommendations: (params: { tag?: string; min_rating?: number; max_rating?: number } = {}) => {
     const q = new URLSearchParams();
@@ -321,6 +353,15 @@ export const api = {
       },
     ),
   settings: () => request<SettingsData>(`${V1}/settings`),
+  /* Batch 5 — public profile opt-in + public profile + .ics export */
+  setPublicProfile: (isPublic: boolean) =>
+    request<{ public_profile: boolean }>(`${V1}/settings/public-profile`, {
+      method: 'POST',
+      body: JSON.stringify({ public: isPublic }),
+    }),
+  publicProfile: (handle: string) =>
+    request<PublicProfile>(`${V1}/u/${encodeURIComponent(handle)}`),
+  exportCalendarIcs: () => requestBlob(`${V1}/calendar/export.ics`),
   setGoal: (target: number) =>
     request<SettingsData>(`${V1}/settings/goal`, {
       method: 'POST',

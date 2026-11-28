@@ -982,6 +982,7 @@ def settings_payload():
         "rank": RANK,
         "current_rating": RATING,
         "weekly_goal": DEMO_WEEKLY_GOAL,
+        "public_profile": False,
         "solved_this_week": week["solved"],
         "week_start": monday.isoformat(),
     }

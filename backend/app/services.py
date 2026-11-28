@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from .models import (
     CfAccount, DailyStat, Problem, ProblemNote, ProblemPreference,
-    RatingHistory, Revision, Submission, User, WeeklyReport,
+    RatingHistory, Revision, Submission, SyncJob, User, WeeklyReport,
 )
 
 INTERVALS = [1, 3, 7, 14, 30]
@@ -1256,6 +1256,32 @@ def settings_data(db: Session, user: User) -> dict:
         "rank": account.rank if account else None,
         "current_rating": user.current_rating,
         "weekly_goal": user.weekly_goal if user.weekly_goal is not None else 5,
+        "public_profile": bool(user.public_profile),
         "solved_this_week": week["solved"],
         "week_start": monday.isoformat(),
+    }
+
+
+def public_profile_stats(db: Session, user: User) -> dict:
+    """Public profile payload (batch 5). Only aggregate stats - never
+    email, user id, or submission-level data. Callers must check
+    user.public_profile first; this function does not check it."""
+    account = get_cf_account(db, user.id)
+    tags = sorted(tag_stats(db, user.id),
+                  key=lambda t: t["solved"], reverse=True)[:5]
+    latest = (db.query(SyncJob).filter(SyncJob.user_id == user.id,
+                                       SyncJob.last_synced_at.isnot(None))
+              .order_by(SyncJob.last_synced_at.desc()).first())
+    return {
+        "handle": account.handle if account else None,
+        "rank": account.rank if account else None,
+        "current_rating": user.current_rating,
+        "solved": len(solved_problem_ids(db, user.id)),
+        "attempted": db.query(Submission).filter_by(user_id=user.id).count(),
+        "current_streak": current_streak(db, user.id),
+        "top_tags": [{"tag": t["tag"], "solved": t["solved"],
+                      "attempted": t["attempted"],
+                      "acceptance": t["acceptance"]} for t in tags],
+        "last_synced_at": (latest.last_synced_at.isoformat()
+                           if latest else None),
     }

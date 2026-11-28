@@ -2,8 +2,9 @@ import { lazy, Suspense, useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'sonner';
+import { toast, Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { useLanguage } from './i18n';
 import { useTheme } from './hooks/useTheme';
 import { AppShell } from './components/layout';
 import { PaletteProvider } from './components/CommandPalette';
@@ -24,6 +25,8 @@ const Postmortems = lazy(() => import('./pages/Postmortems'));
 const Postmortem = lazy(() => import('./pages/Postmortem'));
 const ProblemDetail = lazy(() => import('./pages/ProblemDetail'));
 const Settings = lazy(() => import('./pages/Settings'));
+const PublicProfile = lazy(() => import('./pages/PublicProfile'));
+const Compare = lazy(() => import('./pages/Compare'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,7 +73,23 @@ function usePaletteParam() {
 
 function AppRoutes() {
   const { theme, toggle: toggleTheme } = useTheme();
+  const { t } = useLanguage();
   usePaletteParam();
+  /* Batch 5 — PWA update: the worker announces a new version; the user
+     reloads when ready (never a forced reload mid-sync). */
+  useEffect(() => {
+    const onUpdate = () => {
+      toast(t.pwaUpdateAvailable, {
+        duration: 10_000,
+        action: {
+          label: t.pwaRefresh,
+          onClick: () => window.location.reload(),
+        },
+      });
+    };
+    window.addEventListener('sw-update-available', onUpdate);
+    return () => window.removeEventListener('sw-update-available', onUpdate);
+  }, [t]);
   return (
     <PaletteProvider theme={theme} toggleTheme={toggleTheme}>
       <Toaster
@@ -92,9 +111,10 @@ function AppRoutes() {
         <Routes>
         <Route path="/" element={<Landing theme={theme} toggleTheme={toggleTheme} />} />
         <Route path="/privacy" element={<Privacy theme={theme} toggleTheme={toggleTheme} />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/login" element={<LoginPage theme={theme} toggleTheme={toggleTheme} />} />
+        <Route path="/register" element={<RegisterPage theme={theme} toggleTheme={toggleTheme} />} />
         <Route path="/auth/callback" element={<GoogleCallbackPage />} />
+        <Route path="/u/:handle" element={<PublicProfile />} />
 
         {/* Demo — full app on seeded data, no login, read-only */}
         <Route path="/demo" element={<DemoLayout theme={theme} toggleTheme={toggleTheme} />}>
@@ -130,6 +150,7 @@ function AppRoutes() {
           <Route path="postmortems" element={<Postmortems />} />
           <Route path="postmortems/:contestId" element={<Postmortem />} />
           <Route path="problems/:contestId/:index" element={<ProblemDetail />} />
+          <Route path="compare" element={<Compare />} />
           <Route path="settings" element={<Settings theme={theme} toggleTheme={toggleTheme} />} />
         </Route>
 

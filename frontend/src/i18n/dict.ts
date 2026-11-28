@@ -397,6 +397,7 @@ export interface Dict {
   navCalendar: string;
   navWeekly: string;
   navPostmortems: string;
+  navCompare: string;
   navSettings: string;
   // Phase 2 analytics
   analyticsTitle: string;
@@ -557,5 +558,36 @@ export interface Dict {
   weeklyGoalDone: string;
   viewAnalytics: string;
   viewWeeklyReport: string;
+  // Batch 5
+  pwaOffline: string;
+  pwaUpdateAvailable: string;
+  pwaRefresh: string;
+  profileTitle: (handle: string) => string;
+  profilePrivate: string;
+  profilePrivateHint: string;
+  profileRating: string;
+  profileSolved: string;
+  profileAttempted: string;
+  profileStreak: string;
+  profileTopTags: string;
+  profileLastSynced: (when: string) => string;
+  profileNeverSynced: string;
+  profileOptInTitle: string;
+  profileOptInText: string;
+  profileOptInLabel: string;
+  profileViewLink: string;
+  profileSaved: string;
+  compareTitle: string;
+  comparePlaceholder: string;
+  compareButton: string;
+  compareNotPublic: (handle: string) => string;
+  compareEnterHandle: string;
+  compareYou: string;
+  compareVs: string;
+  icsExport: string;
+  icsExported: string;
+  icsExportFailed: string;
+  lampTurnOn: string;
+  lampTurnOff: string;
   insightsTitle: string;
 }

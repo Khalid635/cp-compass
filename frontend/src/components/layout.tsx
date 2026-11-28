@@ -18,10 +18,12 @@ import {
   Settings,
   Sun,
   Target,
+  Users,
   Zap,
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
+import type { SyncStatus } from '../api/types';
 import { formatTimeAgo, LanguageToggle, useLanguage } from '../i18n';
 import type { Dict } from '../i18n/dict';
 import { useAuth } from '../hooks/useAuth';
@@ -47,45 +49,102 @@ function navItems(base: string, t: Dict) {
     { to: `${base}/calendar`, label: t.navCalendar, icon: CalendarDays, mobile: true },
     { to: `${base}/reports/weekly`, label: t.navWeekly, icon: FileText, mobile: false },
     { to: `${base}/postmortems`, label: t.navPostmortems, icon: History, mobile: false },
+    { to: `${base}/compare`, label: t.navCompare, icon: Users, mobile: false },
     { to: `${base}/settings`, label: t.navSettings, icon: Settings, mobile: true },
   ];
 }
 
+/* Batch 5 — SSE sync progress: while a sync runs, an EventSource
+   streams live progress (total_synced) instead of the 15 s poll. The
+   stream URL carries the access token as ?token= (EventSource cannot
+   send headers); on any stream error the chip falls back to polling.
+   The poll is the source of truth for starting/stopping the stream,
+   so a stale live state can never mask a finished sync. */
 function SyncChip() {
   const { t } = useLanguage();
   const qc = useQueryClient();
+  const [live, setLive] = useState<SyncStatus | null>(null);
+  const [streaming, setStreaming] = useState(false);
   const { data } = useQuery({
     queryKey: ['sync-status'],
     queryFn: api.syncStatus,
-    refetchInterval: 15000,
+    refetchInterval: streaming ? false : 15000,
   });
   const sync = useMutation({
     mutationFn: api.startSync,
     onSettled: () => void qc.invalidateQueries({ queryKey: ['sync-status'] }),
   });
 
+  useEffect(() => {
+    if (!data) return;
+    if (data.status !== 'pending' && data.status !== 'running') {
+      setLive(null);
+      setStreaming(false);
+      return;
+    }
+    setLive(null); // a stale live state must not mask the new sync
+    const url = api.syncStreamUrl();
+    if (!url || typeof EventSource === 'undefined') return; // poll fallback
+    setStreaming(true);
+    const es = new EventSource(url);
+    const onEvent = (e: MessageEvent) => {
+      try {
+        setLive(JSON.parse(e.data) as SyncStatus);
+      } catch {
+        /* ignore a malformed event; the poll still refreshes */
+      }
+    };
+    es.addEventListener('state', onEvent);
+    es.addEventListener('progress', onEvent);
+    es.addEventListener('done', (e: MessageEvent) => {
+      onEvent(e);
+      es.close();
+      setStreaming(false);
+      void qc.invalidateQueries({ queryKey: ['sync-status'] });
+      void qc.invalidateQueries({ queryKey: ['dashboard'] });
+    });
+    es.addEventListener('failed', (e: MessageEvent) => {
+      onEvent(e);
+      es.close();
+      setStreaming(false);
+      void qc.invalidateQueries({ queryKey: ['sync-status'] });
+    });
+    es.onerror = () => {
+      es.close();
+      setStreaming(false); // fall back to the 15 s poll
+    };
+    return () => {
+      es.close();
+      setStreaming(false);
+    };
+    // Re-open only when the poll first reports a running sync.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.status]);
+
+  const status = live ?? data;
+
   /* Toast once when a running sync finishes. */
   const prevStatus = useRef<string | null>(null);
   useEffect(() => {
-    if (!data) return;
+    if (!status) return;
     const prev = prevStatus.current;
-    prevStatus.current = data.status;
-    if (prev === 'running' && data.status === 'done') toast(t.toastSynced);
-  }, [data, t]);
+    prevStatus.current = status.status;
+    if (prev === 'running' && status.status === 'done') toast(t.toastSynced);
+  }, [status, t]);
 
-  if (!data) return null;
-  if (data.status === 'running') {
+  if (!status) return null;
+  if (status.status === 'running') {
     return (
       <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2 px-3 py-1.5 text-xs">
         <span className="pulse-dot inline-block h-2 w-2 rounded-full bg-success" />
-        {data.total_synced > 0 ? t.syncingSubmissions(data.total_synced) : t.syncing}
+        {status.total_synced > 0 ? t.syncingSubmissions(status.total_synced) : t.syncing}
       </span>
     );
   }
-  if (data.status === 'failed') {
+  if (status.status === 'failed') {
     return (
       <span className="inline-flex items-center gap-2 rounded-full border border-danger/40 bg-danger/10 px-3 py-1.5 text-xs text-danger">
-        {t.syncFailed(data.error)}
+        {t.syncFailed(status.error)}
         <button
           onClick={() => sync.mutate()}
           className="cursor-pointer font-medium underline"
@@ -98,9 +157,9 @@ function SyncChip() {
   return (
     <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2 px-3 py-1.5 text-xs text-muted">
       <span className="inline-block h-2 w-2 rounded-full bg-success" />
-      {data.status === 'never'
+      {status.status === 'never'
         ? t.notSyncedYet
-        : t.syncedAgo(formatTimeAgo(data.last_synced_at, t))}
+        : t.syncedAgo(formatTimeAgo(status.last_synced_at, t))}
       <button
         onClick={() => sync.mutate()}
         disabled={sync.isPending}
@@ -108,6 +167,35 @@ function SyncChip() {
       >
         <RefreshCw size={12} aria-hidden /> {t.syncNow}
       </button>
+    </span>
+  );
+}
+
+/* Batch 5 — offline pill: shows in the app shell whenever the browser
+   reports offline (online/offline events). The PWA shell still loads;
+   data views show their own offline state. */
+function OfflinePill() {
+  const { t } = useLanguage();
+  const [online, setOnline] = useState(
+    typeof navigator === 'undefined' ? true : navigator.onLine,
+  );
+  useEffect(() => {
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+  if (online) return null;
+  return (
+    <span
+      role="status"
+      className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary"
+    >
+      {t.pwaOffline}
     </span>
   );
 }
@@ -203,7 +291,8 @@ export function AppShell({
           <Link to={base} className="md:hidden hover:no-underline">
             <Compass size={24} className="text-primary" aria-hidden />
           </Link>
-          <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <OfflinePill />
             {demo ? (
               <span className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
                 <Zap size={12} aria-hidden /> {t.demoMode}

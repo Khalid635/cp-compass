@@ -81,6 +81,17 @@ export default function Settings({
     },
   });
 
+  const publicProfileMutation = useMutation({
+    mutationFn: (isPublic: boolean) => api.setPublicProfile(isPublic),
+    onSuccess: () => {
+      toast(t.profileSaved);
+      void qc.invalidateQueries({ queryKey: ['settings'] });
+    },
+    onError: (e) => {
+      toast(e instanceof ApiError ? e.message : t.somethingWrong);
+    },
+  });
+
   const saveGoal = useMutation({
     mutationFn: () => api.setGoal(Number(goal)),
     onSuccess: (data) => {
@@ -295,6 +306,30 @@ export default function Settings({
           </div>
         )}
       </Card>
+
+      {/* Public profile (Batch 5) — opt-in, default off */}
+      {!demo && (
+        <Card title={t.profileOptInTitle} className="min-w-0">
+          <p className="mb-3 text-sm text-muted">{t.profileOptInText}</p>
+          <label className="flex cursor-pointer items-center gap-3 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={s.public_profile}
+              disabled={publicProfileMutation.isPending}
+              onChange={(e) => publicProfileMutation.mutate(e.target.checked)}
+              className="h-4 w-4 cursor-pointer accent-[var(--primary)]"
+            />
+            {t.profileOptInLabel}
+          </label>
+          {s.public_profile && s.cf_handle && (
+            <p className="mt-3 text-sm">
+              <a href={`/u/${s.cf_handle}`} target="_blank" rel="noreferrer">
+                {t.profileViewLink}
+              </a>
+            </p>
+          )}
+        </Card>
+      )}
 
       {/* Security (Batch 1): email verification + TOTP 2FA */}
       {!demo && (

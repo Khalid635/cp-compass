@@ -411,8 +411,29 @@ export interface SettingsData {
   rank: string | null;
   current_rating: number | null;
   weekly_goal: number;
+  public_profile: boolean;
   solved_this_week: number;
   week_start: string;
+}
+
+/* ---------- Batch 5 — public profile / friend compare ---------- */
+
+export interface PublicProfileTag {
+  tag: string;
+  solved: number;
+  attempted: number;
+  acceptance: number;
+}
+
+export interface PublicProfile {
+  handle: string;
+  rank: string | null;
+  current_rating: number | null;
+  solved: number;
+  attempted: number;
+  current_streak: number;
+  top_tags: PublicProfileTag[];
+  last_synced_at: string | null;
 }
 
 /** Codeforces rank from rating — colours come from the --rank-* tokens. */

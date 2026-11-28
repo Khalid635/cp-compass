@@ -124,3 +124,19 @@
 .ring-sweep {
   animation: ring-sweep 300ms var(--ease-out) both;
 }
+
+/* Batch 5 — lamp pull-cord swing (login page). Under
+   prefers-reduced-motion the global rule above collapses this to 1ms,
+   and the component also skips the class via matchMedia. */
+@keyframes lamp-swing {
+  from {
+    transform: rotate(-2.5deg);
+  }
+  to {
+    transform: rotate(2.5deg);
+  }
+}
+
+.lamp-swing {
+  animation: lamp-swing 2.4s ease-in-out infinite alternate;
+}

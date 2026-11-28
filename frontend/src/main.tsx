@@ -29,3 +29,29 @@ createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </StrictMode>,
 );
+
+/* Batch 5 — PWA service worker (arena spawn-probe pick a002): production
+   only, never dev — a worker would serve stale dev assets. The worker
+   caches only the public shell; /api and the SSE stream bypass it. */
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js', { scope: '/' })
+      .then((reg) => {
+        const announce = () =>
+          window.dispatchEvent(new CustomEvent('sw-update-available'));
+        if (reg.waiting) announce();
+        reg.addEventListener('updatefound', () => {
+          const w = reg.installing;
+          w?.addEventListener('statechange', () => {
+            if (w.state === 'installed' && navigator.serviceWorker.controller)
+              announce();
+          });
+        });
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) void reg.update();
+        });
+      })
+      .catch(() => undefined);
+  });
+}

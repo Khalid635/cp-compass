@@ -37,6 +37,7 @@
    Inter + JetBrains Mono removed; Noto Sans Bengali kept. */
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --bg: #050505;
   --surface: #131f1b;
   --surface-2: #1a2c26;
@@ -67,6 +68,7 @@
 }
 
 :root[data-theme="light"] {
+  color-scheme: light;
   --bg: #f7faf9;
   --surface: #ffffff;
   --surface-2: #edf3f0;

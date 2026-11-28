@@ -10,19 +10,41 @@ import { toast } from 'sonner';
 import { api, ApiError } from '../api/client';
 import { useLanguage } from '../i18n';
 import { useAuth } from '../hooks/useAuth';
+import type { Theme } from '../hooks/useTheme';
+import { LampToggle } from '../components/LampToggle';
 import { Button, Card, Input } from '../components/ui';
 
-export function LoginPage() {
-  return <AuthPage mode="login" />;
+export function LoginPage({
+  theme,
+  toggleTheme,
+}: {
+  theme: Theme;
+  toggleTheme: () => void;
+}) {
+  return <AuthPage mode="login" theme={theme} toggleTheme={toggleTheme} />;
 }
 
-export function RegisterPage() {
-  return <AuthPage mode="register" />;
+export function RegisterPage({
+  theme,
+  toggleTheme,
+}: {
+  theme: Theme;
+  toggleTheme: () => void;
+}) {
+  return <AuthPage mode="register" theme={theme} toggleTheme={toggleTheme} />;
 }
 
 type Step = 'form' | 'verify' | 'totp';
 
-function AuthPage({ mode }: { mode: 'login' | 'register' }) {
+function AuthPage({
+  mode,
+  theme,
+  toggleTheme,
+}: {
+  mode: 'login' | 'register';
+  theme: Theme;
+  toggleTheme: () => void;
+}) {
   const { t } = useLanguage();
   const { login, register, verifyEmail, verifyTotp, startGoogleSignIn } = useAuth();
   const navigate = useNavigate();
@@ -136,7 +158,9 @@ function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           : t.registerSub;
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-8 px-4 py-8 md:flex-row md:gap-14">
+      {/* Batch 5 — the floor lamp is the theme toggle (login page only). */}
+      <LampToggle theme={theme} onToggle={toggleTheme} />
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           {step === 'totp' ? (

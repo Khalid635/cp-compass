@@ -2,9 +2,10 @@
    that day's submissions. Streak days get a ring. Month navigation and
    a Today button; the grid starts on Monday like the heatmap. */
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, ChevronLeft, ChevronRight, Flame, RefreshCw } from 'lucide-react';
-import { api } from '../api/client';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { CalendarDays, ChevronLeft, ChevronRight, Download, Flame, RefreshCw } from 'lucide-react';
+import { api, ApiError } from '../api/client';
 import { useLanguage } from '../i18n';
 import { RecentSubmissions } from '../components/cards';
 import { Button, Card, EmptyState, Skeleton } from '../components/ui';
@@ -32,6 +33,24 @@ export default function Calendar({ demo = false }: { demo?: boolean }) {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [selected, setSelected] = useState<string | null>(now.toISOString().slice(0, 10));
+
+  const icsExport = useMutation({
+    mutationFn: api.exportCalendarIcs,
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'codeforces-contests.ics';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast(t.icsExported);
+    },
+    onError: (e) => {
+      toast(e instanceof ApiError ? e.message : t.icsExportFailed);
+    },
+  });
 
   const query = useQuery({
     queryKey: demo ? ['demo-calendar', year, month] : ['calendar', year, month],
@@ -124,6 +143,16 @@ export default function Calendar({ demo = false }: { demo?: boolean }) {
           >
             {t.calendarToday}
           </Button>
+          {!demo && (
+            <Button
+              variant="secondary"
+              className="h-8 px-3 text-xs"
+              loading={icsExport.isPending}
+              onClick={() => icsExport.mutate()}
+            >
+              <Download size={14} aria-hidden /> {t.icsExport}
+            </Button>
+          )}
         </div>
       </div>
 

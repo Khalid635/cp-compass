@@ -60,6 +60,9 @@ class User(Base):
     # backfilled verified by migration 0003 (dev DB only).
     email_verified = Column(Boolean, nullable=False, default=False)
     totp_enabled = Column(Boolean, nullable=False, default=False)
+    # Batch 5: public profile opt-in. Default OFF - nobody is public
+    # unless they choose it (GET /api/v1/u/{handle} 404s otherwise).
+    public_profile = Column(Boolean, nullable=False, default=False)
     # Last ML retrain (Batch 1 F5 cooldown: max 1 retrain per user per hour).
     last_retrain_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now, nullable=False)

@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 from sqlalchemy.orm import Session
@@ -153,6 +153,34 @@ def revoke_all_refresh_tokens(db: Session, user_id: int) -> int:
         row.revoked_at = now
     db.commit()
     return len(rows)
+
+
+def decode_access_token_query(token: str | None) -> int:
+    """Decodes a JWT access token passed as a ?token= query param
+    (EventSource cannot send an Authorization header, so the SSE stream
+    uses this). Same checks as get_current_user: type == "access",
+    signature, expiry. Returns the user id; 401 otherwise."""
+    if not token:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing token")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        if payload.get("type") != "access":
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+        return int(payload["sub"])
+    except (jwt.InvalidTokenError, KeyError, ValueError):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+
+
+def get_current_user_query(
+    token: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> User:
+    """Same as get_current_user, but the token comes from ?token=."""
+    user_id = decode_access_token_query(token)
+    user = db.query(User).get(user_id)
+    if user is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
+    return user
 
 
 def get_current_user(
