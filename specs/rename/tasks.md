@@ -13,9 +13,9 @@
 - [x] No "CP Compass" left in user-facing code (grep audit; intentional stays documented in spec)
 - [x] Full backend pytest — 148 passed, 6 skipped, 0 failed (166.6s)
 - [x] Frontend build green — tsc + vite built in 2.27s (chunk-size warning pre-existing); dict.ts liveBadge fix needed first
-- [ ] Commit ONLY rename files; push; HEAD == origin/main
-- [ ] Live verify: old Vercel URL serves renamed app, "Rung" visible, backend health 200, /docs 404, DB probes deleted, users back to 1, alembic 0010
-- [ ] Report: Vercel rung.vercel.app TAKEN — needs Khalid's alternative subdomain pick
+- [x] Commit ONLY rename files; push; HEAD == origin/main (c8db71c)
+- [x] Live verify: see Results below
+- [x] Report: Vercel rung.vercel.app TAKEN — needs Khalid's alternative subdomain pick (in final report)
 
 ## Results (2026-11-28 ~17:45)
 
@@ -28,3 +28,27 @@
   icon-192 = PIL LANCZOS downscale). og.png regenerated with PIL (needle +
   "Rung", tagline, 1200x630, viewed clean).
 - Tests: 148 passed, 6 skipped, 0 failed. Frontend build green.
+
+## Live verification (2026-11-28 ~17:53, deploy dep-dc5bunutlv9c7396u0m0 live)
+
+- GitHub: Khalid635/rung, HEAD c8db71c == origin/main. Old URL redirects.
+- Vercel auto-deploy from the renamed repo WORKED: cp-compass-phi.vercel.app
+  200, <title>Rung — Codeforces Practice Planner</title>; new bundle
+  index-BGrc7SsT.js contains "Already live" (1x), "liveBadge" (2x),
+  "CP Compass" 0x. Manifest name/short_name "Rung". All assets 200
+  (favicon.svg, logo-512.png, og.png, icons/icon-192.png, icons/icon-512.png).
+- Render deploy dep-dc5bunutlv9c7396u0m0 live. Backend /api/v1/health 200,
+  /docs 404, /openapi.json 404.
+- DB-backed probes (probe users inserted as owner, Argon2 via app code):
+  login 200 (cookies cp_access/cp_csrf/cp_refresh), /me 200 email match,
+  DELETE /auth/account via API 200. Users back to 1, probe users 0,
+  submissions 0, refresh tokens 1 (Khalid's own), live alembic 0010.
+- Probe notes: login needs the Batch 6 CSRF double-submit (X-CSRF-Token ==
+  cp_csrf cookie) AND an Origin in the CORS allowlist — requests without
+  Origin get 403 csrf_check_failed (by design). The CSRF token ROTATES on
+  login, so delete needs a fresh token fetched after login. First probe
+  insert failed on users.created_at NOT NULL (same trap as Batch 7).
+- OPEN: rung.vercel.app is TAKEN (live Nike Running app) — the Vercel project
+  rename was STOPPED per the brief. Khalid must pick another subdomain.
+  Also: the Vercel connector cannot manage this project — its OAuth token
+  lacks team scope khalid-5855 and authorize_team_access is not offered.
