@@ -154,6 +154,7 @@ export const en: Dict = {
     'Under the hood: resumable sync, Argon2 password hashing, and a solvability model (method in README).',
   builtBy: 'Built by Khalid Bin Masud',
   privacyLink: 'Privacy',
+  termsLink: 'Terms',
   lightboxClose: 'Close',
   privacyTitle: 'Privacy',
   privacyUpdated: 'Last updated: 27 November 2026.',

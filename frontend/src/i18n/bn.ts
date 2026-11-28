@@ -149,6 +149,7 @@ export const bn: Dict = {
     'ভেতরে যা আছে: resumable sync, Argon2 পাসওয়ার্ড হ্যাশিং, আর একটি solvability মডেল (পদ্ধতি README-তে)।',
   builtBy: 'বানিয়েছেন খালিদ বিন মাসুদ',
   privacyLink: 'প্রাইভেসি',
+  termsLink: 'শর্তাবলি',
   lightboxClose: 'বন্ধ করো',
   privacyTitle: 'প্রাইভেসি',
   privacyUpdated: 'সর্বশেষ হালনাগাদ: ২৭ নভেম্বর ২০২৬।',

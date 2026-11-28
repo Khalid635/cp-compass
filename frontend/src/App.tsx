@@ -10,6 +10,7 @@ import { AppShell } from './components/layout';
 import { PaletteProvider } from './components/CommandPalette';
 import Landing from './pages/Landing';
 import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
 import { ForgotPasswordPage, GoogleCallbackPage, LoginPage, RegisterPage, ResetPasswordPage } from './pages/Auth';
 import DemoLayout from './pages/Demo';
 import NotFound from './pages/NotFound';
@@ -111,6 +112,7 @@ function AppRoutes() {
         <Routes>
         <Route path="/" element={<Landing theme={theme} toggleTheme={toggleTheme} />} />
         <Route path="/privacy" element={<Privacy theme={theme} toggleTheme={toggleTheme} />} />
+        <Route path="/terms" element={<Terms theme={theme} toggleTheme={toggleTheme} />} />
         <Route path="/login" element={<LoginPage theme={theme} toggleTheme={toggleTheme} />} />
         <Route path="/register" element={<RegisterPage theme={theme} toggleTheme={toggleTheme} />} />
         <Route path="/auth/callback" element={<GoogleCallbackPage />} />

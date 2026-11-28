@@ -143,6 +143,7 @@ export interface Dict {
   underHood: string;
   builtBy: string;
   privacyLink: string;
+  termsLink: string;
   lightboxClose: string;
   // privacy page
   privacyTitle: string;

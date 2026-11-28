@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import {
   BarChart3,
   CalendarDays,
-  Compass,
   FileText,
   History,
   LayoutDashboard,
@@ -34,7 +33,7 @@ import { Button } from './ui';
 export function Logo({ size = 28 }: { size?: number }) {
   return (
     <span className="inline-flex items-center gap-2 font-semibold">
-      <Compass size={size} className="text-primary" aria-hidden />
+      <img src="/favicon.svg" width={size} height={size} alt="" aria-hidden className="shrink-0" />
       <span className="font-display text-base">CP Compass</span>
     </span>
   );
@@ -318,7 +317,7 @@ export function AppShell({
         {/* Topbar */}
         <header className="frost sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border px-4 md:gap-3 md:px-6">
           <Link to={base} className="md:hidden hover:no-underline">
-            <Compass size={24} className="text-primary" aria-hidden />
+            <img src="/favicon.svg" width={24} height={24} alt="" aria-hidden className="shrink-0" />
           </Link>
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             <OfflinePill />

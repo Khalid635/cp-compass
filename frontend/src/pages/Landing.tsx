@@ -670,6 +670,9 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
               <Link to="/privacy" className="inline-flex min-h-11 items-center text-muted hover:text-primary sm:min-h-0">
                 {t.privacyLink}
               </Link>
+              <Link to="/terms" className="inline-flex min-h-11 items-center text-muted hover:text-primary sm:min-h-0">
+                {t.termsLink}
+              </Link>
               <a
                 href="https://codeforces.com"
                 target="_blank"
