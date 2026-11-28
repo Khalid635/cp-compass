@@ -26,7 +26,7 @@
       new files
 - [x] Sync wart: last_synced_at set on done even with 0 new; test
 - [x] Full pytest (114 + new, 0 failed) + frontend build (139 passed, 0 failed; build green)
-- [ ] Commit (batch6 files only) + push; live DB-backed probes; probe
+- [x] Commit (batch6 files only) + push; live DB-backed probes; probe
       deleted; live users back to 1
-- [ ] Final report: commit hash, files, test counts, live evidence,
+- [x] Final report: commit hash, files, test counts, live evidence,
       arena result, honest limits
