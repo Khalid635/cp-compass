@@ -374,13 +374,43 @@ rows. Sites:
   Batch 6 pattern: insert the probe user directly as owner with
   an Argon2 hash via the app's own `hash_password`, email
   verified, then log in through the API).
-- Cross-user isolation probe on live: probe user A (logged in)
-  attempts `POST /revisions/review` with a revision id owned by
+- Cross-user isolation probe on live: probe user A (logged in)  attempts `POST /revisions/review` with a revision id owned by
   Khalid's account → 404, and A's dashboard/export show only A's
   (empty) data.
 - Probe users deleted; live users back to 1; live alembic 0010.
 - RLS spot-check as owner: all 22 tables relrowsecurity = true,
   policies present per §0.
+
+### 6.1 Results (2026-11-28)
+
+- Commit **75ed806** (9 files, +1158/−5), pushed; remote HEAD =
+  local HEAD. Render deploy **dep-dc5b5iu0tbcc73e1ljb0** live
+  16:55 Dhaka.
+- **The deploy's startup migration did NOT apply 0010**: live
+  alembic stayed 0009, RLS 0/22, policies 0 after the deploy went
+  live (health 200). Most likely cause: Render has no
+  MIGRATION_DATABASE_URL set, so it falls back to DATABASE_URL —
+  which is now the app-role URL — and the app role cannot ALTER
+  tables it does not own, so the migration failed at startup and
+  the app's try/except swallowed it (health stayed 200). The
+  Render log was not checked (connector is read-only, no logs).
+- **Applied manually as owner from the laptop** (`alembic upgrade
+  head`, owner URL): 0009 → 0010 clean; live alembic 0010, RLS
+  22/22, 40 policies, live users still 1. No restart needed — the
+  running code already sets the variable.
+- Live probes (probe users inserted as owner with Argon2 hashes
+  via the app's own `hash_password`, email verified; ids 17, 18):
+  login A + B OK through the live API; A export empty, B export
+  [9103] only; A review of B's revision → 404; /u/LiveB → 404
+  while private, 200 after opt-in, no email leak; wrong-password
+  login → 401; /sync/status 200. **All PASS, no fails.**
+- Cleanup: probe users + probe problem deleted; live users back
+  to 1, live submissions back to 0, 0 probe rows left.
+- **Open follow-up (needs Khalid's manual step): set
+  MIGRATION_DATABASE_URL on Render to the owner URL**, or every
+  future migration will silently fail at startup the same way
+  (the app keeps serving, alembic stays behind). Do NOT set it
+  without his go-ahead — it is the owner credential.
 
 ## 7. Commit + push
 
