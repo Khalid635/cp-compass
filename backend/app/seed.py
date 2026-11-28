@@ -794,6 +794,46 @@ def failure_patterns_payload():
     return _compute_failure_patterns(rows)
 
 
+def _demo_rows():
+    """Demo submissions reshaped into the row dicts services expects
+    (same shape as the real endpoint's DB rows)."""
+    return [{
+        "verdict": s["verdict"],
+        "passed_test_count": s.get("passed_test_count"),
+        "problem": {"contest_id": s["contest_id"], "index": s["index"],
+                    "name": s["name"], "rating": s["rating"], "tags": s["tags"]},
+        "submitted_at": datetime.fromisoformat(s["submitted_at"]),
+    } for s in SUBMISSIONS]
+
+
+def _demo_contest_names():
+    """{contest_id: name} for the demo rating-history rounds."""
+    return {int(p["contest"].replace("Round #", "")): p["contest"]
+            for p in RATING_HISTORY}
+
+
+def postmortem_payload(contest_id: int):
+    """Batch 4: demo post-mortem — the same shared computation as the
+    real endpoint, over the deterministic demo submissions. Returns None
+    when the contest appears nowhere in the demo data (unknown contest);
+    a known contest with no demo submissions returns has_data False."""
+    from .services import _compute_postmortem
+
+    names = _demo_contest_names()
+    rows = [r for r in _demo_rows() if r["problem"]["contest_id"] == contest_id]
+    if not rows and contest_id not in names:
+        return None
+    return _compute_postmortem(rows, contest_id, names.get(contest_id))
+
+
+def postmortems_list_payload():
+    """Batch 4: demo post-mortem list — the same shared grouping as
+    the real endpoint."""
+    from .services import _compute_postmortem_list
+
+    return _compute_postmortem_list(_demo_rows(), _demo_contest_names())
+
+
 def calendar_payload(year, month):
     from calendar import monthrange
 

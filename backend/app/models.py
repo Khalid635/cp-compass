@@ -168,6 +168,60 @@ class HintUsage(Base):
     )
 
 
+# ---------------------------------------------------------------------------
+# Batch 4 — contest post-mortem AI.
+# ---------------------------------------------------------------------------
+
+
+class PostmortemAnalysis(Base):
+    """One cached AI analysis of a contest post-mortem (batch 4).
+
+    One row per (user, contest) — the cache key. `lang` records the
+    language the text was generated in; switching UI language
+    regenerates the row in place (counts against the daily limit,
+    like hints).
+    """
+
+    __tablename__ = "postmortem_analysis"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    contest_id = Column(Integer, nullable=False)
+    lang = Column(String, nullable=False, default="en")
+    text = Column(String, nullable=False)
+    model = Column(String, nullable=False)
+    created_at = Column(DateTime, default=_now, nullable=False)
+    updated_at = Column(DateTime, default=_now, onupdate=_now, nullable=False)
+
+    __table_args__ = (
+        Index("ix_postmortem_analysis_user_created", "user_id", "created_at"),
+        UniqueConstraint("user_id", "contest_id"),
+    )
+
+
+class PostmortemUsage(Base):
+    """One row per post-mortem analysis GENERATION (batch 4).
+
+    The daily limit counts generations, not cached rows: a language
+    regeneration updates the PostmortemAnalysis row in place, so
+    counting PostmortemAnalysis rows would under-count. Cache hits
+    insert nothing here.
+    """
+
+    __tablename__ = "postmortem_usage"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    contest_id = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=_now, nullable=False)
+
+    __table_args__ = (
+        Index("ix_postmortem_usage_user_created", "user_id", "created_at"),
+    )
+
+
 class RatingHistory(Base):
     """One row per rated contest, newest last. Built from user.rating."""
 

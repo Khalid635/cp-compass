@@ -20,6 +20,8 @@ const Revision = lazy(() => import('./pages/Revision'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const Calendar = lazy(() => import('./pages/Calendar'));
 const WeeklyReport = lazy(() => import('./pages/WeeklyReport'));
+const Postmortems = lazy(() => import('./pages/Postmortems'));
+const Postmortem = lazy(() => import('./pages/Postmortem'));
 const ProblemDetail = lazy(() => import('./pages/ProblemDetail'));
 const Settings = lazy(() => import('./pages/Settings'));
 
@@ -102,6 +104,8 @@ function AppRoutes() {
           <Route path="analytics" element={<Analytics demo />} />
           <Route path="calendar" element={<Calendar demo />} />
           <Route path="reports/weekly" element={<WeeklyReport demo />} />
+          <Route path="postmortems" element={<Postmortems demo />} />
+          <Route path="postmortems/:contestId" element={<Postmortem demo />} />
           <Route path="problems/:contestId/:index" element={<ProblemDetail demo />} />
           <Route path="settings" element={<Settings demo theme={theme} toggleTheme={toggleTheme} />} />
         </Route>
@@ -123,6 +127,8 @@ function AppRoutes() {
           <Route path="analytics" element={<Analytics />} />
           <Route path="calendar" element={<Calendar />} />
           <Route path="reports/weekly" element={<WeeklyReport />} />
+          <Route path="postmortems" element={<Postmortems />} />
+          <Route path="postmortems/:contestId" element={<Postmortem />} />
           <Route path="problems/:contestId/:index" element={<ProblemDetail />} />
           <Route path="settings" element={<Settings theme={theme} toggleTheme={toggleTheme} />} />
         </Route>

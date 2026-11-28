@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Compass,
   FileText,
+  History,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -45,6 +46,7 @@ function navItems(base: string, t: Dict) {
     { to: `${base}/analytics`, label: t.navAnalytics, icon: BarChart3, mobile: false },
     { to: `${base}/calendar`, label: t.navCalendar, icon: CalendarDays, mobile: true },
     { to: `${base}/reports/weekly`, label: t.navWeekly, icon: FileText, mobile: false },
+    { to: `${base}/postmortems`, label: t.navPostmortems, icon: History, mobile: false },
     { to: `${base}/settings`, label: t.navSettings, icon: Settings, mobile: true },
   ];
 }

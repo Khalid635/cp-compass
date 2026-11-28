@@ -24,6 +24,7 @@ class CFClient:
         self._lock = asyncio.Lock()
         self._last_call = 0.0
         self._problemset_cache: tuple[float, list[dict]] | None = None
+        self._contest_cache: tuple[float, list[dict]] | None = None
 
     async def _get(
         self, path: str, params: dict | None = None, retries: int = 3
@@ -94,6 +95,16 @@ class CFClient:
         problems = result.get("problems", [])
         self._problemset_cache = (now, problems)
         return problems
+
+    async def contest_list(self) -> list[dict]:
+        """All contests (id, name, phase, ...), cached in memory for
+        1 hour. Names change rarely; used to label post-mortems."""
+        now = time.monotonic()
+        if self._contest_cache and now - self._contest_cache[0] < 3600:
+            return self._contest_cache[1]
+        result = await self._get("/contest.list")
+        self._contest_cache = (now, result)
+        return result
 
 
 cf = CFClient()

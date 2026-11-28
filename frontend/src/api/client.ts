@@ -10,6 +10,10 @@ import type {
   HintsResponse,
   MlPredictionsResponse,
   MlStatus,
+  PostmortemAnalysisGenerate,
+  PostmortemAnalysisResponse,
+  PostmortemData,
+  PostmortemListItem,
   ProblemDetailData,
   ProblemNote,
   Recommendation,
@@ -299,6 +303,23 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ step, lang }),
     }),
+  /* Batch 4 — contest post-mortem */
+  postmortems: () => request<PostmortemListItem[]>(`${V1}/postmortems`),
+  latestPostmortem: () => request<PostmortemData>(`${V1}/postmortems/latest`),
+  postmortem: (contest_id: number) =>
+    request<PostmortemData>(`${V1}/postmortems/${contest_id}`),
+  getPostmortemAnalysis: (contest_id: number) =>
+    request<PostmortemAnalysisResponse>(
+      `${V1}/postmortems/${contest_id}/analysis`,
+    ),
+  requestPostmortemAnalysis: (contest_id: number, lang: string) =>
+    request<PostmortemAnalysisGenerate>(
+      `${V1}/postmortems/${contest_id}/analysis`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ lang }),
+      },
+    ),
   settings: () => request<SettingsData>(`${V1}/settings`),
   setGoal: (target: number) =>
     request<SettingsData>(`${V1}/settings/goal`, {
@@ -324,6 +345,12 @@ export const api = {
   demoAnalytics: () => request<AnalyticsData>(`${V1}/demo/analytics`),
   demoFailurePatterns: () =>
     request<FailurePatternsData>(`${V1}/demo/analytics/failures`),
+  demoPostmortems: () =>
+    request<PostmortemListItem[]>(`${V1}/demo/postmortems`),
+  demoLatestPostmortem: () =>
+    request<PostmortemData>(`${V1}/demo/postmortems/latest`),
+  demoPostmortem: (contest_id: number) =>
+    request<PostmortemData>(`${V1}/demo/postmortems/${contest_id}`),
   demoCalendar: (year: number, month: number) =>
     request<CalendarMonth>(`${V1}/demo/calendar?year=${year}&month=${month}`),
   demoCalendarDay: (day: string) =>

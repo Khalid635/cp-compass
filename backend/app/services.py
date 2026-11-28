@@ -675,6 +675,220 @@ def failure_patterns(db: Session, user_id: int) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Batch 4 — contest post-mortem.
+#
+# A post-mortem is per-contest, computed live from the user's own synced
+# submissions for that contest. It reports what was OBSERVED — never a
+# diagnosis, never a fabricated contest. A known contest with no user
+# submissions returns has_data False (e.g. Round 1138 for a user who
+# did not play it); the caller decides the HTTP shape.
+# ---------------------------------------------------------------------------
+
+
+def _compute_postmortem(rows: list[dict], contest_id: int,
+                       contest_name: str | None = None) -> dict:
+    """Pure computation over submission rows for one contest. Each row:
+    verdict (str), passed_test_count (int|None), problem (dict with
+    contest_id/index/name/rating/tags), submitted_at (datetime). Shared
+    by the real endpoint (DB rows) and the demo seed (generated dicts)
+    so the two can never drift apart."""
+    total = len(rows)
+    if total == 0:
+        return {
+            "contest_id": contest_id,
+            "contest_name": contest_name,
+            "has_data": False,
+            "attempted": 0,
+            "solved": 0,
+            "total_submissions": 0,
+            "verdict_breakdown": [],
+            "first_submission": None,
+            "last_submission": None,
+            "time_spent_minutes": None,
+            "per_problem": [],
+            "unsolved": [],
+            "weak_topics": [],
+            "practice_next_week": {"topics": [], "problems": []},
+        }
+    verdict_counts: dict[str, int] = defaultdict(int)
+    for r in rows:
+        verdict_counts[r["verdict"]] += 1
+    verdict_breakdown = [
+        {"verdict": v, "count": c}
+        for v, c in sorted(verdict_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
+    stamps = sorted(r["submitted_at"] for r in rows)
+    time_spent = None
+    if len(stamps) >= 2:
+        time_spent = round((stamps[-1] - stamps[0]).total_seconds() / 60, 1)
+    per_problem: dict[tuple, dict] = {}
+    for r in rows:
+        p = r["problem"]
+        key = (p["contest_id"], p["index"])
+        cell = per_problem.setdefault(key, {
+            "problem": p, "attempts": 0, "wrong": 0, "solved": False,
+            "verdicts": set(), "first_attempt": None, "last_attempt": None,
+            "first_ok": None})
+        ts = r["submitted_at"]
+        cell["attempts"] += 1
+        cell["verdicts"].add(r["verdict"])
+        if cell["first_attempt"] is None or ts < cell["first_attempt"]:
+            cell["first_attempt"] = ts
+        if cell["last_attempt"] is None or ts > cell["last_attempt"]:
+            cell["last_attempt"] = ts
+        if r["verdict"] == "OK":
+            cell["solved"] = True
+            if cell["first_ok"] is None or ts < cell["first_ok"]:
+                cell["first_ok"] = ts
+        else:
+            cell["wrong"] += 1
+    problems = []
+    unsolved = []
+    for cell in per_problem.values():
+        minutes_to_solve = None
+        if cell["first_ok"] is not None:
+            minutes_to_solve = round(
+                (cell["first_ok"] - cell["first_attempt"]).total_seconds() / 60, 1)
+        problems.append({
+            "problem": cell["problem"],
+            "attempts": cell["attempts"],
+            "wrong_attempts": cell["wrong"],
+            "solved": cell["solved"],
+            "first_attempt": cell["first_attempt"].isoformat(),
+            "last_attempt": cell["last_attempt"].isoformat(),
+            "minutes_to_solve": minutes_to_solve,
+            "verdicts": sorted(cell["verdicts"]),
+        })
+        if not cell["solved"]:
+            unsolved.append(cell["problem"])
+    problems.sort(key=lambda p: p["problem"]["index"])
+    unsolved.sort(key=lambda p: p["index"])
+    # Weak topics: tags attempted on >= 2 unique problems in this
+    # contest with acceptance below 50% (same bar as contest_analysis).
+    tag_attempted: dict[str, set] = defaultdict(set)
+    tag_solved: dict[str, set] = defaultdict(set)
+    for cell in per_problem.values():
+        key = (cell["problem"]["contest_id"], cell["problem"]["index"])
+        for tag in (cell["problem"].get("tags") or []):
+            tag_attempted[tag].add(key)
+            if cell["solved"]:
+                tag_solved[tag].add(key)
+    weak_topics = []
+    for tag in sorted(tag_attempted):
+        attempted = tag_attempted[tag]
+        solved = tag_solved.get(tag, set())
+        if len(attempted) >= 2 and len(solved) / len(attempted) < 0.5:
+            weak_topics.append({
+                "tag": tag,
+                "attempted": len(attempted),
+                "solved": len(solved),
+                "acceptance": round(len(solved) / len(attempted), 2),
+            })
+    weak_topics.sort(key=lambda t: (t["acceptance"], t["tag"]))
+    # Practice next week: weak topics first, then tags of unsolved
+    # problems (deduped, top 3); unsolved problems as the work list.
+    topics: list[str] = [t["tag"] for t in weak_topics]
+    for p in unsolved:
+        for tag in (p.get("tags") or []):
+            if tag not in topics:
+                topics.append(tag)
+    return {
+        "contest_id": contest_id,
+        "contest_name": contest_name,
+        "has_data": True,
+        "attempted": len(per_problem),
+        "solved": sum(1 for c in per_problem.values() if c["solved"]),
+        "total_submissions": total,
+        "verdict_breakdown": verdict_breakdown,
+        "first_submission": stamps[0].isoformat(),
+        "last_submission": stamps[-1].isoformat(),
+        "time_spent_minutes": time_spent,
+        "per_problem": problems,
+        "unsolved": unsolved,
+        "weak_topics": weak_topics,
+        "practice_next_week": {
+            "topics": topics[:3],
+            "problems": unsolved,
+        },
+    }
+
+
+def postmortem(db: Session, user_id: int, contest_id: int,
+               contest_name: str | None = None) -> dict:
+    """Post-mortem for one contest from the user's own synced submissions."""
+    rows = (
+        db.query(Submission, Problem)
+        .join(Problem, Submission.problem_id == Problem.id)
+        .filter(Submission.user_id == user_id,
+                Problem.contest_id == contest_id)
+        .all()
+    )
+    dicts = [{
+        "verdict": s.verdict,
+        "passed_test_count": s.passed_test_count,
+        "problem": {"contest_id": p.contest_id, "index": p.index,
+                    "name": p.name, "rating": p.rating, "tags": p.tags or []},
+        "submitted_at": s.submitted_at,
+    } for s, p in rows]
+    return _compute_postmortem(dicts, contest_id, contest_name)
+
+
+def _compute_postmortem_list(rows: list[dict],
+                             names: dict[int, str] | None = None) -> list[dict]:
+    """Pure grouping over row dicts (same shape as _compute_postmortem):
+    one entry per contest with >= 1 submission, most recently active
+    first. Shared by the real endpoint (DB rows) and the demo seed."""
+    by_contest: dict[int, dict] = {}
+    for r in rows:
+        p = r["problem"]
+        cell = by_contest.setdefault(p["contest_id"], {
+            "attempted": set(), "solved": set(), "submissions": 0,
+            "first": None, "last": None})
+        cell["attempted"].add((p["contest_id"], p["index"]))
+        if r["verdict"] == "OK":
+            cell["solved"].add((p["contest_id"], p["index"]))
+        cell["submissions"] += 1
+        ts = r["submitted_at"]
+        if cell["first"] is None or ts < cell["first"]:
+            cell["first"] = ts
+        if cell["last"] is None or ts > cell["last"]:
+            cell["last"] = ts
+    names = names or {}
+    out = [{
+        "contest_id": cid,
+        "contest_name": names.get(cid),
+        "attempted": len(cell["attempted"]),
+        "solved": len(cell["solved"]),
+        "submissions": cell["submissions"],
+        "first_activity": cell["first"].isoformat(),
+        "last_activity": cell["last"].isoformat(),
+    } for cid, cell in by_contest.items()]
+    out.sort(key=lambda r: r["last_activity"], reverse=True)
+    return out
+
+
+def postmortem_list(db: Session, user_id: int,
+                    names: dict[int, str] | None = None) -> list[dict]:
+    """Contests with >= 1 submission, most recently active first."""
+    rows = (
+        db.query(Submission, Problem)
+        .join(Problem, Submission.problem_id == Problem.id)
+        .filter(Submission.user_id == user_id)
+        .all()
+    )
+    dicts = [{
+        "verdict": s.verdict,
+        "passed_test_count": s.passed_test_count,
+        "problem": {"contest_id": p.contest_id, "index": p.index,
+                    "name": p.name, "rating": p.rating, "tags": p.tags or []},
+        "submitted_at": s.submitted_at,
+    } for s, p in rows]
+    return _compute_postmortem_list(dicts, names)
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — Analytics, Calendar, Weekly Report, Problem Detail, Settings
+# ---------------------------------------------------------------------------
 # Phase 2 — Analytics, Calendar, Weekly Report, Problem Detail, Settings
 # ---------------------------------------------------------------------------
 

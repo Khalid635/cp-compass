@@ -30,7 +30,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import google_oauth, hints, mailer, ml, ratelimit, seed, services, sync as sync_engine, totp
+from . import google_oauth, hints, mailer, ml, postmortem_ai, ratelimit, seed, services, sync as sync_engine, totp
 from .auth import (
     create_totp_pending_token,
     decode_totp_pending_token,
@@ -53,6 +53,7 @@ from .config import (
     HINT_DAILY_LIMIT,
     MAX_BODY_BYTES,
     MIN_PASSWORD_LENGTH,
+    POSTMORTEM_DAILY_LIMIT,
     RESEND_API_KEY,
     RETRAIN_COOLDOWN_S,
     RETRAIN_GLOBAL_MIN_GAP_S,
@@ -1117,6 +1118,116 @@ async def post_hint(contest_id: int, index: str, body: HintIn,
             "limit": HINT_DAILY_LIMIT}
 
 
+# ---------- Batch 4: contest post-mortem ----------
+class PostmortemAnalysisIn(BaseModel):
+    lang: str = "en"
+
+
+async def _contest_name_map() -> dict[int, str]:
+    """{contest_id: name} from the cached CF contest list. Returns {}
+    when Codeforces is unreachable - names are display-only, so callers
+    degrade to None instead of failing."""
+    try:
+        contests = await cf.contest_list()
+    except CFError:
+        return {}
+    return {c.get("id"): c.get("name") for c in contests
+            if isinstance(c.get("id"), int)}
+
+
+async def _require_known_contest(contest_id: int) -> str | None:
+    """Contest name for a known contest. 404 when the contest is unknown
+    to Codeforces, 502 when Codeforces does not respond."""
+    try:
+        contests = await cf.contest_list()
+    except CFError as exc:
+        raise HTTPException(502, f"Codeforces didn't respond: {exc}")
+    for c in contests:
+        if c.get("id") == contest_id:
+            return c.get("name")
+    raise HTTPException(404, "Contest not found on Codeforces")
+
+
+@app.get(f"{V1}/postmortems")
+async def list_postmortems(user: User = Depends(get_current_user),
+                          db: Session = Depends(get_db)):
+    """Batch 4: contests with >= 1 submission, most recently active first."""
+    if _cf_handle(db, user) is None:
+        raise HTTPException(400, "Connect your Codeforces handle first")
+    return services.postmortem_list(db, user.id, await _contest_name_map())
+
+
+@app.get(f"{V1}/postmortems/latest")
+async def latest_postmortem(user: User = Depends(get_current_user),
+                           db: Session = Depends(get_db)):
+    if _cf_handle(db, user) is None:
+        raise HTTPException(400, "Connect your Codeforces handle first")
+    items = services.postmortem_list(db, user.id, await _contest_name_map())
+    if not items:
+        raise HTTPException(404, "No contest submissions yet")
+    first = items[0]
+    return services.postmortem(db, user.id, first["contest_id"],
+                               first["contest_name"])
+
+
+@app.get(f"{V1}/postmortems/{{contest_id}}")
+async def get_postmortem(contest_id: int,
+                        user: User = Depends(get_current_user),
+                        db: Session = Depends(get_db)):
+    """Batch 4: full post-mortem for one contest. A known contest with no
+    user submissions returns 200 with has_data false - never a fabricated
+    report (e.g. Round 1138 for a user who did not play it)."""
+    if _cf_handle(db, user) is None:
+        raise HTTPException(400, "Connect your Codeforces handle first")
+    name = await _require_known_contest(contest_id)
+    return services.postmortem(db, user.id, contest_id, name)
+
+
+@app.get(f"{V1}/postmortems/{{contest_id}}/analysis")
+async def get_postmortem_analysis(contest_id: int,
+                                 user: User = Depends(get_current_user),
+                                 db: Session = Depends(get_db)):
+    if _cf_handle(db, user) is None:
+        raise HTTPException(400, "Connect your Codeforces handle first")
+    await _require_known_contest(contest_id)
+    row = postmortem_ai.get_analysis(db, user.id, contest_id)
+    return {
+        "analysis": row.text if row else None,
+        "lang": row.lang if row else None,
+        "model": row.model if row else None,
+        "created_at": row.created_at.isoformat() if row else None,
+        "configured": postmortem_ai.is_configured(),
+        "used_today": postmortem_ai.used_today(db, user.id),
+        "limit": POSTMORTEM_DAILY_LIMIT,
+    }
+
+
+@app.post(f"{V1}/postmortems/{{contest_id}}/analysis")
+async def post_postmortem_analysis(contest_id: int, body: PostmortemAnalysisIn,
+                                  user: User = Depends(get_current_user),
+                                  db: Session = Depends(get_db)):
+    if _cf_handle(db, user) is None:
+        raise HTTPException(400, "Connect your Codeforces handle first")
+    name = await _require_known_contest(contest_id)
+    report = services.postmortem(db, user.id, contest_id, name)
+    lang = body.lang if body.lang in ("en", "bn") else "en"
+    try:
+        text, cached = postmortem_ai.generate_analysis(
+            db, user, report, services.failure_patterns(db, user.id), lang)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except postmortem_ai.PostmortemNotConfigured:
+        raise HTTPException(503, "Post-mortem analysis is not configured yet")
+    except postmortem_ai.PostmortemLimitReached as exc:
+        raise HTTPException(
+            429, "Daily analysis limit reached - try again tomorrow",
+            headers={"Retry-After": str(exc.retry_after)})
+    except postmortem_ai.PostmortemError:
+        raise HTTPException(
+            502, "The analysis service is unavailable - try again later")
+    return {"contest_id": contest_id, "text": text, "cached": cached,
+            "used_today": postmortem_ai.used_today(db, user.id),
+            "limit": POSTMORTEM_DAILY_LIMIT}
 # ---------- Phase 2: settings ----------
 @app.get(f"{V1}/settings")
 def settings(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -1283,6 +1394,27 @@ def demo_calendar_day(day: str = Query(...)):
 def demo_weekly_report():
     return seed.weekly_report_payload()
 
+
+@app.get(f"{V1}/demo/postmortems")
+def demo_postmortems():
+    return seed.postmortems_list_payload()
+
+
+@app.get(f"{V1}/demo/postmortems/latest")
+def demo_latest_postmortem():
+    items = seed.postmortems_list_payload()
+    if not items:
+        raise HTTPException(404, "No contest submissions yet")
+    first = items[0]
+    return seed.postmortem_payload(first["contest_id"])
+
+
+@app.get(f"{V1}/demo/postmortems/{{contest_id}}")
+def demo_postmortem(contest_id: int):
+    report = seed.postmortem_payload(contest_id)
+    if report is None:
+        raise HTTPException(404, "Contest not found in the demo data")
+    return report
 
 @app.get(f"{V1}/demo/problems/{{contest_id}}/{{index}}")
 def demo_problem_detail(contest_id: int, index: str):

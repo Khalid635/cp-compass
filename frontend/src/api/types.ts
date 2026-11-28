@@ -338,6 +338,71 @@ export interface FailurePatternsData {
   };
 }
 
+/* ---------- Batch 4 — contest post-mortem ---------- */
+
+export interface PostmortemProblemRow {
+  problem: ProblemRef;
+  attempts: number;
+  wrong_attempts: number;
+  solved: boolean;
+  first_attempt: string;
+  last_attempt: string;
+  minutes_to_solve: number | null;
+  verdicts: string[];
+}
+
+export interface PostmortemWeakTopic {
+  tag: string;
+  attempted: number;
+  solved: number;
+  acceptance: number;
+}
+
+export interface PostmortemData {
+  contest_id: number;
+  contest_name: string | null;
+  has_data: boolean;
+  attempted: number;
+  solved: number;
+  total_submissions: number;
+  verdict_breakdown: { verdict: string; count: number }[];
+  first_submission: string | null;
+  last_submission: string | null;
+  time_spent_minutes: number | null;
+  per_problem: PostmortemProblemRow[];
+  unsolved: ProblemRef[];
+  weak_topics: PostmortemWeakTopic[];
+  practice_next_week: { topics: string[]; problems: ProblemRef[] };
+}
+
+export interface PostmortemListItem {
+  contest_id: number;
+  contest_name: string | null;
+  attempted: number;
+  solved: number;
+  submissions: number;
+  first_activity: string;
+  last_activity: string;
+}
+
+export interface PostmortemAnalysisResponse {
+  analysis: string | null;
+  lang: string | null;
+  model: string | null;
+  created_at: string | null;
+  configured: boolean;
+  used_today: number;
+  limit: number;
+}
+
+export interface PostmortemAnalysisGenerate {
+  contest_id: number;
+  text: string;
+  cached: boolean;
+  used_today: number;
+  limit: number;
+}
+
 export interface SettingsData {
   email: string | null;
   email_verified: boolean;

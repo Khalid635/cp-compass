@@ -396,6 +396,7 @@ export interface Dict {
   navAnalytics: string;
   navCalendar: string;
   navWeekly: string;
+  navPostmortems: string;
   navSettings: string;
   // Phase 2 analytics
   analyticsTitle: string;
@@ -500,6 +501,33 @@ export interface Dict {
   hintStepLocked: string;
   hintGenerating: string;
   hintNeverSolution: string;
+  // Batch 4 — contest post-mortem
+  postmortemsTitle: string;
+  postmortemSolvedOf: (solved: number, attempted: number) => string;
+  postmortemSubmissions: (n: number) => string;
+  postmortemTimeSpent: (minutes: number) => string;
+  postmortemNoContests: string;
+  postmortemNoContestsHint: string;
+  postmortemNoData: string;
+  postmortemNoDataHint: string;
+  postmortemVerdicts: string;
+  postmortemPerProblem: string;
+  postmortemUnsolved: string;
+  postmortemPracticeNext: string;
+  postmortemWeakTopics: string;
+  postmortemSolved: string;
+  postmortemNotSolved: string;
+  postmortemAttempts: string;
+  postmortemMinutesToSolve: string;
+  postmortemAnalysisTitle: string;
+  postmortemGenerate: string;
+  postmortemUsedToday: (used: number, limit: number) => string;
+  postmortemNotConfigured: string;
+  postmortemUnavailable: string;
+  postmortemLimitReached: string;
+  postmortemDemoNote: string;
+  postmortemGenerating: string;
+  postmortemNeverSolution: string;
   revisionStatus: string;
   revisionNoRevision: string;
   // Phase 2 settings
