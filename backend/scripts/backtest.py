@@ -73,55 +73,11 @@ def _top_tags_for(subs, min_count=5, limit=12):
         key=lambda t: -counts[t])[:limit]
 
 
-def time_aware_rows(subs, hist, current_rating, top_tags, cutoff):
-    """Split (user, problem) rows by first-attempt time, leakage-free.
-
-    Features for every row use ONLY submissions before the cutoff
-    (tag stats anchored at the cutoff, rating at first attempt,
-    prev_attempts = attempts before the cutoff). Training labels are
-    "solved before the cutoff"; test labels are "eventually solved"
-    (the future outcome being predicted). Returns
-    (train_rows, test_rows, stats_pre, weak_pre).
-    """
-    pre = [s for s in subs if s["submitted_at"] < cutoff]
-    stats_pre = ml._tag_stats(pre, now=cutoff)
-    weak_pre = {t: v for t, v in stats_pre.items() if v["weak"]}
-    by_prob = defaultdict(list)
-    for s in subs:
-        by_prob[s["problem_key"]].append(s)
-    fallback = current_rating or 1200
-    train_rows, test_rows = [], []
-    for key, ss in by_prob.items():
-        prob = ss[0]
-        if prob["problem_rating"] is None:
-            continue
-        first = min(s["submitted_at"] for s in ss)
-        user_rating = ml._rating_at(hist, first, fallback)
-        min_acc, mean_acc = ml._tag_acceptance_excl(stats_pre, prob["tags"], key)
-        prev = sum(1 for s in ss if s["submitted_at"] < cutoff)
-        feats = {
-            "user_rating": user_rating,
-            "problem_rating": prob["problem_rating"],
-            "rating_diff": prob["problem_rating"] - user_rating,
-            "min_tag_acc": min_acc,
-            "mean_tag_acc": mean_acc,
-            "prev_attempts": prev,
-        }
-        for t in top_tags:
-            feats["tag_" + t] = 1.0 if t in prob["tags"] else 0.0
-        row = {"features": feats, "key": key,
-               "baseline_score": ml._baseline_score(
-                   stats_pre, weak_pre, user_rating,
-                   prob["problem_rating"], prob["tags"])}
-        if first < cutoff:
-            row["label"] = 1 if any(
-                s["verdict"] == "OK" and s["submitted_at"] < cutoff
-                for s in ss) else 0
-            train_rows.append(row)
-        else:
-            row["label"] = 1 if any(s["verdict"] == "OK" for s in ss) else 0
-            test_rows.append(row)
-    return train_rows, test_rows, stats_pre, weak_pre
+# Batch 8: the leakage-free row builder lives in app.ml now (single
+# implementation — the training path reuses it for the artifact's
+# by_time block). Kept as an alias so protocol B and the Batch 3
+# tests are untouched.
+time_aware_rows = ml.time_aware_rows
 
 
 def rule_score(tags, problem_rating, user_rating, weak, attempted):

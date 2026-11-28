@@ -1,6 +1,6 @@
 {
   "cutoff": "2026-10-01",
-  "generated_at": "2026-11-27T20:14:34.709137Z",
+  "generated_at": "2026-11-28T11:08:42.551002Z",
   "protocol_a_random_split": {
     "n_rows": 204,
     "sources": {
@@ -318,80 +318,5 @@
         "auc": 0.706
       }
     }
-  },
-  "retrain": {
-    "trained": true,
-    "model_type": "RandomForest (n=300, max_depth=4, min_samples_leaf=10)",
-    "trained_at": "2026-11-27T20:15:05.705916Z",
-    "n_rows": 204,
-    "n_solved": 148,
-    "sources": {
-      "demo_coder (seed)": 193,
-      "Khalid_Bin_Masud": 11
-    },
-    "demo_rows": 193,
-    "real_rows": 11,
-    "features": [
-      "user_rating",
-      "problem_rating",
-      "rating_diff",
-      "min_tag_acc",
-      "mean_tag_acc",
-      "prev_attempts",
-      "tag_greedy",
-      "tag_dp",
-      "tag_implementation",
-      "tag_graphs",
-      "tag_math",
-      "tag_brute force"
-    ],
-    "evaluation": {
-      "split": {
-        "train": 163,
-        "test": 41,
-        "solved_total": 148,
-        "unsolved_total": 56
-      },
-      "baseline": {
-        "accuracy": 0.293,
-        "brier": 0.378,
-        "logloss": 0.976,
-        "auc": 0.32
-      },
-      "baseline_note": "The rule-based score is a practice-priority score, not a solvability score \u2014 it rewards weak tags and harder problems, so it scores below chance as a probability.",
-      "logreg": {
-        "cv_auc": 0.832,
-        "cv_brier": 0.147,
-        "test_accuracy": 0.707,
-        "test_brier": 0.189,
-        "test_logloss": 0.58,
-        "test_auc": 0.712
-      },
-      "random_forest": {
-        "cv_auc": 0.816,
-        "cv_brier": 0.157,
-        "test_accuracy": 0.756,
-        "test_brier": 0.164,
-        "test_logloss": 0.49,
-        "test_auc": 0.773
-      },
-      "hist_gb": {
-        "cv_auc": 0.981,
-        "cv_brier": 0.035,
-        "test_accuracy": 0.976,
-        "test_brier": 0.025,
-        "test_logloss": 0.273,
-        "test_auc": 0.912
-      },
-      "calibration": {
-        "tried": "sigmoid (CalibratedClassifierCV, cv=3)",
-        "cv_brier_uncalibrated": 0.157,
-        "cv_brier_calibrated": 0.157,
-        "shipped_calibrated": false
-      }
-    },
-    "shipped": true,
-    "ship_reason": "Random Forest beats the baseline on held-out AUC and Brier.",
-    "bias_note": "Rows are problems the user already attempted; never-attempted problems are not in the data. Demo rows are synthetic (seed.py). Treat the probability as a hint, not a guarantee."
   }
 }

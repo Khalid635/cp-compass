@@ -63,7 +63,7 @@ rating difference, per-tag acceptance, previous attempts, and tag one-hots.
 One training row per (user, problem); the label is 1 if the user eventually
 solved it, 0 otherwise.
 
-### Methodology (numbers from the live model artifact, retrained 2026-11-27 20:15 UTC)
+### Methodology (numbers from the live model artifact, retrained 2026-11-28 11:18 UTC)
 
 - **Data:** n=204 rows — 193 synthetic demo rows (seed.py, rng-generated with
   known per-tag solve rates) + 11 real rows from the owner's account. The
@@ -75,6 +75,18 @@ solved it, 0 otherwise.
   appear on both sides of the split, so the test AUC is optimistic for a
   brand-new user. The Batch 3 backtest ran a leakage-free by-time split
   (below) — use its numbers for generalization, not the random-split ones.
+  Batch 8 (2026-11-28) re-evaluated switching the shipped split to by-time
+  and decided NO SWITCH: the by-time evaluation is sound (the forest beats
+  the rule baseline at 5/5 cutoffs), but logistic regression beats the
+  forest forward at all 5 cutoffs (AUC 0.771-0.812 vs 0.683-0.761), so
+  switching the split while keeping RF would certify the second-best model.
+  The random split is also seed-sensitive (forest test AUC 0.773-0.870
+  across 5 seeds; the shipped seed 42 is the lowest) and the forest-vs-logreg
+  ranking on random splits is mixed (forest wins 3/5 seeds). Every retrain
+  now records the leakage-free by-time evaluation in the artifact
+  (`evaluation.by_time`, relative 80th-percentile cutoff) as the honest
+  forward estimate; it never gates shipping. Follow-up: model reselection
+  (logreg as the forward candidate) when real rows grow past a handful.
 - **Held-out test, random split (n=41):** Random Forest **AUC 0.773, Brier
   0.164, log-loss 0.490, accuracy 0.756**; 5-fold CV AUC 0.816, CV Brier
   0.157, CV log-loss 0.475. Logistic Regression: test AUC 0.712, log-loss
@@ -95,14 +107,21 @@ solved it, 0 otherwise.
   train 157 / test 36.** Features and training labels use only submissions
   before the cutoff; test labels are "eventually solved". Random Forest:
   **test AUC 0.683, Brier 0.209, log-loss 0.607**. Logistic Regression:
-  AUC 0.776, Brier 0.202, log-loss 0.585 — better than the forest on this
-  small forward set (n=36, too small to conclude it is better; not a
-  reason to switch the shipped model). Elo: AUC 0.706, Brier 0.275,
+  AUC 0.776, Brier 0.202, log-loss 0.585. Batch 8 checked 5 cutoffs
+  (2026-09-01 to 2026-11-01): logreg beats the forest forward at ALL 5
+  (AUC 0.771-0.812 vs 0.683-0.761) — a consistent signal, but the test
+  sets are small (n=14-55) and real rows are only 2 of 38 test rows, so
+  the shipped model is NOT switched on this evidence; model reselection
+  is a follow-up when real rows grow. Elo: AUC 0.706, Brier 0.275,
   log-loss 0.847. Rule score: AUC 0.203, Brier 0.388, log-loss 0.999.
   HistGB collapses forward: AUC 0.522, log-loss 1.427, 80.6% of its
   predictions extreme — confident and wrong. **Headline: the random-split
   AUC (0.773) is optimistic; the forward AUC (0.683) is the honest
-  generalization number.**
+  generalization number.** Combined demo + real rows at the same cutoff
+  (train 166 / test 38, 36 demo + 2 real): forest 0.694, logreg 0.787,
+  Elo 0.683. The artifact's by_time block (relative cutoff, this retrain):
+  cutoff 2026-09-27, train 163 / test 41 (39 demo + 2 real), forest 0.740,
+  logreg 0.779, Elo 0.657.
 - **Calibration:** sigmoid calibration was tried (CalibratedClassifierCV,
   cv=3). On this training run CV Brier was 0.157 calibrated vs 0.157
   uncalibrated (a tie), so this artifact shipped WITHOUT calibration.

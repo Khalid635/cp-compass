@@ -1,0 +1,832 @@
+{
+  "generated_at": "2026-11-28T11:10:11.724885Z",
+  "random_seeds": [
+    {
+      "seed": 42,
+      "n_train": 163,
+      "n_test": 41,
+      "test_solved": 30,
+      "test_unsolved": 11,
+      "baseline_rule": {
+        "accuracy": 0.293,
+        "brier": 0.378,
+        "logloss": 0.976,
+        "auc": 0.32
+      },
+      "baseline_elo": {
+        "accuracy": 0.659,
+        "brier": 0.212,
+        "logloss": 0.597,
+        "auc": 0.664
+      },
+      "logreg": {
+        "cv_auc": 0.832,
+        "test_auc": 0.712,
+        "test_brier": 0.189,
+        "test_logloss": 0.58
+      },
+      "random_forest": {
+        "cv_auc": 0.816,
+        "test_auc": 0.773,
+        "test_brier": 0.164,
+        "test_logloss": 0.49
+      },
+      "hist_gb": {
+        "cv_auc": 0.981,
+        "test_auc": 0.912,
+        "test_brier": 0.025,
+        "test_logloss": 0.273
+      }
+    },
+    {
+      "seed": 1,
+      "n_train": 163,
+      "n_test": 41,
+      "test_solved": 30,
+      "test_unsolved": 11,
+      "baseline_rule": {
+        "accuracy": 0.366,
+        "brier": 0.374,
+        "logloss": 0.969,
+        "auc": 0.391
+      },
+      "baseline_elo": {
+        "accuracy": 0.537,
+        "brier": 0.273,
+        "logloss": 0.848,
+        "auc": 0.532
+      },
+      "logreg": {
+        "cv_auc": 0.776,
+        "test_auc": 0.888,
+        "test_brier": 0.125,
+        "test_logloss": 0.393
+      },
+      "random_forest": {
+        "cv_auc": 0.798,
+        "test_auc": 0.855,
+        "test_brier": 0.145,
+        "test_logloss": 0.449
+      },
+      "hist_gb": {
+        "cv_auc": 0.938,
+        "test_auc": 1.0,
+        "test_brier": 0.017,
+        "test_logloss": 0.055
+      }
+    },
+    {
+      "seed": 7,
+      "n_train": 163,
+      "n_test": 41,
+      "test_solved": 30,
+      "test_unsolved": 11,
+      "baseline_rule": {
+        "accuracy": 0.293,
+        "brier": 0.379,
+        "logloss": 0.979,
+        "auc": 0.336
+      },
+      "baseline_elo": {
+        "accuracy": 0.61,
+        "brier": 0.22,
+        "logloss": 0.631,
+        "auc": 0.656
+      },
+      "logreg": {
+        "cv_auc": 0.821,
+        "test_auc": 0.709,
+        "test_brier": 0.183,
+        "test_logloss": 0.539
+      },
+      "random_forest": {
+        "cv_auc": 0.825,
+        "test_auc": 0.788,
+        "test_brier": 0.16,
+        "test_logloss": 0.482
+      },
+      "hist_gb": {
+        "cv_auc": 0.941,
+        "test_auc": 0.991,
+        "test_brier": 0.036,
+        "test_logloss": 0.139
+      }
+    },
+    {
+      "seed": 123,
+      "n_train": 163,
+      "n_test": 41,
+      "test_solved": 30,
+      "test_unsolved": 11,
+      "baseline_rule": {
+        "accuracy": 0.293,
+        "brier": 0.382,
+        "logloss": 0.983,
+        "auc": 0.373
+      },
+      "baseline_elo": {
+        "accuracy": 0.463,
+        "brier": 0.32,
+        "logloss": 0.892,
+        "auc": 0.383
+      },
+      "logreg": {
+        "cv_auc": 0.794,
+        "test_auc": 0.836,
+        "test_brier": 0.138,
+        "test_logloss": 0.425
+      },
+      "random_forest": {
+        "cv_auc": 0.797,
+        "test_auc": 0.87,
+        "test_brier": 0.133,
+        "test_logloss": 0.419
+      },
+      "hist_gb": {
+        "cv_auc": 0.947,
+        "test_auc": 0.985,
+        "test_brier": 0.027,
+        "test_logloss": 0.156
+      }
+    },
+    {
+      "seed": 2026,
+      "n_train": 163,
+      "n_test": 41,
+      "test_solved": 30,
+      "test_unsolved": 11,
+      "baseline_rule": {
+        "accuracy": 0.317,
+        "brier": 0.384,
+        "logloss": 0.989,
+        "auc": 0.33
+      },
+      "baseline_elo": {
+        "accuracy": 0.585,
+        "brier": 0.294,
+        "logloss": 0.92,
+        "auc": 0.465
+      },
+      "logreg": {
+        "cv_auc": 0.763,
+        "test_auc": 0.867,
+        "test_brier": 0.137,
+        "test_logloss": 0.413
+      },
+      "random_forest": {
+        "cv_auc": 0.804,
+        "test_auc": 0.845,
+        "test_brier": 0.148,
+        "test_logloss": 0.45
+      },
+      "hist_gb": {
+        "cv_auc": 0.931,
+        "test_auc": 0.994,
+        "test_brier": 0.03,
+        "test_logloss": 0.085
+      }
+    }
+  ],
+  "by_time_cutoffs_demo_only": [
+    {
+      "cutoff": "2026-09-01T00:00:00",
+      "n_train": 138,
+      "n_test": 55,
+      "train_solved": 92,
+      "test_solved": 33,
+      "top_tags": [
+        "greedy",
+        "implementation",
+        "graphs",
+        "dp",
+        "math"
+      ],
+      "baseline_rule": {
+        "accuracy": 0.382,
+        "brier": 0.376,
+        "logloss": 0.975,
+        "auc": 0.253
+      },
+      "baseline_elo": {
+        "accuracy": 0.6,
+        "brier": 0.279,
+        "logloss": 0.882,
+        "auc": 0.632
+      },
+      "logreg": {
+        "cv_auc": 0.848,
+        "cv_brier": 0.158,
+        "cv_logloss": 0.501,
+        "test_extreme_share": 0.0,
+        "test_accuracy": 0.636,
+        "test_brier": 0.254,
+        "test_logloss": 0.704,
+        "test_auc": 0.78
+      },
+      "random_forest": {
+        "cv_auc": 0.776,
+        "cv_brier": 0.185,
+        "cv_logloss": 0.551,
+        "test_extreme_share": 0.0,
+        "test_accuracy": 0.727,
+        "test_brier": 0.217,
+        "test_logloss": 0.624,
+        "test_auc": 0.691
+      },
+      "hist_gb": {
+        "cv_auc": 0.926,
+        "cv_brier": 0.11,
+        "cv_logloss": 0.354,
+        "test_extreme_share": 0.727,
+        "test_accuracy": 0.6,
+        "test_brier": 0.326,
+        "test_logloss": 1.596,
+        "test_auc": 0.552
+      },
+      "calibration_random_forest_test": [
+        {
+          "bin": "0.0-0.2",
+          "n": 0,
+          "mean_predicted": null,
+          "actual_solve_rate": null
+        },
+        {
+          "bin": "0.2-0.4",
+          "n": 0,
+          "mean_predicted": null,
+          "actual_solve_rate": null
+        },
+        {
+          "bin": "0.4-0.6",
+          "n": 25,
+          "mean_predicted": 0.494,
+          "actual_solve_rate": 0.48
+        },
+        {
+          "bin": "0.6-0.8",
+          "n": 30,
+          "mean_predicted": 0.704,
+          "actual_solve_rate": 0.7
+        },
+        {
+          "bin": "0.8-1.0",
+          "n": 0,
+          "mean_predicted": null,
+          "actual_solve_rate": null
+        }
+      ]
+    },
+    {
+      "cutoff": "2026-09-15T00:00:00",
+      "n_train": 149,
+      "n_test": 44,
+      "train_solved": 101,
+      "test_solved": 25,
+      "top_tags": [
+        "greedy",
+        "graphs",
+        "implementation",
+        "dp",
+        "math"
+      ],
+      "baseline_rule": {
+        "accuracy": 0.409,
+        "brier": 0.367,
+        "logloss": 0.955,
+        "auc": 0.262
+      },
+      "baseline_elo": {
+        "accuracy": 0.568,
+        "brier": 0.305,
+        "logloss": 0.974,
+        "auc": 0.621
+      },
+      "logreg": {
+        "cv_auc": 0.826,
+        "cv_brier": 0.161,
+        "cv_logloss": 0.501,
+        "test_extreme_share": 0.0,
+        "test_accuracy": 0.659,
+        "test_brier": 0.194,
+        "test_logloss": 0.571,
+        "test_auc": 0.794
+      },
+      "random_forest": {
+        "cv_auc": 0.793,
+        "cv_brier": 0.176,
+        "cv_logloss": 0.53,
+        "test_extreme_share": 0.0,
+        "test_accuracy": 0.727,
+        "test_brier": 0.215,
+        "test_logloss": 0.622,
+        "test_auc": 0.697
+      },
+      "hist_gb": {
+        "cv_auc": 0.963,
+        "cv_brier": 0.066,
+        "cv_logloss": 0.221,
+        "test_extreme_share": 0.932,
+        "test_accuracy": 0.705,
+        "test_brier": 0.284,
+        "test_logloss": 1.393,
+        "test_auc": 0.566
+      },
+      "calibration_random_forest_test": [
+        {
+          "bin": "0.0-0.2",
+          "n": 0,
+          "mean_predicted": null,
+          "actual_solve_rate": null
+        },
+        {
+          "bin": "0.2-0.4",
+          "n": 0,
+          "mean_predicted": null,
+          "actual_solve_rate": null
+        },
+        {
+          "bin": "0.4-0.6",
+          "n": 18,
+          "mean_predicted": 0.503,
+          "actual_solve_rate": 0.444
+        },
+        {
+          "bin": "0.6-0.8",
+          "n": 23,
+          "mean_predicted": 0.746,
+          "actual_solve_rate": 0.696
+        },
+        {
+          "bin": "0.8-1.0",
+          "n": 3,
+          "mean_predicted": 0.802,
+          "actual_solve_rate": 0.333
+        }
+      ]
+    },
+    {
+      "cutoff": "2026-10-01T00:00:00",
+      "n_train": 157,
+      "n_test": 36,
+      "train_solved": 107,
+      "test_solved": 21,
+      "top_tags": [
+        "greedy",
+        "dp",
+        "implementation",
+        "graphs",
+        "math"
+      ],
+      "baseline_rule": {
+        "accuracy": 0.222,
+        "brier": 0.388,
+        "logloss": 0.999,
+        "auc": 0.203
+      },
+      "baseline_elo": {
+        "accuracy": 0.583,
+        "brier": 0.275,
+        "logloss": 0.847,
+        "auc": 0.706
+      },
+      "logreg": {
+        "cv_auc": 0.802,
+        "cv_brier": 0.165,
+        "cv_logloss": 0.501,
+        "test_extreme_share": 0.0,
+        "test_accuracy": 0.611,
+        "test_brier": 0.202,
+        "test_logloss": 0.585,
+        "test_auc": 0.776
+      },
+      "random_forest": {
+        "cv_auc": 0.805,
+        "cv_brier": 0.169,
+        "cv_logloss": 0.508,
+        "test_extreme_share": 0.0,
+        "test_accuracy": 0.722,
+        "test_brier": 0.209,
+        "test_logloss": 0.607,
+        "test_auc": 0.683
+      },
+      "hist_gb": {
+        "cv_auc": 0.971,
+        "cv_brier": 0.058,
+        "cv_logloss": 0.212,
+        "test_extreme_share": 0.806,
+        "test_accuracy": 0.722,
+        "test_brier": 0.274,
+        "test_logloss": 1.427,
+        "test_auc": 0.522
+      },
+      "calibration_random_forest_test": [
+        {
+          "bin": "0.0-0.2",
+          "n": 0,
+          "mean_predicted": null,
+          "actual_solve_rate": null
+        },
+        {
+          "bin": "0.2-0.4",
+          "n": 7,
+          "mean_predicted": 0.368,
+          "actual_solve_rate": 0.143
+        },
+        {
+          "bin": "0.4-0.6",
+          "n": 10,
+          "mean_predicted": 0.566,
+          "actual_solve_rate": 0.8
+        },
+        {
+          "bin": "0.6-0.8",
+          "n": 19,
+          "mean_predicted": 0.732,
+          "actual_solve_rate": 0.632
+        },
+        {
+          "bin": "0.8-1.0",
+          "n": 0,
+          "mean_predicted": null,
+          "actual_solve_rate": null
+        }
+      ]
+    },
+    {
+      "cutoff": "2026-10-15T00:00:00",
+      "n_train": 171,
+      "n_test": 22,
+      "train_solved": 117,
+      "test_solved": 13,
+      "top_tags": [
+        "greedy",
+        "dp",
+        "implementation",
+        "graphs",
+        "math"
+      ],
+      "baseline_rule": {
+        "accuracy": 0.227,
+        "brier": 0.388,
+        "logloss": 1.0,
+        "auc": 0.192
+      },
+      "baseline_elo": {
+        "accuracy": 0.591,
+        "brier": 0.275,
+        "logloss": 0.842,
+        "auc": 0.645
+      },
+      "logreg": {
+        "cv_auc": 0.815,
+        "cv_brier": 0.16,
+        "cv_logloss": 0.484,
+        "test_extreme_share": 0.0,
+        "test_accuracy": 0.636,
+        "test_brier": 0.201,
+        "test_logloss": 0.579,
+        "test_auc": 0.812
+      },
+      "random_forest": {
+        "cv_auc": 0.846,
+        "cv_brier": 0.159,
+        "cv_logloss": 0.483,
+        "test_extreme_share": 0.0,
+        "test_accuracy": 0.727,
+        "test_brier": 0.196,
+        "test_logloss": 0.58,
+        "test_auc": 0.761
+      },
+      "hist_gb": {
+        "cv_auc": 0.989,
+        "cv_brier": 0.009,
+        "cv_logloss": 0.056,
+        "test_extreme_share": 0.909,
+        "test_accuracy": 0.727,
+        "test_brier": 0.266,
+        "test_logloss": 1.226,
+        "test_auc": 0.645
+      },
+      "calibration_random_forest_test": [
+        {
+          "bin": "0.0-0.2",
+          "n": 0,
+          "mean_predicted": null,
+          "actual_solve_rate": null
+        },
+        {
+          "bin": "0.2-0.4",
+          "n": 3,
+          "mean_predicted": 0.341,
+          "actual_solve_rate": 0.0
+        },
+        {
+          "bin": "0.4-0.6",
+          "n": 8,
+          "mean_predicted": 0.566,
+          "actual_solve_rate": 0.625
+        },
+        {
+          "bin": "0.6-0.8",
+          "n": 10,
+          "mean_predicted": 0.765,
+          "actual_solve_rate": 0.7
+        },
+        {
+          "bin": "0.8-1.0",
+          "n": 1,
+          "mean_predicted": 0.802,
+          "actual_solve_rate": 1.0
+        }
+      ]
+    },
+    {
+      "cutoff": "2026-11-01T00:00:00",
+      "n_train": 179,
+      "n_test": 14,
+      "train_solved": 124,
+      "test_solved": 8,
+      "top_tags": [
+        "greedy",
+        "dp",
+        "implementation",
+        "graphs",
+        "math"
+      ],
+      "baseline_rule": {
+        "accuracy": 0.286,
+        "brier": 0.361,
+        "logloss": 0.94,
+        "auc": 0.302
+      },
+      "baseline_elo": {
+        "accuracy": 0.571,
+        "brier": 0.268,
+        "logloss": 0.735,
+        "auc": 0.635
+      },
+      "logreg": {
+        "cv_auc": 0.792,
+        "cv_brier": 0.164,
+        "cv_logloss": 0.502,
+        "test_extreme_share": 0.0,
+        "test_accuracy": 0.714,
+        "test_brier": 0.192,
+        "test_logloss": 0.564,
+        "test_auc": 0.771
+      },
+      "random_forest": {
+        "cv_auc": 0.826,
+        "cv_brier": 0.158,
+        "cv_logloss": 0.476,
+        "test_extreme_share": 0.0,
+        "test_accuracy": 0.643,
+        "test_brier": 0.21,
+        "test_logloss": 0.611,
+        "test_auc": 0.74
+      },
+      "hist_gb": {
+        "cv_auc": 0.994,
+        "cv_brier": 0.012,
+        "cv_logloss": 0.057,
+        "test_extreme_share": 1.0,
+        "test_accuracy": 0.643,
+        "test_brier": 0.345,
+        "test_logloss": 1.473,
+        "test_auc": 0.667
+      },
+      "calibration_random_forest_test": [
+        {
+          "bin": "0.0-0.2",
+          "n": 0,
+          "mean_predicted": null,
+          "actual_solve_rate": null
+        },
+        {
+          "bin": "0.2-0.4",
+          "n": 1,
+          "mean_predicted": 0.275,
+          "actual_solve_rate": 0.0
+        },
+        {
+          "bin": "0.4-0.6",
+          "n": 4,
+          "mean_predicted": 0.545,
+          "actual_solve_rate": 0.5
+        },
+        {
+          "bin": "0.6-0.8",
+          "n": 8,
+          "mean_predicted": 0.757,
+          "actual_solve_rate": 0.75
+        },
+        {
+          "bin": "0.8-1.0",
+          "n": 1,
+          "mean_predicted": 0.815,
+          "actual_solve_rate": 0.0
+        }
+      ]
+    }
+  ],
+  "combined_by_time_primary_cutoff": {
+    "cutoff": "2026-10-01T00:00:00",
+    "n_train": 166,
+    "n_test": 38,
+    "train_solved": 115,
+    "test_solved": 23,
+    "test_composition": {
+      "demo_coder (seed)": 36,
+      "Khalid_Bin_Masud": 2
+    },
+    "top_tags": [
+      "greedy",
+      "graphs",
+      "implementation",
+      "dp",
+      "math",
+      "brute force"
+    ],
+    "baseline_rule": {
+      "accuracy": 0.211,
+      "brier": 0.397,
+      "logloss": 1.019,
+      "auc": 0.197
+    },
+    "baseline_elo": {
+      "accuracy": 0.605,
+      "brier": 0.265,
+      "logloss": 0.821,
+      "auc": 0.683
+    },
+    "logreg": {
+      "cv_auc": 0.82,
+      "test_auc": 0.787,
+      "test_brier": 0.211,
+      "test_logloss": 0.6
+    },
+    "random_forest": {
+      "cv_auc": 0.811,
+      "test_auc": 0.694,
+      "test_brier": 0.202,
+      "test_logloss": 0.59
+    },
+    "hist_gb": {
+      "cv_auc": 0.972,
+      "test_auc": 0.612,
+      "test_brier": 0.259,
+      "test_logloss": 1.273
+    }
+  },
+  "combined_by_time_relative_cutoff": {
+    "cutoff": "2026-09-27T16:29:00",
+    "n_train": 163,
+    "n_test": 41,
+    "train_solved": 113,
+    "test_solved": 24,
+    "test_composition": {
+      "demo_coder (seed)": 39,
+      "Khalid_Bin_Masud": 2
+    },
+    "top_tags": [
+      "greedy",
+      "graphs",
+      "dp",
+      "math",
+      "implementation",
+      "brute force"
+    ],
+    "baseline_rule": {
+      "accuracy": 0.195,
+      "brier": 0.392,
+      "logloss": 1.008,
+      "auc": 0.185
+    },
+    "baseline_elo": {
+      "accuracy": 0.585,
+      "brier": 0.283,
+      "logloss": 0.889,
+      "auc": 0.657
+    },
+    "logreg": {
+      "cv_auc": 0.813,
+      "test_auc": 0.779,
+      "test_brier": 0.207,
+      "test_logloss": 0.595
+    },
+    "random_forest": {
+      "cv_auc": 0.808,
+      "test_auc": 0.74,
+      "test_brier": 0.205,
+      "test_logloss": 0.596
+    },
+    "hist_gb": {
+      "cv_auc": 0.967,
+      "test_auc": 0.669,
+      "test_brier": 0.238,
+      "test_logloss": 1.19
+    },
+    "cutoff_rule": "80th percentile of first-attempt times"
+  },
+  "real_rows_first_attempts": [
+    {
+      "user": "Khalid_Bin_Masud",
+      "problem": [
+        4,
+        "A"
+      ],
+      "first_attempt": "2026-07-23T10:48:13",
+      "solved": true
+    },
+    {
+      "user": "Khalid_Bin_Masud",
+      "problem": [
+        20,
+        "C"
+      ],
+      "first_attempt": "2026-03-23T13:47:25",
+      "solved": false
+    },
+    {
+      "user": "Khalid_Bin_Masud",
+      "problem": [
+        25,
+        "D"
+      ],
+      "first_attempt": "2026-03-23T12:19:00",
+      "solved": true
+    },
+    {
+      "user": "Khalid_Bin_Masud",
+      "problem": [
+        50,
+        "A"
+      ],
+      "first_attempt": "2026-07-23T12:15:13",
+      "solved": true
+    },
+    {
+      "user": "Khalid_Bin_Masud",
+      "problem": [
+        71,
+        "A"
+      ],
+      "first_attempt": "2026-07-23T13:20:01",
+      "solved": true
+    },
+    {
+      "user": "Khalid_Bin_Masud",
+      "problem": [
+        158,
+        "B"
+      ],
+      "first_attempt": "2026-10-26T06:44:24",
+      "solved": true
+    },
+    {
+      "user": "Khalid_Bin_Masud",
+      "problem": [
+        231,
+        "A"
+      ],
+      "first_attempt": "2026-07-23T11:52:54",
+      "solved": true
+    },
+    {
+      "user": "Khalid_Bin_Masud",
+      "problem": [
+        1374,
+        "C"
+      ],
+      "first_attempt": "2026-10-26T07:36:31",
+      "solved": true
+    },
+    {
+      "user": "Khalid_Bin_Masud",
+      "problem": [
+        1703,
+        "B"
+      ],
+      "first_attempt": "2025-11-28T18:25:22",
+      "solved": true
+    },
+    {
+      "user": "Khalid_Bin_Masud",
+      "problem": [
+        1729,
+        "A"
+      ],
+      "first_attempt": "2026-03-26T03:43:52",
+      "solved": true
+    },
+    {
+      "user": "Khalid_Bin_Masud",
+      "problem": [
+        1974,
+        "A"
+      ],
+      "first_attempt": "2026-03-26T07:55:28",
+      "solved": true
+    }
+  ]
+}

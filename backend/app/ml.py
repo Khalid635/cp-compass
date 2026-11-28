@@ -36,6 +36,15 @@ numbers are stored in the model artifact):
   (cutoff 2026-10-01: RF test AUC 0.683, log-loss 0.607) — the honest
   generalization number; the random-split AUC is optimistic.
   Do not quote the figures here without checking the artifact first.
+  Batch 8 (2026-11-28) re-evaluated the split switch and decided NO
+  SWITCH: by-time RF beats the rule baseline at 5/5 cutoffs, but
+  logistic regression beats RF forward at all 5 (AUC 0.771-0.812 vs
+  0.683-0.761), so switching the split while keeping RF would certify
+  the second-best model. The random split stays the ship gate; the
+  artifact now also records a leakage-free by-time evaluation
+  (evaluation["by_time"], relative 80th-percentile cutoff) at every
+  retrain as the honest forward estimate. Follow-up: model
+  reselection (logreg as the forward candidate) when real rows grow.
 - SELECTION BIAS, stated plainly: the training rows are problems the
   user already attempted — never-attempted problems (most of the
   problemset) are not in the data. The model estimates "will you solve
@@ -57,7 +66,7 @@ model until someone retrains -- the UI labels the training data honestly
 """
 import os
 import threading
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 import joblib
@@ -247,6 +256,61 @@ def _build_rows(submissions: list[dict],
     return rows
 
 
+def time_aware_rows(subs, hist, current_rating, top_tags, cutoff):
+    """Split (user, problem) rows by first-attempt time, leakage-free.
+
+    Features for every row use ONLY submissions before the cutoff
+    (tag stats anchored at the cutoff, rating at first attempt,
+    prev_attempts = attempts before the cutoff). Training labels are
+    "solved before the cutoff"; test labels are "eventually solved"
+    (the future outcome being predicted). Returns
+    (train_rows, test_rows, stats_pre, weak_pre).
+
+    Moved here from scripts/backtest.py in Batch 8 (single
+    implementation): the backtest keeps an alias, and the training
+    path reuses it for the artifact's by_time evaluation block.
+    """
+    pre = [s for s in subs if s["submitted_at"] < cutoff]
+    stats_pre = _tag_stats(pre, now=cutoff)
+    weak_pre = {t: v for t, v in stats_pre.items() if v["weak"]}
+    by_prob = defaultdict(list)
+    for s in subs:
+        by_prob[s["problem_key"]].append(s)
+    fallback = current_rating or 1200
+    train_rows, test_rows = [], []
+    for key, ss in by_prob.items():
+        prob = ss[0]
+        if prob["problem_rating"] is None:
+            continue
+        first = min(s["submitted_at"] for s in ss)
+        user_rating = _rating_at(hist, first, fallback)
+        min_acc, mean_acc = _tag_acceptance_excl(stats_pre, prob["tags"], key)
+        prev = sum(1 for s in ss if s["submitted_at"] < cutoff)
+        feats = {
+            "user_rating": user_rating,
+            "problem_rating": prob["problem_rating"],
+            "rating_diff": prob["problem_rating"] - user_rating,
+            "min_tag_acc": min_acc,
+            "mean_tag_acc": mean_acc,
+            "prev_attempts": prev,
+        }
+        for t in top_tags:
+            feats["tag_" + t] = 1.0 if t in prob["tags"] else 0.0
+        row = {"features": feats, "key": key,
+               "baseline_score": _baseline_score(
+                   stats_pre, weak_pre, user_rating,
+                   prob["problem_rating"], prob["tags"])}
+        if first < cutoff:
+            row["label"] = 1 if any(
+                s["verdict"] == "OK" and s["submitted_at"] < cutoff
+                for s in ss) else 0
+            train_rows.append(row)
+        else:
+            row["label"] = 1 if any(s["verdict"] == "OK" for s in ss) else 0
+            test_rows.append(row)
+    return train_rows, test_rows, stats_pre, weak_pre
+
+
 def _feature_names(top_tags: list[str]) -> list[str]:
     return ["user_rating", "problem_rating", "rating_diff",
             "min_tag_acc", "mean_tag_acc", "prev_attempts"] + [
@@ -351,14 +415,22 @@ def _db_sets(db) -> list[tuple[list[dict], list[tuple[datetime, int]], int, str]
     return sets
 
 
-def collect_rows(db=None) -> tuple[list[dict], list[str], dict]:
-    """All training rows: demo seed + DB users. Top tags are global
-    (count >= 5 across ALL data, capped at 12). Returns
-    (rows, top_tags, sources)."""
+def _data_sets(db=None):
+    """[(subs, hist, current_rating, name)] for the demo persona plus
+    each DB user with submissions. Shared by collect_rows and the
+    by-time evaluation so both see the same data."""
     demo_subs, demo_hist, demo_rating = _demo_set()
     sets = [(demo_subs, demo_hist, demo_rating, "demo_coder (seed)")]
     if db is not None:
         sets.extend(_db_sets(db))
+    return sets
+
+
+def collect_rows(db=None) -> tuple[list[dict], list[str], dict]:
+    """All training rows: demo seed + DB users. Top tags are global
+    (count >= 5 across ALL data, capped at 12). Returns
+    (rows, top_tags, sources)."""
+    sets = _data_sets(db)
     tag_counts: dict[str, int] = defaultdict(int)
     for subs, _, _, _ in sets:
         for s in subs:
@@ -375,6 +447,118 @@ def collect_rows(db=None) -> tuple[list[dict], list[str], dict]:
             rows.extend(rs)
             sources[name] = len(rs)
     return rows, top_tags, sources
+
+
+BY_TIME_MIN_TEST_ROWS = 20
+BY_TIME_MIN_TRAIN_CLASS = 5  # each class needs >= 5 train rows for 5-fold CV
+
+
+def _relative_cutoff(firsts, quantile=0.8):
+    """First-attempt timestamp at the quantile of all rows' first
+    attempts (newest ~20% as test). A fixed date rots as data grows;
+    this adapts every retrain."""
+    ordered = sorted(firsts)
+    return ordered[min(int(quantile * len(ordered)), len(ordered) - 1)]
+
+
+def _evaluate_split(X_tr, y_tr, X_te, y_te, b_te):
+    """CV + held-out metrics for every candidate on one split, in the
+    same shape as the training evaluation (minus calibration, which
+    the informational by-time block does not need)."""
+    cv = StratifiedKFold(5, shuffle=True, random_state=RANDOM_STATE)
+    elo_te = np.array([1.0 / (1.0 + 10.0 ** ((p - r) / 400.0))
+                       for r, p in zip(X_te[:, 0], X_te[:, 1])])
+    out = {"baseline": _metrics(b_te, y_te),
+           "baseline_elo": _metrics(elo_te, y_te)}
+    for name, model in _candidates().items():
+        cv_p = cross_val_predict(model, X_tr, y_tr, cv=cv,
+                                 method="predict_proba")[:, 1]
+        cv_m = _metrics(cv_p, y_tr)
+        model.fit(X_tr, y_tr)
+        test_m = _metrics(model.predict_proba(X_te)[:, 1], y_te)
+        out[name] = {"cv_auc": cv_m["auc"], "cv_brier": cv_m["brier"],
+                     **{f"test_{k}": v for k, v in test_m.items()}}
+    return out
+
+
+def _time_aware_evaluation_for_sets(sets):
+    """Leakage-free by-time evaluation over combined user sets.
+
+    Top tags come from pre-cutoff submissions across all users; each
+    user's rows use that user's own pre-cutoff tag stats. The cutoff
+    is relative (80th percentile of first-attempt times). Returns a
+    metrics dict with "ran": True, or {"ran": False, "reason": ...}
+    when the split is not usable (too few post-cutoff rows, a
+    single-class split) — never raises for bad data.
+    """
+    firsts = []
+    for subs, _, _, _ in sets:
+        by_prob = defaultdict(list)
+        for s in subs:
+            by_prob[s["problem_key"]].append(s)
+        firsts.extend(min(s["submitted_at"] for s in ss)
+                      for ss in by_prob.values())
+    if len(firsts) < MIN_ROWS_TO_TRAIN:
+        return {"ran": False,
+                "reason": "not enough rows for a by-time split"}
+    cutoff = _relative_cutoff(firsts)
+    counts = Counter()
+    for subs, _, _, _ in sets:
+        for s in subs:
+            if s["submitted_at"] < cutoff:
+                for t in s["tags"]:
+                    counts[t] += 1
+    top_tags = sorted(
+        (t for t, c in counts.items() if c >= MIN_TAG_COUNT),
+        key=lambda t: -counts[t])[:TOP_TAG_LIMIT]
+    train_rows, test_rows = [], []
+    for subs, hist, rating, name in sets:
+        tr, te, _, _ = time_aware_rows(subs, hist, rating, top_tags,
+                                       cutoff)
+        for r in tr:
+            r["source"] = name
+        for r in te:
+            r["source"] = name
+        train_rows.extend(tr)
+        test_rows.extend(te)
+    comp: dict[str, int] = defaultdict(int)
+    for r in test_rows:
+        comp[r["source"]] += 1
+    base = {"cutoff": cutoff.isoformat(),
+            "cutoff_rule": "80th percentile of first-attempt times "
+                           "(newest ~20% as test)"}
+    if len(test_rows) < BY_TIME_MIN_TEST_ROWS:
+        return {"ran": False,
+                "reason": f"by-time test set too small "
+                          f"({len(test_rows)} rows, need "
+                          f"{BY_TIME_MIN_TEST_ROWS})", **base}
+    y_tr_labels = [r["label"] for r in train_rows]
+    y_te_labels = [r["label"] for r in test_rows]
+    if len(set(y_tr_labels)) < 2 or len(set(y_te_labels)) < 2:
+        return {"ran": False,
+                "reason": "single-class train or test set", **base}
+    if min(Counter(y_tr_labels).values()) < BY_TIME_MIN_TRAIN_CLASS:
+        return {"ran": False,
+                "reason": "train class too small for 5-fold CV", **base}
+    feature_names = _feature_names(top_tags)
+    X_tr, y_tr, b_tr = _rows_to_xy(train_rows, feature_names)
+    X_te, y_te, b_te = _rows_to_xy(test_rows, feature_names)
+    ev = _evaluate_split(X_tr, y_tr, X_te, y_te, b_te)
+    return {"ran": True,
+            "split": {"train": int(len(y_tr)), "test": int(len(y_te)),
+                      "train_solved": int(y_tr.sum()),
+                      "test_solved": int(y_te.sum())},
+            "test_composition": dict(comp), **base, **ev}
+
+
+def _time_aware_evaluation(db=None):
+    """By-time evaluation for the artifact (informational only). Never
+    raises — an unexpected failure is recorded, not propagated, so
+    training can never break over the info block."""
+    try:
+        return _time_aware_evaluation_for_sets(_data_sets(db))
+    except Exception as exc:  # noqa: BLE001 — info block must not fail training
+        return {"ran": False, "reason": f"evaluation failed: {exc}"}
 
 
 # ---------------------------------------------------------------------------
@@ -452,6 +636,10 @@ def _train_model_locked(db=None) -> dict:
         "cv_brier_calibrated": cal_brier,
         "shipped_calibrated": bool(use_calibrated),
     }
+    # Batch 8 (NO SWITCH decision): the by-time evaluation is recorded
+    # alongside the random-split one as the honest forward estimate.
+    # It NEVER gates shipping and NEVER changes the fitted model.
+    evaluation["by_time"] = _time_aware_evaluation(db)
     # Ship rule: the constrained forest must beat the baseline on BOTH
     # held-out AUC and Brier. (On the demo data it does, by a wide margin.)
     rf_test = results["random_forest"]
@@ -560,6 +748,7 @@ def model_status(db=None, own_handle=None) -> dict:
             "logreg": ev["logreg"],
             "hist_gb": ev["hist_gb"],
             "calibration": ev["calibration"],
+            "by_time": ev.get("by_time"),
         },
     }
 
