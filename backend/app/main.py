@@ -1,4 +1,4 @@
-"""CP Compass API — FastAPI. JWT auth on everything except /api/v1/health
+"""Rung API — FastAPI. JWT auth on everything except /api/v1/health
 and the read-only demo routes.
 
 API version: /api/v1 (the old unversioned /api was removed in the
@@ -136,7 +136,7 @@ async def lifespan(app: FastAPI):
 # have left docs on live).
 _docs_kwargs = {} if not IS_PROD else {
     "docs_url": None, "redoc_url": None, "openapi_url": None}
-app = FastAPI(title="CP Compass API", version="1.0.0", lifespan=lifespan,
+app = FastAPI(title="Rung API", version="1.0.0", lifespan=lifespan,
               **_docs_kwargs)
 app.add_middleware(
     CORSMiddleware,
@@ -336,7 +336,7 @@ def _cf_handle(db: Session, user: User) -> str | None:
 # ---------- health / auth ----------
 @app.get(f"{V1}/health")
 def health():
-    return {"status": "ok", "service": "cp-compass", "demo": True}
+    return {"status": "ok", "service": "rung", "demo": True}
 
 
 _REGISTER_MESSAGE = ("If this email is new, check your inbox for the "
@@ -637,7 +637,7 @@ def google_auth_url():
 
 @app.post(f"{V1}/auth/google/callback")
 def google_callback(body: GoogleCallbackIn, response: Response, db: Session = Depends(get_db)):
-    """Exchanges Google's authorization code for CP Compass tokens.
+    """Exchanges Google's authorization code for Rung tokens.
 
     Finds the user by google_id, else by email (linking the Google
     account to an existing email+password account — never a duplicate
@@ -1340,7 +1340,7 @@ async def export_calendar_ics(user: User = Depends(get_current_user)):
         raise HTTPException(502, f"Codeforces didn't respond: {exc}")
     now = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     lines = ["BEGIN:VCALENDAR", "VERSION:2.0",
-             "PRODID:-//CP Compass//Codeforces Contests//EN",
+             "PRODID:-//Rung//Codeforces Contests//EN",
              "CALSCALE:GREGORIAN", "METHOD:PUBLISH"]
     for c in contests:
         if c.get("phase") != "BEFORE":
@@ -1352,7 +1352,7 @@ async def export_calendar_ics(user: User = Depends(get_current_user)):
         dtstart = datetime.utcfromtimestamp(start).strftime("%Y%m%dT%H%M%SZ")
         dtend = datetime.utcfromtimestamp(start + duration).strftime("%Y%m%dT%H%M%SZ")
         lines += ["BEGIN:VEVENT",
-                  f"UID:contest-{c.get('id')}@cp-compass",
+                  f"UID:contest-{c.get('id')}@rung",
                   f"DTSTAMP:{now}",
                   f"DTSTART:{dtstart}",
                   f"DTEND:{dtend}",

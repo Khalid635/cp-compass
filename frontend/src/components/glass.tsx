@@ -4,7 +4,7 @@
    engine — scene-renderer.ts alone is 2,211 lines, liquid.css 5,458,
    plus new deps (clsx, @radix-ui/react-slot) — far too heavy to carry
    for chrome-only use (cards, panels, navbar — never data-dense tables).
-   These components carry GlassyUI's look in CP Compass tokens instead,
+   These components carry GlassyUI's look in Rung tokens instead,
    grounded in its liquid.css values: backdrop blur 14px, saturate 1.4,
    a 1px rim (top highlight + border), a translucent surface tint, and
    no backdrop-filter at all under prefers-reduced-transparency

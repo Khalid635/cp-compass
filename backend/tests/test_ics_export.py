@@ -149,10 +149,10 @@ def test_ics_export_shape(client, db, contests):
     assert "BEGIN:VCALENDAR" in body
     assert "END:VCALENDAR" in body
     assert body.count("BEGIN:VEVENT") == 2
-    assert "UID:contest-1@cp-compass" in body
-    assert "UID:contest-4@cp-compass" in body
-    assert "UID:contest-2@cp-compass" not in body
-    assert "UID:contest-3@cp-compass" not in body
+    assert "UID:contest-1@rung" in body
+    assert "UID:contest-4@rung" in body
+    assert "UID:contest-2@rung" not in body
+    assert "UID:contest-3@rung" not in body
     assert "DTSTART:20261128T180000Z" in body
     assert "DTEND:20261128T200000Z" in body
     assert "DTSTART:20261129T180000Z" in body

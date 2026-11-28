@@ -1,6 +1,6 @@
 /* Filter pills with counts + Clear-all — the getlayers-style interaction
    (pills carry their counts, union behaviour, one Clear button) in the
-   CP Compass look. Used on Practice for tags and rating bands. */
+   Rung look. Used on Practice for tags and rating bands. */
 import { X } from 'lucide-react';
 import { useLanguage } from '../i18n';
 

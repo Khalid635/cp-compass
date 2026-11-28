@@ -16,11 +16,11 @@ const en: TermsStrings = {
   title: 'Terms of Service',
   updated: 'Last updated: 28 November 2026',
   intro:
-    'CP Compass is a free, student-built practice planner for Codeforces. By creating an account and using the service, you agree to these terms. They are written in plain language on purpose — if anything here is unclear, contact us and we will explain it.',
+    'Rung is a free, student-built practice planner for Codeforces. By creating an account and using the service, you agree to these terms. They are written in plain language on purpose — if anything here is unclear, contact us and we will explain it.',
   sections: [
     {
       title: 'The service',
-      text: 'CP Compass helps you plan Codeforces practice: it syncs your public Codeforces submissions, analyses your weak topics, recommends problems to solve next, and reminds you what to revise. The service is provided by an individual student developer, not a company.',
+      text: 'Rung helps you plan Codeforces practice: it syncs your public Codeforces submissions, analyses your weak topics, recommends problems to solve next, and reminds you what to revise. The service is provided by an individual student developer, not a company.',
     },
     {
       title: 'Your account',
@@ -28,7 +28,7 @@ const en: TermsStrings = {
     },
     {
       title: 'Acceptable use',
-      text: 'Use CP Compass to practise and learn. Do not try to break, overload, or probe the service for weaknesses, do not scrape it aggressively, do not pretend to be someone else, and do not use it to harass anyone. Your Codeforces handle must be your own.',
+      text: 'Use Rung to practise and learn. Do not try to break, overload, or probe the service for weaknesses, do not scrape it aggressively, do not pretend to be someone else, and do not use it to harass anyone. Your Codeforces handle must be your own.',
     },
     {
       title: 'What data we collect',
@@ -40,7 +40,7 @@ const en: TermsStrings = {
     },
     {
       title: 'Free service, no warranty',
-      text: 'CP Compass is free — there is no paid plan, no trial, and no card. The service is provided “as is”, without any warranty. It may go down, lose data, or change without notice. We do our best to keep it running, but we cannot promise it will always be available.',
+      text: 'Rung is free — there is no paid plan, no trial, and no card. The service is provided “as is”, without any warranty. It may go down, lose data, or change without notice. We do our best to keep it running, but we cannot promise it will always be available.',
     },
     {
       title: 'Deleting your account',
@@ -48,7 +48,7 @@ const en: TermsStrings = {
     },
     {
       title: 'Contact',
-      text: 'Questions about these terms? Email us at the address on the GitHub project page (github.com/Khalid635/cp-compass) or open an issue there. These terms may change; if they do, the “Last updated” date above will change too.',
+      text: 'Questions about these terms? Email us at the address on the GitHub project page (github.com/Khalid635/rung) or open an issue there. These terms may change; if they do, the “Last updated” date above will change too.',
     },
   ],
 };
@@ -57,11 +57,11 @@ const bn: TermsStrings = {
   title: 'সেবার শর্তাবলি',
   updated: 'সর্বশেষ হালনাগাদ: 28 নভেম্বর 2026',
   intro:
-    'CP Compass একটি বিনামূল্যের, একজন ছাত্রের তৈরি Codeforces অনুশীলন পরিকল্পনাকারী। অ্যাকাউন্ট তৈরি করে সেবাটি ব্যবহার করলে আপনি এই শর্তগুলো মেনে নিচ্ছেন। শর্তগুলো ইচ্ছা করেই সহজ ভাষায় লেখা — কিছু বুঝতে অসুবিধা হলে আমাদের জানাবেন, বুঝিয়ে দেব।',
+    'Rung একটি বিনামূল্যের, একজন ছাত্রের তৈরি Codeforces অনুশীলন পরিকল্পনাকারী। অ্যাকাউন্ট তৈরি করে সেবাটি ব্যবহার করলে আপনি এই শর্তগুলো মেনে নিচ্ছেন। শর্তগুলো ইচ্ছা করেই সহজ ভাষায় লেখা — কিছু বুঝতে অসুবিধা হলে আমাদের জানাবেন, বুঝিয়ে দেব।',
   sections: [
     {
       title: 'সেবাটি কী',
-      text: 'CP Compass আপনার Codeforces অনুশীলনের পরিকল্পনা করতে সাহায্য করে: এটি আপনার প্রকাশ্য Codeforces submission সিঙ্ক করে, দুর্বল টপিক বিশ্লেষণ করে, পরের সমস্যা সুপারিশ করে এবং কী রিভিশন দিতে হবে মনে করিয়ে দেয়। সেবাটি একজন ছাত্র ডেভেলপারের তৈরি, কোনো কোম্পানির নয়।',
+      text: 'Rung আপনার Codeforces অনুশীলনের পরিকল্পনা করতে সাহায্য করে: এটি আপনার প্রকাশ্য Codeforces submission সিঙ্ক করে, দুর্বল টপিক বিশ্লেষণ করে, পরের সমস্যা সুপারিশ করে এবং কী রিভিশন দিতে হবে মনে করিয়ে দেয়। সেবাটি একজন ছাত্র ডেভেলপারের তৈরি, কোনো কোম্পানির নয়।',
     },
     {
       title: 'আপনার অ্যাকাউন্ট',
@@ -69,7 +69,7 @@ const bn: TermsStrings = {
     },
     {
       title: 'গ্রহণযোগ্য ব্যবহার',
-      text: 'CP Compass অনুশীলন ও শেখার জন্য ব্যবহার করুন। সেবা ভাঙা, অতিরিক্ত লোড দেওয়া বা দুর্বলতা খোঁজার চেষ্টা করবেন না, অতিরিক্ত স্ক্র্যাপ করবেন না, অন্য কারো পরিচয়ে ব্যবহার করবেন না এবং কাউকে হয়রানি করতে ব্যবহার করবেন না। আপনার Codeforces handle অবশ্যই আপনার নিজের হতে হবে।',
+      text: 'Rung অনুশীলন ও শেখার জন্য ব্যবহার করুন। সেবা ভাঙা, অতিরিক্ত লোড দেওয়া বা দুর্বলতা খোঁজার চেষ্টা করবেন না, অতিরিক্ত স্ক্র্যাপ করবেন না, অন্য কারো পরিচয়ে ব্যবহার করবেন না এবং কাউকে হয়রানি করতে ব্যবহার করবেন না। আপনার Codeforces handle অবশ্যই আপনার নিজের হতে হবে।',
     },
     {
       title: 'আমরা কী তথ্য সংগ্রহ করি',
@@ -81,7 +81,7 @@ const bn: TermsStrings = {
     },
     {
       title: 'বিনামূল্যের সেবা, কোনো ওয়ারেন্টি নেই',
-      text: 'CP Compass সম্পূর্ণ বিনামূল্যে — কোনো পেইড প্ল্যান, ট্রায়াল বা কার্ড নেই। সেবাটি “যেমন আছে” তেমনই দেওয়া হয়, কোনো ওয়ারেন্টি ছাড়া। এটি বন্ধ হয়ে যেতে পারে, তথ্য হারাতে পারে বা আগাম নোটিশ ছাড়াই বদলে যেতে পারে। আমরা চালু রাখার সর্বোচ্চ চেষ্টা করি, তবে সবসময় চালু থাকবে — এমন প্রতিশ্রুতি দিতে পারি না।',
+      text: 'Rung সম্পূর্ণ বিনামূল্যে — কোনো পেইড প্ল্যান, ট্রায়াল বা কার্ড নেই। সেবাটি “যেমন আছে” তেমনই দেওয়া হয়, কোনো ওয়ারেন্টি ছাড়া। এটি বন্ধ হয়ে যেতে পারে, তথ্য হারাতে পারে বা আগাম নোটিশ ছাড়াই বদলে যেতে পারে। আমরা চালু রাখার সর্বোচ্চ চেষ্টা করি, তবে সবসময় চালু থাকবে — এমন প্রতিশ্রুতি দিতে পারি না।',
     },
     {
       title: 'অ্যাকাউন্ট মোছা',
@@ -89,7 +89,7 @@ const bn: TermsStrings = {
     },
     {
       title: 'যোগাযোগ',
-      text: 'এই শর্তগুলো নিয়ে প্রশ্ন থাকলে GitHub প্রজেক্ট পেজে (github.com/Khalid635/cp-compass) দেওয়া ইমেইলে লিখুন বা সেখানে issue খুলুন। শর্তগুলো বদলাতে পারে; বদলালে উপরের “সর্বশেষ হালনাগাদ”-এর তারিখও বদলে যাবে।',
+      text: 'এই শর্তগুলো নিয়ে প্রশ্ন থাকলে GitHub প্রজেক্ট পেজে (github.com/Khalid635/rung) দেওয়া ইমেইলে লিখুন বা সেখানে issue খুলুন। শর্তগুলো বদলাতে পারে; বদলালে উপরের “সর্বশেষ হালনাগাদ”-এর তারিখও বদলে যাবে।',
     },
   ],
 };

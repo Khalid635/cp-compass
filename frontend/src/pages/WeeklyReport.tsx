@@ -64,7 +64,7 @@ export default function WeeklyReport({ demo = false }: { demo?: boolean }) {
   const accDelta = Math.round((d.current.acceptance - d.previous.acceptance) * 100);
 
   const exportReport = () => {
-    downloadJson(`cp-compass-weekly-${d.current.week_start}.json`, d);
+    downloadJson(`rung-weekly-${d.current.week_start}.json`, d);
     toast(t.weeklyExported);
   };
 

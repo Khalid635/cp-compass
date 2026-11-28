@@ -1,4 +1,4 @@
-# CP Compass — security notes
+# Rung — security notes
 
 Audit: 2026-11-27 (full report kept in the agent workspace, not in this
 repo). Batch 1 fixed + verified F1, F2, F6, F8, F9, F10. F3/F4/F5/F7 were

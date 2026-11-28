@@ -1,4 +1,4 @@
-# CP Compass backend — production image (Render free web service).
+# Rung backend — production image (Render free web service).
 # Python 3.14 slim; scikit-learn ships cp314 wheels, no compiler needed.
 FROM python:3.14-slim
 

@@ -62,9 +62,9 @@ def _send(email: str, subject: str, text: str, outbox_extra: dict) -> bool:
 
 def send_verification_code(email: str, code: str) -> bool:
     """Sends the 6-digit signup code. Returns True on success."""
-    subject = "Your CP Compass verification code"
+    subject = "Your Rung verification code"
     text = (
-        f"Your CP Compass verification code is: {code}\n\n"
+        f"Your Rung verification code is: {code}\n\n"
         "It expires in 15 minutes. If you didn't create this account, "
         "ignore this email."
     )
@@ -76,9 +76,9 @@ def send_password_reset(email: str, reset_url: str) -> bool:
     success. Same Resend test-domain caveat as the verification code:
     until a custom domain is live, the mail only delivers to the
     account owner's own address."""
-    subject = "Reset your CP Compass password"
+    subject = "Reset your Rung password"
     text = (
-        "Someone asked to reset the password for this CP Compass "
+        "Someone asked to reset the password for this Rung "
         "account.\n\n"
         "Reset it here (the link expires in 30 minutes and works "
         f"once):\n{reset_url}\n\n"

@@ -1,4 +1,4 @@
-# CP Compass
+# Rung
 
 A Codeforces progress tracker that turns your submissions into a daily plan:
 which topic is weak, which problem to solve today, and what to revise.

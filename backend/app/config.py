@@ -1,4 +1,4 @@
-"""CP Compass backend — config.
+"""Rung backend — config.
 
 Security (Batch 1 / audit F3): SECRET_KEY must come from the environment
 in any non-dev run. A hard-coded default is kept ONLY for local
@@ -61,14 +61,14 @@ EMAIL_CODE_MAX_ATTEMPTS = 5
 # (local dev) they are appended to backend/dev_outbox.log — the Hisab AI
 # pattern. Never put a key in code; it comes from the environment only.
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
-MAIL_FROM = os.environ.get("MAIL_FROM", "CP Compass <noreply@cpcompass.app>")
+MAIL_FROM = os.environ.get("MAIL_FROM", "Rung <noreply@rung.app>")
 MAIL_DEV_OUTBOX = os.environ.get(
     "MAIL_DEV_OUTBOX",
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                  "dev_outbox.log"))
 
 # TOTP 2FA (authenticator app): 30 s step, accept +-1 step of clock skew.
-TOTP_ISSUER = "CP Compass"
+TOTP_ISSUER = "Rung"
 TOTP_VALID_WINDOW = 1
 BACKUP_CODE_COUNT = 10
 

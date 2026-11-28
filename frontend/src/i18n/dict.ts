@@ -87,7 +87,7 @@ export interface Dict {
   freeLine: string;
   demoDataChip: string;
   githubLink: string;
-  comingSoon: string;
+  liveBadge: string;
   faqTitle: string;
   faqQ1: string;
   faqA1: string;

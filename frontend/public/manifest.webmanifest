@@ -1,6 +1,6 @@
 {
-  "name": "CP Compass",
-  "short_name": "CP Compass",
+  "name": "Rung",
+  "short_name": "Rung",
   "description": "Your Codeforces data tells you what to practice today, which topic is weak, and what to revise.",
   "start_url": "/",
   "scope": "/",

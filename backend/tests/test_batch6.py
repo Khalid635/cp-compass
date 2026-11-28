@@ -579,7 +579,7 @@ def test_mailer_reset_outbox_shape(tmp_path, monkeypatch):
     assert len(rows) == 1
     row = rows[0]
     assert row["to"] == "a@test.dev"
-    assert row["subject"] == "Reset your CP Compass password"
+    assert row["subject"] == "Reset your Rung password"
     assert row["reset_url"] == "http://localhost:5173/auth/reset?token=abc123"
     assert row["sent_at"]
     # The verification mail keeps its old shape (code, not reset_url).

@@ -77,7 +77,7 @@ const WHY_TOTALS = WHY_PICKS.map((p) => ({
   total: scoreFromFactors(p.factors),
 })).filter((p) => p.total >= MIN_SCORE_THRESHOLD);
 
-/* FAQ accordion — hand-written in CP Compass's own stack, following the
+/* FAQ accordion — hand-written in Rung's own stack, following the
    21st.dev registry patterns found in the search (Faq1 FAQ accordion
    section; Base UI Accordion): a heading beside an accessible accordion
    list, single-open, one item open by default, button + region with
@@ -593,7 +593,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
         />
       </section>
 
-      {/* Roadmap — approved Batch 2-5 items only, no dates promised */}
+      {/* Shipped features — all three live now */}
       <section className="border-y border-border bg-surface">
         <div className="mx-auto max-w-[1280px] px-4 py-16 md:px-6">
           <motion.h2 {...fadeUp} className="text-2xl font-semibold tracking-tight">
@@ -610,7 +610,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
             ].map((r) => (
               <Card key={r.title}>
                 <span className="rounded-full border border-muted/50 px-2 py-0.5 text-[11px] font-semibold text-muted">
-                  {t.comingSoon}
+                  {t.liveBadge}
                 </span>
                 <h3 className="mt-3 text-base font-semibold">{r.title}</h3>
                 <p className="mt-1 text-sm text-muted">{r.text}</p>
@@ -660,7 +660,7 @@ export default function Landing({ theme, toggleTheme }: { theme: Theme; toggleTh
             <p className="text-sm font-medium">{t.builtBy}</p>
             <div className="flex flex-wrap items-center gap-4 text-sm">
               <a
-                href="https://github.com/Khalid635/cp-compass"
+                href="https://github.com/Khalid635/rung"
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex min-h-11 items-center font-medium text-primary hover:underline sm:min-h-0"

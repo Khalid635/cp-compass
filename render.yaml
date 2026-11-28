@@ -1,6 +1,6 @@
-# Render Blueprint for CP Compass — one free web service (Docker).
+# Render Blueprint for Rung — one free web service (Docker).
 # Apply from the Render dashboard: New -> Blueprint -> select the
-# Khalid635/cp-compass repo. No paid plan, no card.
+# Khalid635/rung repo. No paid plan, no card.
 # After creation, set the two `sync: false` values in the dashboard:
 #   DATABASE_URL — Neon Postgres connection string (pooled, with ?sslmode=require)
 #   SECRET_KEY   — the production key (stored on the laptop at

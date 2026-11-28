@@ -40,7 +40,7 @@ export const en: Dict = {
   landingTitleGold: 'practice',
   landingTitlePost: ' next.',
   landingSub:
-    'CP Compass turns your submissions into a daily plan: which topic is weak, which problem to solve today, and what to revise.',
+    'Rung turns your submissions into a daily plan: which topic is weak, which problem to solve today, and what to revise.',
   tryDemoNoLogin: 'Try demo — no login',
   tryDemo: 'Try demo',
   login: 'Login',
@@ -65,7 +65,7 @@ export const en: Dict = {
   builtWith: (a, b, c) =>
     `Built with ${a}, ${b} and ${c}. Data comes from the public Codeforces API.`,
   ctaTitle: 'Stop picking problems at random.',
-  footerNote: 'CP Compass is a personal project. It is not affiliated with Codeforces.',
+  footerNote: 'Rung is a personal project. It is not affiliated with Codeforces.',
   previewCaption: 'Real dashboard — the demo account, captured live. Try the demo above.',
   previewRating: 'Rating',
   previewSolved: 'Solved',
@@ -78,11 +78,11 @@ export const en: Dict = {
   freeLine: 'Free to use — no card, no trial.',
   demoDataChip: 'Demo data',
   githubLink: 'GitHub',
-  comingSoon: 'Coming soon',
+  liveBadge: 'Live',
   faqTitle: 'Questions, answered',
   faqQ1: 'Is it really free?',
   faqA1:
-    'Yes. CP Compass runs on free hosting tiers and the Codeforces public API — there is no paid plan, no card, and no trial that runs out.',
+    'Yes. Rung runs on free hosting tiers and the Codeforces public API — there is no paid plan, no card, and no trial that runs out.',
   faqQ2: 'Do I need a password or my Codeforces login?',
   faqA2:
     'No. You only register with an email and a password for this site. Your Codeforces handle is public data — we never ask for your Codeforces password.',
@@ -91,7 +91,7 @@ export const en: Dict = {
     'Your email address, and your password only as an Argon2 hash — never in plain text. Your submissions and problems come from the public Codeforces API. Your notes and settings are written by you, not taken from the API. You can export everything or delete your account in Settings.',
   faqQ4: 'How is this different from my Codeforces profile?',
   faqA4:
-    'Your profile shows what you did. CP Compass turns it into a plan: weak topics from your acceptance rate, one scored pick at a time with the reason shown, and revision on a schedule. The score formula is on this page — nothing hidden.',
+    'Your profile shows what you did. Rung turns it into a plan: weak topics from your acceptance rate, one scored pick at a time with the reason shown, and revision on a schedule. The score formula is on this page — nothing hidden.',
   faqQ5: 'Why is the first load slow?',
   faqA5:
     'The backend runs on Render’s free tier, which sleeps after about 15 minutes idle. The first visit wakes it up — that takes up to a minute. After that it stays fast until it idles again. Nothing is wrong with your connection.',
@@ -106,8 +106,8 @@ export const en: Dict = {
   showcasePracticeCaption: 'Practice — scored picks with the reason shown',
   showcaseRevisionCaption: 'Revision — spaced repetition, 1 / 3 / 7 / 14 / 30 days',
   showcaseZoom: 'Click to enlarge',
-  roadmapTitle: 'Coming soon',
-  roadmapNote: 'In progress, in this order — no dates promised.',
+  roadmapTitle: 'Already live',
+  roadmapNote: 'These features are live now — try them in the app.',
   roadmap1Title: 'Failure-pattern analysis',
   roadmap1Text:
     'Which test your solutions usually fail on, and what that says about your weak spots.',
@@ -159,7 +159,7 @@ export const en: Dict = {
   privacyTitle: 'Privacy',
   privacyUpdated: 'Last updated: 27 November 2026.',
   privacyIntro:
-    'CP Compass is a personal project. This page says plainly what is stored about you, what is not, and what you can do about it.',
+    'Rung is a personal project. This page says plainly what is stored about you, what is not, and what you can do about it.',
   privacyWhatTitle: 'What is stored',
   privacyWhatText:
     'Your email address, and your password only as an Argon2 hash — never in plain text. Your Codeforces handle, and the submissions and problems we fetch for it from the public Codeforces API. Anything you write yourself: problem notes, settings, and your Save for Later / Not Interested choices. Your email is used only to sign you in and to send account verification codes (via Resend, our email provider).',
@@ -607,9 +607,9 @@ export const en: Dict = {
   viewWeeklyReport: 'This week’s report',
   // Batch 5
   pwaOffline: 'You are offline — the shell loads, but data needs a connection.',
-  pwaUpdateAvailable: 'A new version of CP Compass is available',
+  pwaUpdateAvailable: 'A new version of Rung is available',
   pwaRefresh: 'Refresh',
-  profileTitle: (handle) => `${handle} on CP Compass`,
+  profileTitle: (handle) => `${handle} on Rung`,
   profilePrivate: 'This profile is private or does not exist.',
   profilePrivateHint: 'Profiles are opt-in — this user has not made theirs public.',
   profileRating: 'Rating',

@@ -49,7 +49,7 @@ class User(Base):
     password_hash = Column(String, nullable=True)
     # Google `sub` claim, set when the account signs in with Google or
     # links a Google account. Unique so one Google account links to at
-    # most one CP Compass account.
+    # most one Rung account.
     google_id = Column(String, nullable=True, unique=True, index=True)
     platform = Column(String, nullable=False, default="codeforces")
     current_rating = Column(Integer, nullable=True)

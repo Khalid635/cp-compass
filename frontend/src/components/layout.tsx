@@ -34,7 +34,7 @@ export function Logo({ size = 28 }: { size?: number }) {
   return (
     <span className="inline-flex items-center gap-2 font-semibold">
       <img src="/favicon.svg" width={size} height={size} alt="" aria-hidden className="shrink-0" />
-      <span className="font-display text-base">CP Compass</span>
+      <span className="font-display text-base">Rung</span>
     </span>
   );
 }
@@ -446,7 +446,7 @@ export function LandingHeader({ theme, toggleTheme }: { theme: Theme; toggleThem
       </nav>
       <div className="flex flex-wrap items-center justify-end gap-2">
         <a
-          href="https://github.com/Khalid635/cp-compass"
+          href="https://github.com/Khalid635/rung"
           target="_blank"
           rel="noreferrer"
           className="flex h-9 items-center rounded-md border border-border bg-surface-2 px-3 text-sm font-medium text-muted transition-colors hover:bg-hover hover:text-text hover:no-underline"

@@ -1,6 +1,6 @@
 /* TextEffect — copied from motion-primitives
    (~/workspace/skill-repos/motion-primitives/components/core/text-effect.tsx,
-   MIT), adapted only where the CP Compass stack differs:
+   MIT), adapted only where the Rung stack differs:
    - the `@/lib/utils` cn import is replaced by a local join (no utils lib
      in this project);
    - the Next.js `'use client'` directive is dropped (Vite app).

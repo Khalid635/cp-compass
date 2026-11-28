@@ -1,10 +1,10 @@
-# CP Compass — Architecture
+# Rung — Architecture
 
 ## System diagram
 
 ```mermaid
 flowchart LR
-    U[User browser] -->|HTTPS| V[Vercel — React SPA\ncp-compass.vercel.app]
+    U[User browser] -->|HTTPS| V[Vercel — React SPA\ncp-compass-phi.vercel.app]
     V -->|fetch /api/v1\nVITE_API_BASE| R[Render free web service\nFastAPI + uvicorn\ncp-compass-api.onrender.com]
     R -->|SQLAlchemy / Alembic| N[(Neon Postgres — free\n1 GB, 100 CU-hours/mo)]
     R -->|1 req / 2 s| CF[Codeforces public API]

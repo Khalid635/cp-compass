@@ -1,4 +1,4 @@
-/* CP Compass service worker — Batch 5, arena spawn-probe pick a002.
+/* Rung service worker — Batch 5, arena spawn-probe pick a002.
  *
  * Privacy rule: only the public shell is ever cached. No /api response
  * (authenticated or public /demo), no request carrying an Authorization
@@ -102,7 +102,7 @@ async function networkFirstNavigation(request) {
   } catch {
     const cached = await caches.match('/index.html');
     if (cached) return cached;
-    return new Response('CP Compass is offline. Reconnect to load the app.', {
+    return new Response('Rung is offline. Reconnect to load the app.', {
       status: 503,
       headers: { 'Content-Type': 'text/plain' },
     });

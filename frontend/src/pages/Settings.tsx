@@ -116,7 +116,7 @@ export default function Settings({
   const exportData = useMutation({
     mutationFn: demo ? api.demoExport : api.exportData,
     onSuccess: (data) => {
-      downloadJson(`cp-compass-export-${new Date().toISOString().slice(0, 10)}.json`, data);
+      downloadJson(`rung-export-${new Date().toISOString().slice(0, 10)}.json`, data);
       toast(t.settingsExported);
     },
   });

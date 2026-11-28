@@ -25,7 +25,7 @@ export default function PublicProfile() {
         to="/"
         className="mb-4 inline-flex items-center gap-2 text-sm text-muted hover:text-text"
       >
-        <Compass size={16} aria-hidden /> CP Compass
+        <Compass size={16} aria-hidden /> Rung
       </Link>
       {query.isPending ? (
         <Skeleton className="h-64 w-full" />
