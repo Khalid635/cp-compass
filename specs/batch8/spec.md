@@ -170,3 +170,23 @@ lead number per Batch 3).
   logreg-forward finding, combined by-time, real-row share) + this
   decision, stated plainly.
 - `ml.py` docstring NOTE: Batch 8 addendum with the decision.
+
+## Live verification (2026-11-28, after deploy)
+
+- Commit 4acdfbc pushed (ea16f57..4acdfbc); Render deploy dep-dc5blketlv9c7396lhug LIVE.
+- Health /api/v1/health 200; /docs 404; /openapi.json 404.
+- Startup background training finished 11:31:06Z (first check at ~11:30 showed
+  trained False -- the deploy goes live before the background thread finishes;
+  not a defect). Live artifact: demo-only (n_rows 193, live Neon has 0 submissions),
+  shipped True, random RF test AUC 0.779; by_time ran True, cutoff 2026-09-27,
+  RF 0.729, logreg 0.794 -- logreg still ahead forward, consistent with NO SWITCH.
+- DB-backed probe (inserted as verified via app role, Argon2 via app hash):
+  login 200, /me 200, authenticated /ml/status 200 with by_time ran True,
+  DELETE /auth/account 200. Probes deleted; live users back to 1
+  (khalidmasud22@gmail.com only). Live alembic 0010 (no migration in this batch).
+- Probe notes: live POST/DELETE need the Batch 6 CSRF flow (GET /auth/csrf,
+  X-CSRF-Token == cp_csrf cookie + Origin in allowlist) -- first probe attempt
+  without it got 403 csrf_check_failed. Direct DELETE as app role without RLS
+  context deletes 0 rows (users DELETE is strict); with set_config
+  ('app.current_user_id', ...) it deletes, like the app does. One leftover probe
+  row (id 21) from the first attempt was removed this way; users verified 1 after.

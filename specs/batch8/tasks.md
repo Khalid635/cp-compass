@@ -14,6 +14,6 @@
 - [x] New tests backend/tests/test_batch8.py (builder, leakage, fallback, ship-gate)
 - [x] Full pytest passes (140+; 2 UTC flakes only 00:00-06:00 Dhaka) — 148 passed, 6 skipped
 - [x] Retrain on dev; GET /api/v1/ml/status shows the new state
-- [ ] Commit ONLY Batch 8 files; push
-- [ ] Live-verify: health 200, /docs 404, DB-backed register/login probes, probes deleted, users back to 1, live alembic 0010
-- [ ] Report back to parent: decision + numbers, tests, commit, deploy id, live verification
+- [x] Commit ONLY Batch 8 files; push
+- [x] Live-verify: health 200, /docs 404, DB-backed register/login probes, probes deleted, users back to 1, live alembic 0010
+- [x] Report back to parent: decision + numbers, tests, commit, deploy id, live verification
